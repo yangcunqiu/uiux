@@ -1,6 +1,2 @@
-# Temporary inputs are disposable. Keep only the empty-directory placeholder.
-/inbox/*
-!/inbox/.gitkeep
-
 # Temporary fetches and parsing output.
 /.tmp/
