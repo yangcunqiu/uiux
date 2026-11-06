@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>删除一条任务 · 三种做法</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --danger:#c62f2f;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:960px;margin:0 auto;padding:28px 20px 64px}
+  h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .sub{margin:0;color:var(--text-2);font-size:13px}
+
+  .seg{display:inline-flex;flex-wrap:wrap;gap:3px;margin:20px 0 8px;padding:3px;background:#eceef2;border-radius:8px}
+  .seg-btn{border:0;background:transparent;padding:7px 14px;border-radius:6px;font:inherit;font-size:13px;color:var(--text-2);cursor:pointer}
+  .seg-btn.is-on{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .mode-note{margin:0 0 16px;font-size:12px;color:var(--text-3);min-height:20px}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  th{background:#fafbfc;color:var(--text-2);font-weight:500;font-size:12px;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:0}
+  td.name{min-width:260px}
+  th.op,td.op{text-align:right;white-space:nowrap;width:150px}
+  .stack{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:1px 8px;border-radius:999px;border:1px solid;font-size:12px;line-height:20px;white-space:nowrap}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .st-muted{color:#6b7280;background:#fff;border-color:#c9ccd3;border-style:dashed}
+  .st-gray{color:#3d4757;background:#eef0f4;border-color:#dfe2e8}
+  .st-amber{color:#8f5300;background:#fff4e0;border-color:#ffdfae}
+  .dv-ok{color:#1a7f37;background:#e6f4ea;border-color:#bfe3c8}
+  .dv-none{color:#5b6472;background:#fff;border-color:#d6d9e0}
+  .empty{text-align:center;color:var(--text-3);padding:34px}
+
+  .btn-link{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;cursor:pointer;padding:2px 4px;border-radius:4px}
+  .btn-link.danger{color:var(--danger)}
+  .btn-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  tr.is-deleted{background:#fafbfc}
+  tr.is-deleted td{opacity:.62}
+  tr.is-deleted .name{text-decoration:line-through}
+  .deleted-label{font-size:12px;color:var(--text-3);margin-right:6px}
+
+  .backdrop{position:fixed;inset:0;z-index:40;background:rgba(15,18,25,.45);display:flex;align-items:center;justify-content:center;padding:20px}
+  .dialog{width:min(400px,100%);background:#fff;border-radius:10px;padding:20px 22px 16px;box-shadow:0 12px 40px rgba(0,0,0,.22)}
+  .dialog h2{margin:0 0 8px;font-size:16px;line-height:1.4}
+  .dialog p{margin:0 0 18px;color:var(--text-2);font-size:13px}
+  .dialog p strong{color:var(--text);font-weight:600}
+  .actions{display:flex;justify-content:flex-end;gap:8px}
+  .btn{height:32px;padding:0 14px;border-radius:6px;border:1px solid #d6d9e0;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-danger{background:var(--danger);border-color:var(--danger);color:#fff}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
+  .btn:focus{outline:2px solid #1a4fc4;outline-offset:2px}
+  .btn-danger:focus{outline-color:#8e1f1f}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:50;background:#1f2329;color:#fff;padding:9px 16px;border-radius:6px;font-size:13px;white-space:nowrap}
+
+  .observe{max-width:760px;margin:28px 0 0}
+  .observe h2{font-size:15px;margin:0 0 10px;font-weight:600}
+  .observe ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  .observe li{margin:0 0 8px}
+  .foot-note{margin:14px 0 0;font-size:12px;color:var(--text-3)}
+
+  @media (max-width:760px){
+    .page{padding:20px 14px 48px}
+    th,td{padding:10px 12px}
+    td.name{min-width:200px}
+    th.op,td.op{width:110px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>删除一条任务</h1>
+    <p class="sub">三种并列选项，不是三个错误答案。差别在于各自买到了什么。</p>
+  </header>
+
+  <div class="seg" role="group" aria-label="切换方案">
+    <button type="button" class="seg-btn is-on" data-mode="generic" aria-pressed="true">A · 通用确认框</button>
+    <button type="button" class="seg-btn" data-mode="informed" aria-pressed="false">B · 信息型确认</button>
+    <button type="button" class="seg-btn" data-mode="instant" aria-pressed="false">C · 直接删 + 撤销</button>
+  </div>
+  <p class="mode-note" id="mode-note"></p>
+
+  <section class="panel" aria-label="任务列表">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">任务名称</th>
+            <th scope="col">当前情况</th>
+            <th scope="col" class="op">操作</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="observe">
+    <h2>看什么</h2>
+    <ol>
+      <li>A：打开弹窗时焦点在哪？直接按回车会发生什么？</li>
+      <li>A：删完的提示说了删的是哪条吗？还能撤销吗？</li>
+      <li>B：弹窗先告诉你要删哪条、会进回收站；焦点默认在「取消」。</li>
+      <li>C：一次点击就删，行内留 8 秒撤销。</li>
+    </ol>
+    <p class="foot-note">三种做法不是三个错误答案。选哪个取决于三个事实：删除能不能恢复、删错了多久会被发现、这个动作多久发生一次。数据是示意数据；「移入回收站、7 天内可恢复」是我的假设。切换方案会重置列表。</p>
+  </section>
+</div>
+
+<div class="backdrop" id="backdrop" hidden>
+  <div class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-desc">
+    <h2 id="dlg-title"></h2>
+    <p id="dlg-desc"></p>
+    <div class="actions">
+      <button type="button" class="btn" id="btn-cancel">取消</button>
+      <button type="button" class="btn" id="btn-ok">确定</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const TASK = {
+    'not-started': { label: '未开始', cls: 'st-muted' },
+    'finished':    { label: '已结束', cls: 'st-gray' },
+    'need-human':  { label: '待人工处理', cls: 'st-amber' }
+  };
+  const DELIVERY = {
+    'not-delivered': { label: '未交付', cls: 'dv-none' },
+    'delivered':     { label: '已交付', cls: 'dv-ok' }
+  };
+
+  const DATA = [
+    { id: 'T-1042', name: '山眉札记文字图：单图上传与 OCR', task: 'finished', delivery: 'delivered' },
+    { id: 'T-1046', name: '岳阳楼记：扫描件识别与版式还原', task: 'need-human', delivery: 'not-delivered' },
+    { id: 'T-1057', name: '桃花源记：音频合成', task: 'finished', delivery: 'not-delivered' },
+    { id: 'T-1060', name: '小石潭记：字幕压制', task: 'not-started', delivery: 'not-delivered' }
+  ];
+
+  const NOTES = {
+    generic: 'A 只问一句「确定删除吗」，不显示对象和后果。焦点默认在「确定」。',
+    informed: 'B 列出对象和后果，焦点默认在「取消」。删完在行内保留 8 秒撤销。',
+    instant: 'C 不打断，直接执行，行内撤销 8 秒。'
+  };
+
+  const tbody = $('#tbody');
+  const backdrop = $('#backdrop');
+  const dialog = $('#dialog');
+  const btnOk = $('#btn-ok');
+  const btnCancel = $('#btn-cancel');
+  const toastEl = $('#toast');
+  const modeNote = $('#mode-note');
+
+  let mode = 'generic';
+  let rows = [];
+  let currentId = null;
+  let lastTrigger = null;
+  let pending = false;
+  let pendingTimer = null;
+  let toastTimer = null;
+  const undoTimers = new Map();
+
+  function reset() {
+    undoTimers.forEach((t) => clearTimeout(t));
+    undoTimers.clear();
+    clearTimeout(pendingTimer);
+    pending = false;
+    currentId = null;
+    lastTrigger = null;
+    rows = DATA.map((r) => ({ ...r, deleted: false, removed: false }));
+    render();
+  }
+
+  const badge = (m) => '<span class="badge ' + m.cls + '"><span class="dot" aria-hidden="true"></span>' + m.label + '</span>';
+
+  function render() {
+    const alive = rows.filter((r) => !r.removed);
+    if (!alive.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="empty">列表已空。切换方案可以重置。</td></tr>';
+      return;
+    }
+    tbody.innerHTML = alive.map((r) => {
+      const state = '<span class="stack">' + badge(TASK[r.task]) + badge(DELIVERY[r.delivery]) + '</span>';
+      if (r.deleted) {
+        return '<tr class="is-deleted" data-id="' + r.id + '">' +
+          '<td class="name">' + esc(r.name) + '</td>' +
+          '<td>' + state + '</td>' +
+          '<td class="op"><span class="deleted-label">已删除</span>' +
+          '<button type="button" class="btn-link" data-undo="' + r.id + '">撤销</button></td>' +
+        '</tr>';
+      }
+      return '<tr data-id="' + r.id + '">' +
+        '<td class="name">' + esc(r.name) + '</td>' +
+        '<td>' + state + '</td>' +
+        '<td class="op"><button type="button" class="btn-link danger" data-del="' + r.id + '">删除</button></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function setMode(next) {
+    mode = next;
+    document.querySelectorAll('.seg-btn').forEach((b) => {
+      const on = b.dataset.mode === mode;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    modeNote.textContent = NOTES[mode];
+    closeDialog();
+    reset();
+  }
+
+  function openDialog(id, trigger) {
+    const row = rows.find((r) => r.id === id);
+    if (!row || row.deleted) return;
+    currentId = id;
+    lastTrigger = trigger || null;
+    pending = false;
+    btnOk.disabled = false;
+    btnCancel.disabled = false;
+    btnOk.className = 'btn ' + (mode === 'generic' ? 'btn-primary' : 'btn-danger');
+    if (mode === 'generic') {
+      $('#dlg-title').textContent = '提示';
+      $('#dlg-desc').textContent = '确定删除吗？';
+      btnOk.textContent = '确定';
+    } else {
+      $('#dlg-title').textContent = '删除任务';
+      $('#dlg-desc').innerHTML = '<strong>' + esc(row.name) + '</strong> 及其产物将移入回收站，7 天内可恢复。';
+      btnOk.textContent = '删除任务';
+    }
+    backdrop.hidden = false;
+    (mode === 'generic' ? btnOk : btnCancel).focus();
+  }
+
+  function closeDialog() {
+    if (backdrop.hidden) return;
+    backdrop.hidden = true;
+    const target = (lastTrigger && document.contains(lastTrigger))
+      ? lastTrigger
+      : (currentId ? document.querySelector('[data-undo="' + currentId + '"]') : null);
+    if (target) target.focus();
+    lastTrigger = null;
+  }
+
+  function startUndoTimer(id) {
+    const t = setTimeout(() => {
+      const r = rows.find((x) => x.id === id);
+      if (r) { r.removed = true; render(); }
+      undoTimers.delete(id);
+    }, 8000);
+    undoTimers.set(id, t);
+  }
+
+  function markDeleted(id, focusUndo) {
+    const r = rows.find((x) => x.id === id);
+    if (!r || r.deleted) return;
+    r.deleted = true;
+    render();
+    startUndoTimer(id);
+    if (focusUndo) {
+      const b = document.querySelector('[data-undo="' + id + '"]');
+      if (b) b.focus();
+    }
+  }
+
+  function undoDelete(id) {
+    const t = undoTimers.get(id);
+    if (t) clearTimeout(t);
+    undoTimers.delete(id);
+    const r = rows.find((x) => x.id === id);
+    if (!r) return;
+    r.deleted = false;
+    render();
+    const b = document.querySelector('[data-del="' + id + '"]');
+    if (b) b.focus();
+  }
+
+  function showToast(text) {
+    toastEl.textContent = text;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 2400);
+  }
+
+  function requestDelete(id, trigger) {
+    if (mode === 'instant') {
+      markDeleted(id, true);
+      return;
+    }
+    openDialog(id, trigger);
+  }
+
+  function confirmDelete() {
+    if (pending || !currentId) return;
+    if (mode === 'generic') {
+      const r = rows.find((x) => x.id === currentId);
+      const id = currentId;
+      closeDialog();
+      if (r) { r.removed = true; render(); }
+      showToast('删除成功');
+      return;
+    }
+    pending = true;
+    btnOk.disabled = true;
+    btnCancel.disabled = true;
+    btnOk.textContent = '删除中…';
+    const id = currentId;
+    pendingTimer = setTimeout(() => {
+      pending = false;
+      btnOk.disabled = false;
+      btnCancel.disabled = false;
+      btnOk.textContent = '删除任务';
+      markDeleted(id, false);
+      closeDialog();
+    }, 900);
+  }
+
+  tbody.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-del]');
+    if (del) { requestDelete(del.dataset.del, del); return; }
+    const undo = e.target.closest('[data-undo]');
+    if (undo) undoDelete(undo.dataset.undo);
+  });
+
+  document.querySelectorAll('.seg-btn').forEach((b) => {
+    b.addEventListener('click', () => setMode(b.dataset.mode));
+  });
+
+  btnOk.addEventListener('click', confirmDelete);
+  btnCancel.addEventListener('click', () => { if (!pending) closeDialog(); });
+
+  backdrop.addEventListener('mousedown', (e) => {
+    if (e.target === backdrop && !pending) closeDialog();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (backdrop.hidden) return;
+    if (e.key === 'Escape' && !pending) {
+      e.preventDefault();
+      closeDialog();
+      return;
+    }
+    if (e.key === 'Tab') {
+      const focusables = Array.from(dialog.querySelectorAll('button:not([disabled])'));
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+
+  // 便于截图和分享：?mode=informed&open=1 直接打开第一条的弹窗
+  const params = new URLSearchParams(location.search);
+  const pm = params.get('mode');
+  if (pm && NOTES[pm]) mode = pm;
+  document.querySelectorAll('.seg-btn').forEach((b) => {
+    const on = b.dataset.mode === mode;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  modeNote.textContent = NOTES[mode];
+  reset();
+
+  if (params.get('open') === '1') {
+    setTimeout(() => {
+      const first = rows.find((r) => !r.removed);
+      if (!first) return;
+      if (mode === 'instant') {
+        markDeleted(first.id, true);
+      } else {
+        const btn = document.querySelector('[data-del="' + first.id + '"]');
+        requestDelete(first.id, btn);
+      }
+    }, 150);
+  }
+})();
+</script>
+</body>
+</html>

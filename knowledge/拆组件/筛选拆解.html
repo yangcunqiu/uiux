@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>当前情况筛选 · 一个下拉 vs 拆成两个维度</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --accent-soft:#eaf1ff;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:1120px;margin:0 auto;padding:28px 20px 64px}
+  .head h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .head p{margin:0;color:var(--text-2);font-size:13px}
+
+  .seg{display:inline-flex;margin:20px 0 8px;padding:3px;background:#eceef2;border-radius:8px}
+  .seg-btn{border:0;background:transparent;padding:7px 14px;border-radius:6px;font:inherit;font-size:13px;color:var(--text-2);cursor:pointer}
+  .seg-btn.is-on{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .mode-note{margin:0 0 16px;font-size:12px;color:var(--text-3);min-height:20px}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .filters{padding:16px 18px;border-bottom:1px solid var(--line-soft);display:flex;flex-wrap:wrap;gap:14px 18px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:6px;min-width:170px}
+  .field-grow{flex:1 1 240px}
+  label{font-size:12px;color:var(--text-3)}
+  input,select{font:inherit;font-size:13px;color:var(--text);background:#fff;border:1px solid #d6d9e0;border-radius:6px;padding:0 10px;height:34px}
+  input::placeholder{color:#a9aeb8}
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tabs-row{display:flex;align-items:center;gap:12px;flex:1 1 100%;flex-wrap:wrap}
+  .tab-label{font-size:12px;color:var(--text-3)}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap}
+  .tab{border:1px solid transparent;background:#f2f3f5;color:var(--text-2);padding:5px 12px;border-radius:999px;font:inherit;font-size:13px;cursor:pointer}
+  .tab.is-on{background:var(--accent-soft);border-color:#bcd2ff;color:#1a4fc4;font-weight:500}
+  .tab-count{font-variant-numeric:tabular-nums;opacity:.8;margin-left:2px}
+
+  .result-bar{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 18px;border-bottom:1px solid var(--line-soft);font-size:12px;color:var(--text-3);flex-wrap:wrap}
+  #count{font-variant-numeric:tabular-nums}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  th{background:#fafbfc;color:var(--text-2);font-weight:500;font-size:12px;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:0}
+  td.name{min-width:230px}
+  .code{color:var(--text-3);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .stack{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:1px 8px;border-radius:999px;border:1px solid;font-size:12px;line-height:20px;white-space:nowrap}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .st-muted{color:#6b7280;background:#fff;border-color:#c9ccd3;border-style:dashed}
+  .st-gray{color:#3d4757;background:#eef0f4;border-color:#dfe2e8}
+  .st-blue{color:#0e5fd8;background:#e8f1ff;border-color:#c9ddff}
+  .st-amber{color:#8f5300;background:#fff4e0;border-color:#ffdfae}
+  .st-violet{color:#5f3cb3;background:#f1eaff;border-color:#ddd0ff}
+  .st-slate{color:#3d4757;background:#fff;border-color:#c9ccd3}
+  .dv-ok{color:#1a7f37;background:#e6f4ea;border-color:#bfe3c8}
+  .dv-none{color:#5b6472;background:#fff;border-color:#d6d9e0}
+  .note-cell{color:var(--text-2);font-size:12px;min-width:200px}
+  .empty td{text-align:center;color:var(--text-3);padding:30px}
+
+  .observe{max-width:760px;margin:28px 0 0}
+  .observe h2{font-size:15px;margin:0 0 10px;font-weight:600}
+  .observe ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  .observe li{margin:0 0 8px}
+  .foot-note{margin:14px 0 0;font-size:12px;color:var(--text-3)}
+
+  @media (max-width:760px){
+    .page{padding:20px 14px 48px}
+    .field{min-width:0;flex:1 1 100%}
+    .filters{padding:14px}
+    th,td{padding:10px 12px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <h1>资产任务</h1>
+    <p>同一批任务，同一件事：找出“我现在要动的任务”。切换两种结构，比较你能否核对结果。</p>
+  </header>
+
+  <div class="seg" role="group" aria-label="切换对照方案">
+    <button type="button" class="seg-btn is-on" data-mode="now" aria-pressed="true">现状 · 一个下拉</button>
+    <button type="button" class="seg-btn" data-mode="split" aria-pressed="false">拆开 · 视图 + 两个筛选</button>
+  </div>
+  <p class="mode-note" id="mode-note"></p>
+
+  <section class="panel" aria-label="任务列表">
+    <div class="filters" id="filters-now">
+      <div class="field field-grow">
+        <label for="q-now">任务名称或编号</label>
+        <input id="q-now" type="search" placeholder="输入任务名称或编号" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="now-status">当前情况</label>
+        <select id="now-status">
+          <option value="">全部任务</option>
+          <option value="not-started">未开始</option>
+          <option value="running">正在自动执行</option>
+          <option value="need-me">需要我处理</option>
+          <option value="paused-me">我已暂停</option>
+          <option value="need-sys">需要系统处理</option>
+          <option value="finished">已结束</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="filters" id="filters-split" hidden>
+      <div class="tabs-row">
+        <span class="tab-label" id="tabs-label">视图</span>
+        <div class="tabs" role="group" aria-labelledby="tabs-label">
+          <button type="button" class="tab is-on" data-tab="all" aria-pressed="true">全部</button>
+          <button type="button" class="tab" data-tab="todo" aria-pressed="false">待我处理 <span class="tab-count" data-count="todo">0</span></button>
+          <button type="button" class="tab" data-tab="paused" aria-pressed="false">我暂停的 <span class="tab-count" data-count="paused">0</span></button>
+        </div>
+      </div>
+      <div class="field field-grow">
+        <label for="q-split">任务名称或编号</label>
+        <input id="q-split" type="search" placeholder="输入任务名称或编号" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="split-task">任务状态</label>
+        <select id="split-task">
+          <option value="">全部状态</option>
+          <option value="not-started">未开始</option>
+          <option value="running">正在自动执行</option>
+          <option value="need-human">待人工处理</option>
+          <option value="need-sys">待系统处理</option>
+          <option value="paused">已暂停</option>
+          <option value="finished">已结束</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="split-delivery">交付状态</label>
+        <select id="split-delivery">
+          <option value="">全部交付状态</option>
+          <option value="not-delivered">未交付</option>
+          <option value="delivered">已交付</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="result-bar">
+      <span id="count"></span>
+      <span id="cond"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table id="table-now">
+        <thead>
+          <tr>
+            <th scope="col">编号</th>
+            <th scope="col">任务名称</th>
+            <th scope="col">负责人</th>
+            <th scope="col">当前情况</th>
+            <th scope="col">实际动作与处理事项</th>
+          </tr>
+        </thead>
+        <tbody id="body-now"></tbody>
+      </table>
+
+      <table id="table-split" hidden>
+        <thead>
+          <tr>
+            <th scope="col">编号</th>
+            <th scope="col">任务名称</th>
+            <th scope="col">任务状态</th>
+            <th scope="col">交付状态</th>
+            <th scope="col">负责人</th>
+            <th scope="col">实际动作与处理事项</th>
+          </tr>
+        </thead>
+        <tbody id="body-split"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="observe">
+    <h2>看什么</h2>
+    <ol>
+      <li>在「现状」里选「需要我处理」。结果里那一行的「当前情况」写的是什么？你选的那个词，在列表里出现过吗？</li>
+      <li>「现状」里能找到筛出「已交付」的选项吗？「桃花源记」这种任务已结束、产物还没交付的行，怎么和已交付的分开？</li>
+      <li>「陋室铭：文案校对」是被王工暂停的。用「我已暂停」能筛到它吗？如果不能，它在现状里还有别的入口吗？</li>
+      <li>切到「拆开」，同一件事再做一遍：每个筛选的结果，都能在对应的那一列里核对到吗？</li>
+    </ol>
+    <p class="foot-note">两种方案都即时过滤，省掉了「查询」按钮，为的是让比较只差一个因素。数据是示意数据；交付状态的完整取值待确认。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+  const TASK = {
+    'not-started': { label: '未开始', cls: 'st-muted' },
+    'running':     { label: '正在自动执行', cls: 'st-blue' },
+    'need-human':  { label: '待人工处理', cls: 'st-amber' },
+    'need-sys':    { label: '待系统处理', cls: 'st-violet' },
+    'paused':      { label: '已暂停', cls: 'st-slate' },
+    'finished':    { label: '已结束', cls: 'st-gray' }
+  };
+
+  const DELIVERY = {
+    'not-delivered': { label: '未交付', cls: 'dv-none' },
+    'delivered':     { label: '已交付', cls: 'dv-ok' }
+  };
+
+  const ROWS = [
+    { code: 'T-1042', name: '山眉札记文字图：单图上传与 OCR', task: 'finished', delivery: 'delivered', owner: '我', note: '自动执行完成，共 3 项产物' },
+    { code: 'T-1043', name: '伤仲永全文：已有产物译文加工与生成', task: 'finished', delivery: 'delivered', owner: '王工', note: '沿用已有译文，生成 2 项产物' },
+    { code: 'T-1046', name: '岳阳楼记：扫描件识别与版式还原', task: 'need-human', delivery: 'not-delivered', owner: '我', note: '有 2 处识别结果待确认' },
+    { code: 'T-1048', name: '出师表：多语种字幕对齐', task: 'running', delivery: 'not-delivered', owner: '我', note: '正在自动执行第 2 / 4 步' },
+    { code: 'T-1050', name: '滕王阁序：插图生成与裁切', task: 'need-sys', delivery: 'not-delivered', owner: '李工', note: '等待系统队列重试' },
+    { code: 'T-1053', name: '醉翁亭记：原图去噪与锐化', task: 'paused', delivery: 'not-delivered', owner: '我', pausedBy: '我', note: '我手动暂停' },
+    { code: 'T-1055', name: '陋室铭：文案校对', task: 'paused', delivery: 'not-delivered', owner: '王工', pausedBy: '王工', note: '王工手动暂停' },
+    { code: 'T-1057', name: '桃花源记：音频合成', task: 'finished', delivery: 'not-delivered', owner: '王工', note: '任务已结束，产物未交付' },
+    { code: 'T-1060', name: '小石潭记：字幕压制', task: 'not-started', delivery: 'not-delivered', owner: '我', note: '排队中，尚未开始' },
+    { code: 'T-1062', name: '核舟记：封面图生成', task: 'finished', delivery: 'delivered', owner: '我', note: '自动执行完成，共 1 项产物' },
+    { code: 'T-1065', name: '阿房宫赋：原件修复', task: 'need-human', delivery: 'not-delivered', owner: '王工', note: '有 1 处修复结果待确认' }
+  ];
+
+  const state = {
+    mode: location.hash === '#split' ? 'split' : 'now',
+    qNow: '', nowStatus: '',
+    qSplit: '', tab: 'all', task: '', delivery: ''
+  };
+
+  // 让链接能直接定位到某个对照状态，便于截图核对和分享
+  function applyParams() {
+    const p = new URLSearchParams(location.search);
+    if (p.get('mode') === 'split') state.mode = 'split';
+    if (p.get('now')) { state.nowStatus = p.get('now'); $('#now-status').value = state.nowStatus; }
+    if (p.get('q')) { state.qNow = p.get('q'); $('#q-now').value = state.qNow; }
+    if (p.get('qsplit')) { state.qSplit = p.get('qsplit'); $('#q-split').value = state.qSplit; }
+    if (p.get('tab')) state.tab = p.get('tab');
+    if (p.get('task')) { state.task = p.get('task'); $('#split-task').value = state.task; }
+    if (p.get('delivery')) { state.delivery = p.get('delivery'); $('#split-delivery').value = state.delivery; }
+  }
+
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const badge = (m) => '<span class="badge ' + m.cls + '"><span class="dot" aria-hidden="true"></span>' + m.label + '</span>';
+
+  function matchQuery(r, q) {
+    if (!q) return true;
+    const k = q.trim().toLowerCase();
+    return r.name.toLowerCase().includes(k) || r.code.toLowerCase().includes(k);
+  }
+
+  function filterNow() {
+    return ROWS.filter((r) => {
+      if (!matchQuery(r, state.qNow)) return false;
+      switch (state.nowStatus) {
+        case '': return true;
+        case 'not-started': return r.task === 'not-started';
+        case 'running': return r.task === 'running';
+        case 'need-me': return r.task === 'need-human' && r.owner === '我';
+        case 'paused-me': return r.task === 'paused' && r.pausedBy === '我';
+        case 'need-sys': return r.task === 'need-sys';
+        case 'finished': return r.task === 'finished';
+        default: return true;
+      }
+    });
+  }
+
+  function filterSplit() {
+    return ROWS.filter((r) => {
+      if (!matchQuery(r, state.qSplit)) return false;
+      if (state.tab === 'todo' && !(r.task === 'need-human' && r.owner === '我')) return false;
+      if (state.tab === 'paused' && !(r.task === 'paused' && r.pausedBy === '我')) return false;
+      if (state.task && r.task !== state.task) return false;
+      if (state.delivery && r.delivery !== state.delivery) return false;
+      return true;
+    });
+  }
+
+  function rowsNow(list) {
+    if (!list.length) return '<tr class="empty"><td colspan="5">没有匹配的任务。试试放宽条件。</td></tr>';
+    return list.map((r) => (
+      '<tr>' +
+        '<td class="code">' + esc(r.code) + '</td>' +
+        '<td class="name">' + esc(r.name) + '</td>' +
+        '<td>' + esc(r.owner) + '</td>' +
+        '<td><div class="stack">' + badge(TASK[r.task]) + badge(DELIVERY[r.delivery]) + '</div></td>' +
+        '<td class="note-cell">' + esc(r.note) + '</td>' +
+      '</tr>'
+    )).join('');
+  }
+
+  function rowsSplit(list) {
+    if (!list.length) return '<tr class="empty"><td colspan="6">没有匹配的任务。试试放宽条件。</td></tr>';
+    return list.map((r) => (
+      '<tr>' +
+        '<td class="code">' + esc(r.code) + '</td>' +
+        '<td class="name">' + esc(r.name) + '</td>' +
+        '<td>' + badge(TASK[r.task]) + '</td>' +
+        '<td>' + badge(DELIVERY[r.delivery]) + '</td>' +
+        '<td>' + esc(r.owner) + '</td>' +
+        '<td class="note-cell">' + esc(r.note) + '</td>' +
+      '</tr>'
+    )).join('');
+  }
+
+  function condText(isNow) {
+    if (isNow) {
+      const el = $('#now-status');
+      return '当前情况：' + (el.value ? el.options[el.selectedIndex].text : '全部任务');
+    }
+    const taskEl = $('#split-task');
+    const dvEl = $('#split-delivery');
+    const tabEl = $('.tab.is-on');
+    return '视图：' + (tabEl ? tabEl.textContent.trim().split(/\s+/)[0] : '全部') +
+      ' · 任务状态：' + (taskEl.value ? taskEl.options[taskEl.selectedIndex].text : '全部状态') +
+      ' · 交付状态：' + (dvEl.value ? dvEl.options[dvEl.selectedIndex].text : '全部交付状态');
+  }
+
+  function render() {
+    const isNow = state.mode === 'now';
+    $('#filters-now').hidden = !isNow;
+    $('#filters-split').hidden = isNow;
+    $('#table-now').hidden = !isNow;
+    $('#table-split').hidden = isNow;
+
+    $$('.seg-btn').forEach((b) => {
+      const on = b.dataset.mode === state.mode;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    $$('.tab').forEach((b) => {
+      const on = b.dataset.tab === state.tab;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+
+    $('[data-count="todo"]').textContent = ROWS.filter((r) => r.task === 'need-human' && r.owner === '我').length;
+    $('[data-count="paused"]').textContent = ROWS.filter((r) => r.task === 'paused' && r.pausedBy === '我').length;
+
+    const list = isNow ? filterNow() : filterSplit();
+    $('#body-now').innerHTML = rowsNow(filterNow());
+    $('#body-split').innerHTML = rowsSplit(filterSplit());
+    $('#count').textContent = '显示 ' + list.length + ' / ' + ROWS.length + ' 条';
+    $('#cond').textContent = condText(isNow);
+
+    $('#mode-note').textContent = isNow
+      ? '一个「当前情况」下拉，同时承担了范围、状态和归属三种含义。'
+      : '视图回答“我现在要动什么”，两个筛选回答“哪些任务”。';
+  }
+
+  $$('.seg-btn').forEach((b) => b.addEventListener('click', () => {
+    state.mode = b.dataset.mode;
+    render();
+  }));
+  $('#q-now').addEventListener('input', (e) => { state.qNow = e.target.value; render(); });
+  $('#now-status').addEventListener('change', (e) => { state.nowStatus = e.target.value; render(); });
+  $('#q-split').addEventListener('input', (e) => { state.qSplit = e.target.value; render(); });
+  $('#split-task').addEventListener('change', (e) => { state.task = e.target.value; render(); });
+  $('#split-delivery').addEventListener('change', (e) => { state.delivery = e.target.value; render(); });
+  $$('.tab').forEach((b) => b.addEventListener('click', () => {
+    state.tab = b.dataset.tab;
+    render();
+  }));
+
+  render();
+  applyParams();
+  render();
+})();
+</script>
+</body>
+</html>

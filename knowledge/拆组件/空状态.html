@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>列表的空状态 · 统一「暂无数据」 vs 按原因分开</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --accent-soft:#eaf1ff;
+    --danger:#c62f2f; --amber:#8f5300;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:1000px;margin:0 auto;padding:28px 20px 64px}
+  h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .sub{margin:0;color:var(--text-2);font-size:13px}
+
+  .control-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:18px}
+  .control-label{font-size:12px;color:var(--text-3);min-width:60px}
+  .pills{display:flex;flex-wrap:wrap;gap:6px}
+  .pill{border:1px solid transparent;background:#f2f3f5;color:var(--text-2);padding:5px 12px;border-radius:999px;font:inherit;font-size:13px;cursor:pointer}
+  .pill.is-on{background:var(--accent-soft);border-color:#bcd2ff;color:#1a4fc4;font-weight:500}
+  .pill:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:18px}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line-soft)}
+  .panel-head h2{font-size:15px;margin:0;font-weight:600}
+  .panel-tools{display:flex;align-items:center;gap:12px}
+  .panel-head span{font-size:12px;color:var(--text-3)}
+  .btn-sm{height:28px;padding:0 10px;font-size:12px}
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:12px 18px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  th{background:#fafbfc;color:var(--text-2);font-weight:500;font-size:12px;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:0}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:1px 8px;border-radius:999px;border:1px solid;font-size:12px;line-height:20px;white-space:nowrap}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .st-gray{color:#3d4757;background:#eef0f4;border-color:#dfe2e8}
+  .st-amber{color:#8f5300;background:#fff4e0;border-color:#ffdfae}
+  .dv-ok{color:#1a7f37;background:#e6f4ea;border-color:#bfe3c8}
+  .dv-none{color:#5b6472;background:#fff;border-color:#d6d9e0}
+
+  .empty-state{padding:54px 20px;text-align:center}
+  .empty-icon{width:56px;height:56px;border-radius:50%;background:#f2f3f5;display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;color:#86909c}
+  .empty-icon svg{width:26px;height:26px;display:block}
+  .empty-state h3{font-size:15px;margin:0 0 6px;font-weight:600}
+  .empty-state p{margin:0 auto 16px;max-width:460px;color:var(--text-3);font-size:13px}
+  .empty-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+  .btn{height:32px;padding:0 14px;border-radius:6px;border:1px solid #d6d9e0;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;background:#eef1f6;color:var(--text-2);font-size:12px;margin:0 4px 8px 0}
+  .chip b{font-weight:500;color:var(--text)}
+  .error-code{margin-top:2px;font-size:12px;color:var(--text-3)}
+  .skel{display:block;height:20px;border-radius:4px;background:#eef0f4}
+
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:50;background:#1f2329;color:#fff;padding:9px 16px;border-radius:6px;font-size:13px;white-space:nowrap}
+
+  .observe{max-width:780px;margin:28px 0 0}
+  .observe h2{font-size:15px;margin:0 0 10px;font-weight:600}
+  .observe ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  .observe li{margin:0 0 8px}
+  .foot-note{margin:14px 0 0;font-size:12px;color:var(--text-3)}
+
+  @media (max-width:760px){
+    .page{padding:20px 14px 48px}
+    th,td{padding:10px 12px}
+    .control-row{gap:8px}
+    .control-label{min-width:100%}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>列表的“没有数据”</h1>
+    <p class="sub">同一个空列表，可能有五种原因。切换模拟状态，比较两种处理。</p>
+  </header>
+
+  <div class="control-row">
+    <span class="control-label">模拟状态</span>
+    <div class="pills" role="group" aria-label="模拟状态">
+      <button type="button" class="pill" data-sim="data">有数据</button>
+      <button type="button" class="pill" data-sim="loading">加载中</button>
+      <button type="button" class="pill" data-sim="first">没有任务</button>
+      <button type="button" class="pill is-on" data-sim="filtered">筛选后为空</button>
+      <button type="button" class="pill" data-sim="denied">没有权限</button>
+      <button type="button" class="pill" data-sim="error">加载失败</button>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">处理方式</span>
+    <div class="pills" role="group" aria-label="处理方式">
+      <button type="button" class="pill is-on" data-mode="a">A · 统一「暂无数据」</button>
+      <button type="button" class="pill" data-mode="b">B · 按原因分开</button>
+    </div>
+  </div>
+
+  <section class="panel" aria-label="资产任务列表">
+    <div class="panel-head">
+      <h2>资产任务</h2>
+      <div class="panel-tools">
+        <span id="panel-meta"></span>
+        <button type="button" class="btn btn-sm" data-act="import">导入</button>
+        <button type="button" class="btn btn-primary btn-sm" data-act="create">新建任务</button>
+      </div>
+    </div>
+    <div id="list-body"></div>
+  </section>
+
+  <section class="observe">
+    <h2>看什么</h2>
+    <ol>
+      <li>「没有任务」：右上角一直有「新建任务」和「导入」，空状态不再复制，只解释。</li>
+      <li>「筛选后为空」：A 只告诉你没有数据；B 点明是条件筛掉的，并给「清除筛选」这条捷径。</li>
+      <li>「没有权限」：A 和“真的没有任务”长得一样；B 说明原因。这里的「申请权限」是捷径——系统里还应该有常驻的权限入口。</li>
+      <li>「加载失败」：A 没有入口；B 有重试，点一下会重新加载。</li>
+      <li>「加载中」：B 用骨架屏占位，数据回来时表格不会先塌一下再撑开。</li>
+    </ol>
+    <p class="foot-note">空状态不生产入口。常驻动作（新建、导入）不随数据变化；状态补救（清除筛选、重试、申请权限）可以出现在这里，但别处也要能到达。数据是示意数据。</p>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const ROWS = [
+    { id: 'T-1042', name: '山眉札记文字图：单图上传与 OCR', task: '已结束', delivery: '已交付', cls: 'st-gray', dv: 'dv-ok', owner: '我' },
+    { id: 'T-1046', name: '岳阳楼记：扫描件识别与版式还原', task: '待人工处理', delivery: '未交付', cls: 'st-amber', dv: 'dv-none', owner: '我' },
+    { id: 'T-1057', name: '桃花源记：音频合成', task: '已结束', delivery: '未交付', cls: 'st-gray', dv: 'dv-none', owner: '王工' }
+  ];
+
+  const ICON = {
+    box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.5v7M8.5 12h7"/></svg>',
+    filter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16l-6 7.5V19l-4 2v-8.5z"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4 3.5 19.5h17z"/><path d="M12 9.5v4.5M12 16.8v.2"/></svg>'
+  };
+
+  const state = { sim: 'filtered', mode: 'a', loadTimer: null };
+
+  function badge(text, cls) {
+    return '<span class="badge ' + cls + '"><span class="dot" aria-hidden="true"></span>' + text + '</span>';
+  }
+
+  function rowsHtml() {
+    return '<div class="table-wrap"><table><thead><tr><th scope="col">编号</th><th scope="col">任务名称</th><th scope="col">当前情况</th><th scope="col">负责人</th></tr></thead><tbody>' +
+      ROWS.map((r) => '<tr><td>' + r.id + '</td><td>' + esc(r.name) + '</td><td><span style="display:inline-flex;gap:4px;flex-wrap:wrap">' + badge(r.task, r.cls) + badge(r.delivery, r.dv) + '</span></td><td>' + r.owner + '</td></tr>').join('') +
+      '</tbody></table></div>';
+  }
+
+  function skeletonHtml() {
+    const bar = (w) => '<span class="skel" style="width:' + w + '"></span>';
+    const row = '<tr><td>' + bar('64px') + '</td><td>' + bar('68%') + '</td><td>' + bar('118px') + '</td><td>' + bar('28px') + '</td></tr>';
+    return '<div class="table-wrap" aria-label="正在加载" role="status"><table>' +
+      '<thead><tr><th scope="col">编号</th><th scope="col">任务名称</th><th scope="col">当前情况</th><th scope="col">负责人</th></tr></thead>' +
+      '<tbody>' + row.repeat(4) + '</tbody></table></div>';
+  }
+
+  function emptyBlock(icon, title, desc, actions) {
+    return '<div class="empty-state">' +
+      '<div class="empty-icon" aria-hidden="true">' + ICON[icon] + '</div>' +
+      '<h3>' + title + '</h3>' +
+      '<p>' + desc + '</p>' +
+      (actions ? '<div class="empty-actions">' + actions + '</div>' : '') +
+      '</div>';
+  }
+
+  function emptyA() {
+    return emptyBlock('box', '暂无数据', '没有可显示的任务。', '');
+  }
+
+  function emptyB() {
+    switch (state.sim) {
+      case 'first':
+        return emptyBlock('plus', '还没有资产任务', '你创建或导入的任务会出现在这里。', '');
+      case 'filtered':
+        return emptyBlock('filter', '没有符合当前条件的任务', '当前筛选条件：<br><span class="chip" style="margin:4px 0 8px"><b>当前情况</b> = 待人工处理</span><br>放宽条件，或者清除筛选看全部任务。',
+          '<button type="button" class="btn btn-primary" data-act="clear">清除筛选</button>');
+      case 'denied':
+        return emptyBlock('lock', '你没有查看这些任务的权限', '这些任务属于其他团队。申请权限后，由项目管理员审批。',
+          '<button type="button" class="btn btn-primary" data-act="apply">申请权限</button>');
+      case 'error':
+        return emptyBlock('alert', '加载失败', '请求超时，列表没有取到。已经重试过一次，仍然失败。<br><span class="error-code">错误码：ERR_TIMEOUT · 请求 ID 8f3c2a</span>',
+          '<button type="button" class="btn btn-primary" data-act="retry">重试</button>');
+      default:
+        return '';
+    }
+  }
+
+  function render() {
+    const mount = $('#list-body');
+    const meta = $('#panel-meta');
+
+    if (state.sim === 'data') {
+      mount.innerHTML = rowsHtml();
+      meta.textContent = '共 3 条';
+      return;
+    }
+    if (state.sim === 'loading') {
+      mount.innerHTML = skeletonHtml();
+      meta.textContent = '加载中';
+      return;
+    }
+
+    meta.textContent = state.mode === 'a' ? '共 0 条'
+      : state.sim === 'denied' ? '无权查看'
+      : state.sim === 'error' ? '加载失败'
+      : '共 0 条';
+    if (state.mode === 'a') {
+      mount.innerHTML = emptyA();
+    } else {
+      mount.innerHTML = emptyB();
+    }
+  }
+
+  function showToast(text) {
+    const el = $('#toast');
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(showToast.t);
+    showToast.t = setTimeout(() => { el.hidden = true; }, 2200);
+  }
+
+  function setSim(next) {
+    clearTimeout(state.loadTimer);
+    state.sim = next;
+    $$('[data-sim]').forEach((b) => {
+      const on = b.dataset.sim === state.sim;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    render();
+  }
+
+  function setMode(next) {
+    state.mode = next;
+    $$('[data-mode]').forEach((b) => {
+      const on = b.dataset.mode === state.mode;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    render();
+  }
+
+  document.addEventListener('click', (e) => {
+    const sim = e.target.closest('[data-sim]');
+    if (sim) { setSim(sim.dataset.sim); return; }
+    const mode = e.target.closest('[data-mode]');
+    if (mode) { setMode(mode.dataset.mode); return; }
+    const act = e.target.closest('[data-act]');
+    if (!act) return;
+    switch (act.dataset.act) {
+      case 'clear':
+        setSim('data');
+        showToast('已清除筛选');
+        break;
+      case 'retry':
+        setSim('loading');
+        showToast('正在重试…');
+        state.loadTimer = setTimeout(() => { setSim('data'); showToast('加载成功'); }, 900);
+        break;
+      case 'create': showToast('（示意）打开新建任务'); break;
+      case 'import': showToast('（示意）打开导入'); break;
+      case 'edit-filter': showToast('（示意）打开筛选面板'); break;
+      case 'apply': showToast('（示意）已提交权限申请'); break;
+      case 'admin': showToast('（示意）复制管理员联系方式'); break;
+    }
+  });
+
+  // 便于截图和分享：?sim=denied&mode=b
+  const params = new URLSearchParams(location.search);
+  if (params.get('sim')) state.sim = params.get('sim');
+  if (params.get('mode') === 'b' || params.get('mode') === 'a') state.mode = params.get('mode');
+  $$('[data-sim]').forEach((b) => {
+    const on = b.dataset.sim === state.sim;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  $$('[data-mode]').forEach((b) => {
+    const on = b.dataset.mode === state.mode;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  render();
+})();
+</script>
+</body>
+</html>

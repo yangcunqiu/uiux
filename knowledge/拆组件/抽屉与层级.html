@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>过渡与层级 · 筛选的两步</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --accent-soft:#eaf1ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  [hidden]{display:none !important}
+
+  .topbar{position:fixed;left:0;right:0;top:0;height:92px;z-index:60;background:var(--bg);border-bottom:1px solid var(--line)}
+  .topbar-inner{max-width:1000px;height:100%;margin:0 auto;padding:10px 20px;display:flex;flex-direction:column;justify-content:center;gap:8px}
+  .demo-title{font-size:14px;font-weight:600}
+  .topbar-controls{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .seg{display:inline-flex;gap:3px;padding:3px;background:#eceef2;border-radius:8px}
+  .seg button{border:0;background:transparent;padding:6px 12px;border-radius:6px;font:inherit;font-size:13px;color:var(--text-2);cursor:pointer}
+  .seg button.is-on{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .switch{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2);cursor:pointer}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .wrap{max-width:1000px;margin:0 auto;padding:108px 20px 48px}
+  .note{margin:0 0 14px;font-size:12px;color:var(--text-3);min-height:20px;position:relative;z-index:60;display:inline-block;background:var(--bg);padding:3px 8px;border-radius:4px}
+
+  .page-shell{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;transition:transform 260ms cubic-bezier(.2,0,0,1),border-radius 260ms,box-shadow 260ms;transform-origin:center center}
+  body.shrink.open .page-shell{transform:translateX(-40px) scale(.96);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.16)}
+  .page-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line-soft)}
+  .page-head h1{font-size:17px;margin:0;font-weight:600}
+  .page-head p{margin:2px 0 0;font-size:12px;color:var(--text-3)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:12px 18px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+  th{background:#fafbfc;color:var(--text-2);font-weight:500;font-size:12px}
+  tbody tr:last-child td{border-bottom:0}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:1px 8px;border-radius:999px;border:1px solid;font-size:12px;line-height:20px;white-space:nowrap}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .st-gray{color:#3d4757;background:#eef0f4;border-color:#dfe2e8}
+  .st-amber{color:#8f5300;background:#fff4e0;border-color:#ffdfae}
+
+  .btn{height:32px;padding:0 14px;border-radius:6px;border:1px solid #d6d9e0;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .icon{border:0;background:none;width:32px;height:32px;border-radius:6px;font-size:18px;color:var(--text-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+
+  .scrim{position:fixed;left:0;right:0;top:92px;bottom:0;z-index:40;background:rgba(15,18,25,.42);opacity:0;pointer-events:none;transition:opacity 180ms}
+  .scrim.show{opacity:1;pointer-events:auto}
+  body.lock{overflow:hidden}
+
+  .drawer{position:fixed;top:92px;right:0;bottom:0;z-index:50;width:min(380px,92vw);background:#fff;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 260ms cubic-bezier(.2,0,0,1);box-shadow:-12px 0 40px rgba(0,0,0,.12)}
+  .drawer.show{transform:none}
+  .drawer-2{z-index:55;width:min(380px,92vw);box-shadow:-28px 0 60px rgba(0,0,0,.28)}
+  .drawer-head{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+  .drawer-head h2{font-size:15px;margin:0;font-weight:600;text-align:center}
+  .drawer-head .icon:first-child{justify-self:start}
+  .drawer-head .icon:last-child{justify-self:end}
+  .drawer-head .icon[aria-hidden="true"]{visibility:hidden}
+  .head-spacer{width:32px;height:32px}
+  .drawer:focus{outline:none}
+  .drawer-body{flex:1;overflow:hidden}
+  .drawer-foot{display:flex;justify-content:space-between;gap:8px;padding:12px 14px;border-top:1px solid var(--line-soft)}
+
+  .views{position:relative}
+  .view{padding:18px 20px}
+  .view h3{font-size:12px;color:var(--text-3);font-weight:500;margin:0 0 8px}
+  .view h3 + *{margin-top:0}
+  .view h3:not(:first-child){margin-top:20px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid #d6d9e0;background:#fff;color:var(--text-2);padding:4px 10px;border-radius:999px;font:inherit;font-size:12px;cursor:pointer}
+  .chip.is-on{background:var(--accent-soft);border-color:#bcd2ff;color:#1a4fc4}
+  .row-link{display:flex;justify-content:space-between;align-items:center;width:100%;height:36px;padding:0 10px;border:1px solid #d6d9e0;border-radius:6px;background:#fff;font:inherit;font-size:13px;color:var(--text);cursor:pointer}
+  .row-link .chev{color:var(--text-3);display:inline-block;transition:transform 160ms ease}
+  .row-link[aria-expanded="true"] .chev{transform:rotate(90deg)}
+  .date-inline{display:grid;grid-template-rows:0fr;transition:grid-template-rows 200ms ease}
+  .date-inline.open{grid-template-rows:1fr}
+  .date-inline-inner{overflow:hidden;min-height:0}
+  .date-inline .opt:first-child{padding-top:10px}
+  select{width:100%;height:36px;border:1px solid #d6d9e0;border-radius:6px;padding:0 10px;font:inherit;font-size:13px;background:#fff}
+  .opt{display:flex;align-items:center;gap:8px;padding:9px 0;font-size:13px;border-bottom:1px solid var(--line-soft)}
+  .opt:last-of-type{border-bottom:0}
+  .hint{margin:14px 0 0;font-size:12px;color:var(--text-3)}
+
+  .drawer.mode-b .views{display:flex;width:200%;transition:transform 240ms cubic-bezier(.2,0,0,1)}
+  .drawer.mode-b .view{width:50%;flex:0 0 50%}
+  .drawer.mode-b .views.v2{transform:translateX(-50%)}
+  .drawer.mode-c .views{display:grid}
+  .drawer.mode-c .view{grid-area:1/1;opacity:0;pointer-events:none;transition:opacity 200ms}
+  .drawer.mode-c .view.active{opacity:1;pointer-events:auto}
+  .drawer.mode-a #view2{display:none}
+  .drawer.mode-d #view2{display:none}
+  .drawer.mode-d .drawer-body{overflow-y:auto}
+
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:70;background:#1f2329;color:#fff;padding:9px 16px;border-radius:6px;font-size:13px;white-space:nowrap}
+  .observe{max-width:760px;margin:26px 0 0;font-size:13px;color:var(--text-2)}
+  .observe h2{font-size:15px;margin:0 0 10px;font-weight:600;color:var(--text)}
+  .observe ol{margin:0;padding-left:20px}
+  .observe li{margin:0 0 8px}
+
+  @media (max-width:640px){
+    .topbar{height:118px}
+    .topbar-inner{padding:8px 14px}
+    .seg button{padding:5px 9px}
+    .scrim{top:118px}
+    .drawer{top:118px}
+    .wrap{padding:134px 14px 48px}
+    body.open .note{visibility:hidden}
+    th,td{padding:10px 12px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:.01ms !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="demo-title">过渡与层级 · 同一个筛选的两步</div>
+    <div class="topbar-controls">
+      <div class="seg" role="group" aria-label="对照方案">
+        <button type="button" class="is-on" data-mode="a">A 两个 Drawer</button>
+        <button type="button" data-mode="b">B 内容位移</button>
+        <button type="button" data-mode="c">C 透明度交叉</button>
+        <button type="button" data-mode="d">D 日期就地展开</button>
+      </div>
+      <label class="switch"><input type="checkbox" id="shrink" /> 主页面缩小</label>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <p class="note" id="note"></p>
+  <div class="page-shell" id="shell">
+    <div class="page-head">
+      <div>
+        <h1>资产任务</h1>
+        <p>共 12 条</p>
+      </div>
+      <button type="button" class="btn btn-primary" id="open">筛选</button>
+    </div>
+    <table>
+      <thead><tr><th scope="col">任务名称</th><th scope="col">当前情况</th></tr></thead>
+      <tbody>
+        <tr><td>山眉札记文字图：单图上传与 OCR</td><td><span class="badge st-gray"><span class="dot"></span>已结束</span></td></tr>
+        <tr><td>岳阳楼记：扫描件识别与版式还原</td><td><span class="badge st-amber"><span class="dot"></span>待人工处理</span></td></tr>
+        <tr><td>桃花源记：音频合成</td><td><span class="badge st-gray"><span class="dot"></span>已结束</span></td></tr>
+        <tr><td>小石潭记：字幕压制</td><td><span class="badge st-gray"><span class="dot"></span>已结束</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <section class="observe">
+    <h2>看什么</h2>
+    <ol>
+      <li>A：点 ← 回到筛选时，第一层还在吗？点底栏的「取消」呢？</li>
+      <li>A：确定现在会应用日期并回到筛选。它和「取消」分得开吗？</li>
+      <li>B：内容在动，底栏不动。你能看出是“进去”还是“出来”吗？</li>
+      <li>C：内容被替换，没有方向。你能分清是前进还是后退吗？</li>
+      <li>勾上「主页面缩小」，同一个 Drawer 是不是更像“一个新页面”？</li>
+    </ol>
+  </section>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<aside class="drawer mode-a" id="drawer" aria-label="筛选" aria-hidden="true" tabindex="-1">
+  <div class="drawer-head">
+    <button type="button" class="icon" id="back" aria-label="返回" aria-hidden="true">←</button>
+    <h2 id="drawer-title">筛选</h2>
+    <span class="head-spacer" aria-hidden="true"></span>
+  </div>
+  <div class="drawer-body">
+    <div class="views" id="views">
+      <section class="view active" id="view1">
+        <h3>任务状态</h3>
+        <div class="chips">
+          <button type="button" class="chip is-on">全部</button>
+          <button type="button" class="chip">待人工处理</button>
+          <button type="button" class="chip">已暂停</button>
+          <button type="button" class="chip">已结束</button>
+        </div>
+        <h3>截止日期</h3>
+        <button type="button" class="row-link" id="date-row" aria-expanded="false"><span>不限</span><span class="chev">›</span></button>
+        <div class="date-inline" id="date-inline">
+          <div class="date-inline-inner">
+            <label class="opt"><input type="radio" name="rangeD" checked /> 不限</label>
+            <label class="opt"><input type="radio" name="rangeD" /> 最近 7 天</label>
+            <label class="opt"><input type="radio" name="rangeD" /> 最近 30 天</label>
+            <label class="opt"><input type="radio" name="rangeD" /> 自定义</label>
+          </div>
+        </div>
+        <h3>负责人</h3>
+        <select aria-label="负责人"><option>全部</option><option>我</option><option>王工</option></select>
+      </section>
+      <section class="view" id="view2">
+        <h3>选择范围</h3>
+        <label class="opt"><input type="radio" name="range" checked /> 最近 7 天</label>
+        <label class="opt"><input type="radio" name="range" /> 最近 30 天</label>
+        <label class="opt"><input type="radio" name="range" /> 自定义</label>
+        <p class="hint">自定义需要在日历里逐日选择。</p>
+      </section>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button type="button" class="btn" id="cancel">取消</button>
+    <button type="button" class="btn btn-primary" id="apply">确定</button>
+  </div>
+</aside>
+
+<aside class="drawer drawer-2" id="drawer2" aria-label="截止日期" aria-hidden="true" tabindex="-1">
+  <div class="drawer-head">
+    <button type="button" class="icon" id="back2" aria-label="返回">←</button>
+    <h2>截止日期</h2>
+    <span class="head-spacer" aria-hidden="true"></span>
+  </div>
+  <div class="drawer-body">
+    <div class="view">
+      <h3>选择范围</h3>
+      <label class="opt"><input type="radio" name="range2" checked /> 最近 7 天</label>
+      <label class="opt"><input type="radio" name="range2" /> 最近 30 天</label>
+      <label class="opt"><input type="radio" name="range2" /> 自定义</label>
+      <p class="hint">自定义需要在日历里逐日选择。</p>
+    </div>
+  </div>
+  <div class="drawer-foot">
+    <button type="button" class="btn" id="cancel2">取消</button>
+    <button type="button" class="btn btn-primary" id="apply2">确定</button>
+  </div>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+  const NOTES = {
+    a: '第二个 Drawer 叠在第一个上：两个壳各自进场、退场。第二层只有一个 ←；取消是关掉整个筛选。',
+    b: '一个 Drawer，内容轨道左右位移；底栏不动。',
+    c: '一个 Drawer，内容透明度交叉；没有方向。',
+    d: '一个 Drawer，日期就地展开；没有第二层，取消/确定只有一个对象。'
+  };
+
+  const state = { mode: 'a', open: false, view: 1, d2: false };
+  let appliedDate = '不限';
+  let draftDate = '不限';
+  const body = document.body;
+  const scrim = $('#scrim');
+  const drawer = $('#drawer');
+  const drawer2 = $('#drawer2');
+  const views = $('#views');
+  const view1 = $('#view1');
+  const view2 = $('#view2');
+  const title = $('#drawer-title');
+  const back = $('#back');
+  const openBtn = $('#open');
+  const wrap = $('.wrap');
+
+  function showToast(text) {
+    const el = $('#toast');
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(showToast.t);
+    showToast.t = setTimeout(() => { el.hidden = true; }, 2000);
+  }
+
+  function setNote() { $('#note').textContent = NOTES[state.mode] + ' 点右上角「筛选」开始。'; }
+
+  function applyMode() {
+    drawer.classList.remove('mode-a', 'mode-b', 'mode-c', 'mode-d');
+    drawer.classList.add('mode-' + state.mode);
+    $$('.seg button').forEach((b) => {
+      const on = b.dataset.mode === state.mode;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    setNote();
+  }
+
+  function setDateRow(text) {
+    const target = $('#date-row').querySelector('span');
+    if (target) target.textContent = text;
+  }
+
+  function syncInlineRadios() {
+    document.querySelectorAll('input[name="rangeD"]').forEach((r) => {
+      r.checked = r.parentElement.textContent.trim() === appliedDate;
+    });
+  }
+
+  function toggleInline() {
+    const box = $('#date-inline');
+    const open = !box.classList.contains('open');
+    box.classList.toggle('open', open);
+    $('#date-row').setAttribute('aria-expanded', String(open));
+  }
+
+  function resetViews() {
+    state.view = 1;
+    views.classList.remove('v2');
+    view1.classList.add('active');
+    view2.classList.remove('active');
+    title.textContent = '筛选';
+    back.setAttribute('aria-hidden', 'true');
+    back.style.visibility = 'hidden';
+    $('#date-inline').classList.remove('open');
+    $('#date-row').setAttribute('aria-expanded', 'false');
+  }
+
+  function applyView(n) {
+    state.view = n;
+    views.classList.toggle('v2', n === 2);
+    view1.classList.toggle('active', n === 1);
+    view2.classList.toggle('active', n === 2);
+    title.textContent = n === 2 ? '截止日期' : '筛选';
+    back.setAttribute('aria-hidden', n === 1 ? 'true' : 'false');
+    back.style.visibility = n === 1 ? 'hidden' : 'visible';
+    if (state.open) {
+      if (n === 2) back.focus();
+      else $('#date-row').focus();
+    }
+  }
+
+  function openDrawer() {
+    if (state.open) return;
+    state.open = true;
+    draftDate = appliedDate;
+    setDateRow(appliedDate);
+    syncInlineRadios();
+    body.classList.add('open', 'lock');
+    wrap.inert = true;
+    scrim.classList.add('show');
+    drawer.classList.add('show');
+    drawer.setAttribute('aria-hidden', 'false');
+    drawer.focus();
+  }
+
+  function closeD2() {
+    if (!state.d2) return;
+    state.d2 = false;
+    drawer2.classList.remove('show');
+    drawer2.setAttribute('aria-hidden', 'true');
+    $('#date-row').focus();
+  }
+
+  function openD2() {
+    state.d2 = true;
+    drawer2.classList.add('show');
+    drawer2.setAttribute('aria-hidden', 'false');
+    $('#back2').focus();
+  }
+
+  function closeDrawer() {
+    if (!state.open) return;
+    closeD2();
+    state.open = false;
+    body.classList.remove('open', 'lock');
+    wrap.inert = false;
+    scrim.classList.remove('show');
+    drawer.classList.remove('show');
+    drawer.setAttribute('aria-hidden', 'true');
+    setTimeout(resetViews, 280);
+    openBtn.focus();
+  }
+
+  function goView(n) {
+    if (state.mode === 'a') {
+      if (n === 2) openD2(); else closeD2();
+      return;
+    }
+    applyView(n);
+  }
+
+  $('#open').addEventListener('click', openDrawer);
+  $('#cancel').addEventListener('click', () => {
+    draftDate = appliedDate;
+    setDateRow(appliedDate);
+    syncInlineRadios();
+    closeDrawer();
+  });
+  $('#cancel2').addEventListener('click', () => {
+    draftDate = appliedDate;
+    setDateRow(appliedDate);
+    syncInlineRadios();
+    closeDrawer();
+  });
+  $('#apply').addEventListener('click', () => {
+    appliedDate = draftDate;
+    setDateRow(appliedDate);
+    syncInlineRadios();
+    closeDrawer();
+    showToast('已应用筛选');
+  });
+  $('#apply2').addEventListener('click', () => {
+    const checked = document.querySelector('input[name="range2"]:checked');
+    const label = checked ? checked.parentElement.textContent.trim() : '不限';
+    appliedDate = label;
+    draftDate = label;
+    setDateRow(label);
+    syncInlineRadios();
+    closeD2();
+    showToast('已应用：' + label);
+  });
+  $('#back2').addEventListener('click', closeD2);
+  back.addEventListener('click', () => goView(1));
+  $('#date-row').addEventListener('click', () => {
+    if (state.mode === 'd') toggleInline(); else goView(2);
+  });
+  document.querySelectorAll('input[name="rangeD"], input[name="range"]').forEach((r) => {
+    r.addEventListener('change', () => {
+      draftDate = r.parentElement.textContent.trim();
+      setDateRow(draftDate);
+    });
+  });
+
+  scrim.addEventListener('click', () => {
+    if (state.d2) closeD2(); else closeDrawer();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !state.open) return;
+    if (state.d2) closeD2(); else closeDrawer();
+  });
+
+  // 模态时的焦点循环：只在当前那一层里走
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || !state.open) return;
+    const root = state.d2 ? drawer2 : drawer;
+    const items = Array.from(root.querySelectorAll('button, input, select'))
+      .filter((el) => getComputedStyle(el).visibility !== 'hidden' && !el.disabled);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+
+  $$('.seg button').forEach((b) => b.addEventListener('click', () => {
+    if (state.open) closeDrawer();
+    state.mode = b.dataset.mode;
+    resetViews();
+    applyMode();
+  }));
+
+  $('#shrink').addEventListener('change', (e) => {
+    body.classList.toggle('shrink', e.target.checked);
+  });
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-toast]');
+    if (t) showToast(t.dataset.toast);
+  });
+
+  // 便于截图：?mode=b&open=1&view=2&shrink=1
+  const p = new URLSearchParams(location.search);
+  if (p.get('mode') && NOTES[p.get('mode')]) state.mode = p.get('mode');
+  if (p.get('shrink') === '1') {
+    $('#shrink').checked = true;
+    body.classList.add('shrink');
+  }
+  applyMode();
+  resetViews();
+  if (p.get('open') === '1') {
+    setTimeout(() => {
+      openDrawer();
+      if (p.get('view') === '2') setTimeout(() => goView(2), 320);
+      if (p.get('apply') === '1') setTimeout(() => { $('#apply2').click(); }, 900);
+      if (p.get('inline') === '1') setTimeout(() => { $('#date-row').click(); }, 600);
+    }, 80);
+  }
+})();
+</script>
+</body>
+</html>

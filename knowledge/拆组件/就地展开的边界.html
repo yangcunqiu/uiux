@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>关联任务：就地展开 vs 单独一层</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --accent-soft:#eaf1ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  [hidden]{display:none !important}
+  .topbar{position:fixed;left:0;right:0;top:0;height:92px;z-index:60;background:var(--bg);border-bottom:1px solid var(--line)}
+  .topbar-inner{max-width:1000px;height:100%;margin:0 auto;padding:10px 20px;display:flex;flex-direction:column;justify-content:center;gap:8px}
+  .demo-title{font-size:14px;font-weight:600}
+  .seg{display:inline-flex;gap:3px;padding:3px;background:#eceef2;border-radius:8px;width:max-content}
+  .seg button{border:0;background:transparent;padding:6px 12px;border-radius:6px;font:inherit;font-size:13px;color:var(--text-2);cursor:pointer}
+  .seg button.is-on{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .wrap{max-width:1000px;margin:0 auto;padding:108px 20px 48px}
+  .note{margin:0 0 14px;font-size:12px;color:var(--text-3);position:relative;z-index:60;display:inline-block;background:var(--bg);padding:3px 8px;border-radius:4px}
+  .page-shell{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .page-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line-soft)}
+  .page-head h1{font-size:17px;margin:0;font-weight:600}
+  .page-head p{margin:2px 0 0;font-size:12px;color:var(--text-3)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:12px 18px;border-bottom:1px solid var(--line-soft)}
+  th{background:#fafbfc;color:var(--text-2);font-weight:500;font-size:12px}
+  tbody tr:last-child td{border-bottom:0}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:1px 8px;border-radius:999px;border:1px solid;font-size:12px;line-height:20px;white-space:nowrap}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+  .st-gray{color:#3d4757;background:#eef0f4;border-color:#dfe2e8}
+  .st-amber{color:#8f5300;background:#fff4e0;border-color:#ffdfae}
+  .st-blue{color:#0e5fd8;background:#e8f1ff;border-color:#c9ddff}
+
+  .btn{height:32px;padding:0 14px;border-radius:6px;border:1px solid #d6d9e0;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn:focus-visible{outline:2px solid #1a4fc4;outline-offset:2px}
+
+  .scrim{position:fixed;left:0;right:0;top:92px;bottom:0;z-index:40;background:rgba(15,18,25,.42);opacity:0;pointer-events:none;transition:opacity 180ms}
+  .scrim.show{opacity:1;pointer-events:auto}
+
+  .drawer{position:fixed;top:92px;right:0;bottom:0;z-index:50;width:min(380px,92vw);background:#fff;display:flex;flex-direction:column;transform:translateX(100%);transition:transform 260ms cubic-bezier(.2,0,0,1);box-shadow:-12px 0 40px rgba(0,0,0,.12)}
+  .drawer.show{transform:none}
+  .drawer:focus{outline:none}
+  .drawer-head{display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+  .drawer-head h2{font-size:15px;margin:0;font-weight:600;text-align:center}
+  .head-spacer{width:32px;height:32px}
+  .drawer-body{flex:1;overflow-y:auto}
+  .drawer-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 14px;border-top:1px solid var(--line-soft)}
+
+  .view{padding:18px 20px}
+  .view h3{font-size:12px;color:var(--text-3);font-weight:500;margin:0 0 8px}
+  .view h3:not(:first-child){margin-top:20px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid #d6d9e0;background:#fff;color:var(--text-2);padding:4px 10px;border-radius:999px;font:inherit;font-size:12px;cursor:pointer}
+  .chip.is-on{background:var(--accent-soft);border-color:#bcd2ff;color:#1a4fc4}
+  .row-link{display:flex;justify-content:space-between;align-items:center;width:100%;height:36px;padding:0 10px;border:1px solid #d6d9e0;border-radius:6px;background:#fff;font:inherit;font-size:13px;color:var(--text);cursor:pointer}
+  .row-link .chev{color:var(--text-3);display:inline-block;transition:transform 160ms ease}
+  .row-link[aria-expanded="true"] .chev{transform:rotate(90deg)}
+  select{width:100%;height:36px;border:1px solid #d6d9e0;border-radius:6px;padding:0 10px;font:inherit;font-size:13px;background:#fff}
+
+  .picker-inline{display:grid;grid-template-rows:0fr;transition:grid-template-rows 200ms ease}
+  .picker-inline.open{grid-template-rows:1fr}
+  .picker-inline-inner{overflow:hidden;min-height:0}
+  .picker-box{border:1px solid var(--line);border-radius:8px;margin-top:10px;padding:10px}
+  .picker-box input[type="search"],.picker-toolbar input{width:100%;height:32px;border:1px solid #d6d9e0;border-radius:6px;padding:0 10px;font:inherit;font-size:13px}
+  .picker-list{overflow:auto}
+  .picker-box .picker-list{max-height:210px;margin-top:8px}
+  .picker-list-lg{flex:1;padding:4px 14px 12px}
+  .pick-row{display:grid;grid-template-columns:18px 1fr auto 30px;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:13px;cursor:pointer}
+  .pick-row:last-child{border-bottom:0}
+  .pick-row input{margin:0}
+  .pick-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pick-owner{font-size:12px;color:var(--text-3);text-align:right}
+  .picker-meta{font-size:12px;color:var(--text-3);margin-top:8px}
+  .picker-toolbar{padding:12px 14px;border-bottom:1px solid var(--line-soft)}
+  .picker-foot{justify-content:space-between}
+  .picked{font-size:12px;color:var(--text-3)}
+  .picker-actions{display:flex;gap:8px}
+  .empty-mini{padding:18px 0;text-align:center;color:var(--text-3);font-size:12px}
+  .picker{width:min(380px,92vw);z-index:55;box-shadow:-28px 0 60px rgba(0,0,0,.28)}
+  .picker .drawer-body{display:flex;flex-direction:column;overflow:hidden}
+
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:70;background:#1f2329;color:#fff;padding:9px 16px;border-radius:6px;font-size:13px;white-space:nowrap}
+  .observe{max-width:780px;margin:26px 0 0;font-size:13px;color:var(--text-2)}
+  .observe h2{font-size:15px;margin:0 0 10px;font-weight:600;color:var(--text)}
+  .observe ol{margin:0;padding-left:20px}
+  .observe li{margin:0 0 8px}
+
+  @media (max-width:640px){
+    .topbar{height:92px}
+    .seg button{padding:5px 10px}
+    .scrim,.drawer{top:92px}
+    .wrap{padding:112px 14px 48px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:.01ms !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="demo-title">同一块内容：就地展开 vs 单独一层</div>
+    <div class="seg" role="group" aria-label="对照方案">
+      <button type="button" class="is-on" data-mode="e">E 就地展开</button>
+      <button type="button" data-mode="f">F 单独一层</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <p class="note" id="note"></p>
+  <div class="page-shell">
+    <div class="page-head">
+      <div>
+        <h1>资产任务</h1>
+        <p>共 12 条</p>
+      </div>
+      <button type="button" class="btn btn-primary" id="open">筛选</button>
+    </div>
+    <table>
+      <thead><tr><th scope="col">任务名称</th><th scope="col">当前情况</th></tr></thead>
+      <tbody>
+        <tr><td>山眉札记文字图：单图上传与 OCR</td><td><span class="badge st-gray"><span class="dot"></span>已结束</span></td></tr>
+        <tr><td>岳阳楼记：扫描件识别与版式还原</td><td><span class="badge st-amber"><span class="dot"></span>待人工处理</span></td></tr>
+        <tr><td>桃花源记：音频合成</td><td><span class="badge st-gray"><span class="dot"></span>已结束</span></td></tr>
+        <tr><td>小石潭记：字幕压制</td><td><span class="badge st-blue"><span class="dot"></span>正在执行</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <section class="observe">
+    <h2>看什么</h2>
+    <ol>
+      <li>E：展开任务列表后，抽屉有多长？你要滚几次，才能从任务列表回到“任务状态”？</li>
+      <li>E：选了 3 个任务再点“取消”，这 3 个还在吗？“确定”到底确定的是筛选，还是选任务？</li>
+      <li>F：选择器有自己的搜索、列表和底栏。“取消选择 / 选好了”和筛选的“取消 / 确定”分得开吗？</li>
+      <li>F：代价是多了一层。你愿意为这块内容付这个代价吗？</li>
+    </ol>
+  </section>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<aside class="drawer" id="drawer" aria-label="筛选" aria-hidden="true" tabindex="-1">
+  <div class="drawer-head">
+    <span class="head-spacer" aria-hidden="true"></span>
+    <h2>筛选</h2>
+    <span class="head-spacer" aria-hidden="true"></span>
+  </div>
+  <div class="drawer-body">
+    <section class="view">
+      <h3>任务状态</h3>
+      <div class="chips">
+        <button type="button" class="chip is-on">全部</button>
+        <button type="button" class="chip">待人工处理</button>
+        <button type="button" class="chip">已暂停</button>
+        <button type="button" class="chip">已结束</button>
+      </div>
+      <h3>关联任务</h3>
+      <button type="button" class="row-link" id="rel-row" aria-expanded="false">
+        <span id="rel-label">未选择</span><span class="chev">›</span>
+      </button>
+      <div class="picker-inline" id="inline">
+        <div class="picker-inline-inner">
+          <div class="picker-box">
+            <input id="q-inline" type="search" placeholder="搜索任务名称" autocomplete="off" />
+            <div class="picker-list" id="list-inline"></div>
+            <div class="picker-meta">已选 <b id="count-inline">0</b> 个任务</div>
+          </div>
+        </div>
+      </div>
+      <h3>负责人</h3>
+      <select aria-label="负责人"><option>全部</option><option>我</option><option>王工</option></select>
+    </section>
+  </div>
+  <div class="drawer-foot">
+    <button type="button" class="btn" id="cancel">取消</button>
+    <button type="button" class="btn btn-primary" id="apply">确定</button>
+  </div>
+</aside>
+
+<aside class="drawer picker" id="picker" aria-label="选择关联任务" aria-hidden="true" tabindex="-1">
+  <div class="drawer-head">
+    <span class="head-spacer" aria-hidden="true"></span>
+    <h2>选择关联任务</h2>
+    <span class="head-spacer" aria-hidden="true"></span>
+  </div>
+  <div class="picker-toolbar">
+    <input id="q-picker" type="search" placeholder="搜索任务名称" autocomplete="off" />
+  </div>
+  <div class="picker-list picker-list-lg" id="list-picker"></div>
+  <div class="drawer-foot picker-foot">
+    <span class="picked" id="count-picker">已选 0 个任务</span>
+    <div class="picker-actions">
+      <button type="button" class="btn" id="picker-cancel">取消选择</button>
+      <button type="button" class="btn btn-primary" id="picker-ok">选好了</button>
+    </div>
+  </div>
+</aside>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function () {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+  const TASKS = [
+    { id: 'T-1042', name: '山眉札记文字图', status: '已结束', cls: 'st-gray', owner: '我' },
+    { id: 'T-1043', name: '伤仲永全文译文', status: '已结束', cls: 'st-gray', owner: '王工' },
+    { id: 'T-1046', name: '岳阳楼记扫描件还原', status: '待人工处理', cls: 'st-amber', owner: '我' },
+    { id: 'T-1048', name: '出师表多语字幕对齐', status: '正在执行', cls: 'st-blue', owner: '我' },
+    { id: 'T-1050', name: '滕王阁序插图裁切', status: '已结束', cls: 'st-gray', owner: '李工' },
+    { id: 'T-1053', name: '醉翁亭记原图去噪', status: '已结束', cls: 'st-gray', owner: '我' },
+    { id: 'T-1055', name: '陋室铭文案校对', status: '待人工处理', cls: 'st-amber', owner: '王工' },
+    { id: 'T-1057', name: '桃花源记音频合成', status: '已结束', cls: 'st-gray', owner: '我' },
+    { id: 'T-1060', name: '小石潭记字幕压制', status: '正在执行', cls: 'st-blue', owner: '我' },
+    { id: 'T-1062', name: '核舟记封面图生成', status: '已结束', cls: 'st-gray', owner: '王工' },
+    { id: 'T-1065', name: '阿房宫赋原件修复', status: '待人工处理', cls: 'st-amber', owner: '李工' },
+    { id: 'T-1068', name: '兰亭集序版面重排', status: '已结束', cls: 'st-gray', owner: '我' }
+  ];
+
+  const state = { mode: 'e', open: false, picker: false };
+  const applied = new Set();
+  const draft = new Set();
+
+  const body = document.body;
+  const scrim = $('#scrim');
+  const drawer = $('#drawer');
+  const picker = $('#picker');
+  const openBtn = $('#open');
+  const wrap = $('.wrap');
+
+  function note() {
+    $('#note').textContent = state.mode === 'e'
+      ? 'E：把任务选择器塞回筛选表单里。'
+      : 'F：任务选择器单独一层，按钮名字带对象。';
+  }
+
+  function updateField() {
+    const n = applied.size;
+    $('#rel-label').textContent = n ? '已选 ' + n + ' 个任务' : '未选择';
+    $('#count-inline').textContent = n;
+  }
+
+  function rows(items, set) {
+    if (!items.length) return '<div class="empty-mini">没有匹配的任务</div>';
+    return items.map((t) => (
+      '<label class="pick-row">' +
+        '<input type="checkbox" data-id="' + t.id + '"' + (set.has(t.id) ? ' checked' : '') + ' />' +
+        '<span class="pick-name">' + t.name + '</span>' +
+        '<span class="badge ' + t.cls + '">' + t.status + '</span>' +
+        '<span class="pick-owner">' + t.owner + '</span>' +
+      '</label>'
+    )).join('');
+  }
+
+  function renderInline() {
+    const q = $('#q-inline').value.trim();
+    $('#list-inline').innerHTML = rows(TASKS.filter((t) => t.name.includes(q)), applied);
+  }
+
+  function renderPicker() {
+    const q = $('#q-picker').value.trim();
+    $('#list-picker').innerHTML = rows(TASKS.filter((t) => t.name.includes(q)), draft);
+    $('#count-picker').textContent = '已选 ' + draft.size + ' 个任务';
+  }
+
+  function openFilter() {
+    if (state.open) return;
+    state.open = true;
+    body.classList.add('open');
+    wrap.inert = true;
+    scrim.classList.add('show');
+    drawer.classList.add('show');
+    drawer.setAttribute('aria-hidden', 'false');
+    drawer.focus();
+    updateField();
+  }
+
+  function closeFilter() {
+    if (!state.open) return;
+    closePicker();
+    state.open = false;
+    body.classList.remove('open');
+    wrap.inert = false;
+    scrim.classList.remove('show');
+    drawer.classList.remove('show');
+    drawer.setAttribute('aria-hidden', 'true');
+    $('#inline').classList.remove('open');
+    $('#rel-row').setAttribute('aria-expanded', 'false');
+    openBtn.focus();
+  }
+
+  function openPicker() {
+    draft.clear();
+    applied.forEach((id) => draft.add(id));
+    $('#q-picker').value = '';
+    renderPicker();
+    state.picker = true;
+    drawer.inert = true;
+    picker.classList.add('show');
+    picker.setAttribute('aria-hidden', 'false');
+    picker.focus();
+    $('#q-picker').focus();
+  }
+
+  function closePicker() {
+    if (!state.picker) return;
+    state.picker = false;
+    picker.classList.remove('show');
+    picker.setAttribute('aria-hidden', 'true');
+    drawer.inert = false;
+    $('#rel-row').focus();
+  }
+
+  function commitPicker() {
+    applied.clear();
+    draft.forEach((id) => applied.add(id));
+    updateField();
+    closePicker();
+    showToast('已选择 ' + applied.size + ' 个任务');
+  }
+
+  function showToast(text) {
+    const el = $('#toast');
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(showToast.t);
+    showToast.t = setTimeout(() => { el.hidden = true; }, 2000);
+  }
+
+  function toggleInline() {
+    const open = !$('#inline').classList.contains('open');
+    $('#inline').classList.toggle('open', open);
+    $('#rel-row').setAttribute('aria-expanded', String(open));
+    if (open) renderInline();
+  }
+
+  $('#open').addEventListener('click', openFilter);
+  $('#cancel').addEventListener('click', () => { closeFilter(); showToast('已取消筛选'); });
+  $('#apply').addEventListener('click', () => { closeFilter(); showToast('已应用筛选'); });
+
+  $('#rel-row').addEventListener('click', () => {
+    if (state.mode === 'e') toggleInline();
+    else openPicker();
+  });
+
+  $('#q-inline').addEventListener('input', renderInline);
+  $('#q-picker').addEventListener('input', renderPicker);
+
+  $('#list-inline').addEventListener('change', (e) => {
+    const id = e.target.dataset.id;
+    if (!id) return;
+    if (e.target.checked) applied.add(id); else applied.delete(id);
+    updateField();
+  });
+
+  $('#list-picker').addEventListener('change', (e) => {
+    const id = e.target.dataset.id;
+    if (!id) return;
+    if (e.target.checked) draft.add(id); else draft.delete(id);
+    $('#count-picker').textContent = '已选 ' + draft.size + ' 个任务';
+  });
+
+  $('#picker-cancel').addEventListener('click', closePicker);
+  $('#picker-ok').addEventListener('click', commitPicker);
+
+  $$('.seg button').forEach((b) => b.addEventListener('click', () => {
+    if (state.picker) closePicker();
+    $('#inline').classList.remove('open');
+    $('#rel-row').setAttribute('aria-expanded', 'false');
+    state.mode = b.dataset.mode;
+    $$('.seg button').forEach((x) => {
+      const on = x.dataset.mode === state.mode;
+      x.classList.toggle('is-on', on);
+      x.setAttribute('aria-pressed', String(on));
+    });
+    note();
+  }));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (state.picker) closePicker();
+    else if (state.open) closeFilter();
+  });
+
+  // 便于截图：?mode=e&open=1&inline=1&pick=3
+  const p = new URLSearchParams(location.search);
+  if (p.get('mode') === 'f') state.mode = 'f';
+  $$('.seg button').forEach((b) => {
+    const on = b.dataset.mode === state.mode;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  note();
+  if (p.get('pick')) {
+    TASKS.slice(0, Number(p.get('pick')) || 0).forEach((t) => applied.add(t.id));
+  }
+  updateField();
+  if (p.get('open') === '1') {
+    setTimeout(() => {
+      openFilter();
+      if (p.get('inline') === '1') setTimeout(toggleInline, 400);
+      if (p.get('picker') === '1') setTimeout(openPicker, 400);
+    }, 80);
+  }
+})();
+</script>
+</body>
+</html>
