@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>层叠：多条消息怎么摆</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .bar + .bar{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+
+  .seg{display:inline-flex;padding:2px;gap:2px;background:var(--line-soft);border-radius:8px}
+  .seg label{position:relative;display:inline-flex}
+  .seg input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+  .seg span{
+    display:inline-block;padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text-2);
+    white-space:nowrap;cursor:pointer
+  }
+  .seg input:checked + span{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(31,35,41,.1)}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
+  .hint{margin:0;font-size:11px;color:var(--text-3)}
+
+  .primary{
+    height:30px;padding:0 14px;border:1px solid var(--accent);border-radius:8px;
+    background:var(--accent);color:#fff;font-size:12px;cursor:pointer
+  }
+  .primary:hover{background:#1f5ce0}
+  .plain{
+    height:30px;padding:0 10px;border:1px solid #d6d9e0;border-radius:8px;background:#fff;
+    font-size:12px;color:var(--text-2);cursor:pointer
+  }
+  .plain:hover{background:#f7f8fa}
+
+  .stage{flex:1;min-height:0;padding:22px 24px;display:flex;justify-content:center;align-items:flex-start}
+  .panel{width:min(560px,100%)}
+
+  .board{
+    position:relative;height:250px;margin-top:14px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    overflow:hidden
+  }
+  .board-tip{
+    position:absolute;left:50%;bottom:10px;transform:translateX(-50%);
+    font-size:11px;color:#c3c8d0;pointer-events:none
+  }
+
+  .toast{
+    position:absolute;left:14px;right:14px;top:14px;height:64px;
+    display:flex;align-items:center;gap:12px;padding:0 14px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 6px 18px rgba(15,23,42,.08);
+    will-change:transform,opacity;
+    transition:transform .22s cubic-bezier(.2,.7,.3,1),opacity .22s ease
+  }
+  .toast .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+  .toast .body{min-width:0;flex:1}
+  .toast h4{margin:0;font-size:13px;font-weight:500}
+  .toast p{margin:0;font-size:11px;color:var(--text-3)}
+  .toast .close{
+    flex:none;width:24px;height:24px;border:0;border-radius:6px;background:transparent;
+    color:var(--text-3);font-size:16px;line-height:1;cursor:pointer
+  }
+  .toast .close:hover{background:#f2f3f5}
+
+  @media (prefers-reduced-motion: reduce){
+    .toast{transition:none !important}
+  }
+  @media (max-width:640px){
+    .stage{padding:16px 14px}
+    .board{height:230px}
+    .status{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="bar">
+      <div class="title">层叠<span>多条消息怎么摆</span></div>
+      <div class="seg" id="mode">
+        <label><input type="radio" name="mode" value="stacked" checked><span>层叠</span></label>
+        <label><input type="radio" name="mode" value="expanded"><span>层叠 + 悬停展开</span></label>
+        <label><input type="radio" name="mode" value="flat"><span>平铺</span></label>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="bar">
+      <button type="button" class="primary" id="send">发一条</button>
+      <button type="button" class="plain" id="burst">连发三条</button>
+      <button type="button" class="plain" id="clear">清空</button>
+      <p class="hint">上限 3 条，发第 4 条时最早的一条会被挤掉。</p>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="panel">
+      <div class="board" id="board" role="region" aria-label="消息区，最多显示三条">
+        <div class="board-tip" id="boardTip"></div>
+      </div>
+    </div>
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li><b>平铺</b>：每条都完整可读，占掉三倍的空间。</li>
+      <li><b>层叠</b>：只看得见最上面一条，后面两条只露出边缘。你能数出有几条，但读不到内容。</li>
+      <li><b>层叠 + 悬停展开</b>：默认压缩，鼠标移上去展开成平铺。这是「把内容换回来」的那一步。</li>
+      <li>连点几下「连发三条」，看第 4 条进来时最早的一条怎么被挤掉——层叠状态下，用户几乎看不到这个替换。</li>
+    </ol>
+    <p class="limit">顶部提示条和层叠边距是演示值。这个演示依赖鼠标悬停；触摸设备上「展开」这一步不存在，层叠的数量和内容都无法读取。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var board = $('board');
+  var boardTip = $('boardTip');
+  var statusEl = $('status');
+
+  var LIMIT = 3;
+  var FLAT_STEP = 78;
+  var STACK_STEP = 12;
+
+  var MESSAGES = [
+    { title: '已保存', desc: '草稿已更新' },
+    { title: '上传完成', desc: '共 12 个文件' },
+    { title: '同步中', desc: '正在拉取最新版本' },
+    { title: '权限已更新', desc: '3 位成员获得访问权限' },
+    { title: '导出完成', desc: '文件已进入下载队列' }
+  ];
+
+  var state = {
+    mode: 'stacked',
+    items: [],
+    serial: 0,
+    hover: false
+  };
+
+  function layout() {
+    var stacked = state.mode === 'stacked' || (state.mode === 'expanded' && !state.hover);
+
+    state.items.forEach(function (item, i) {
+      if (stacked) {
+        item.el.style.transform = 'translateY(' + (i * STACK_STEP) + 'px) scale(' + (1 - i * 0.03) + ')';
+        item.el.style.zIndex = String(10 - i);
+        item.el.style.opacity = i === 0 ? '1' : String(1 - i * 0.12);
+      } else {
+        item.el.style.transform = 'translateY(' + (i * FLAT_STEP) + 'px) scale(1)';
+        item.el.style.zIndex = String(10 - i);
+        item.el.style.opacity = '1';
+      }
+    });
+
+    boardTip.textContent = stacked
+      ? '层叠中：只读得到最上面一条'
+      : '展开中：三条都能读';
+  }
+
+  function push(data) {
+    var el = document.createElement('div');
+    el.className = 'toast';
+
+    var dot = document.createElement('span');
+    dot.className = 'dot';
+
+    var body = document.createElement('div');
+    body.className = 'body';
+    var h4 = document.createElement('h4');
+    h4.textContent = data.title;
+    var p = document.createElement('p');
+    p.textContent = data.desc;
+    body.appendChild(h4);
+    body.appendChild(p);
+
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'close';
+    close.setAttribute('aria-label', '关闭');
+    close.textContent = '×';
+
+    el.appendChild(dot);
+    el.appendChild(body);
+    el.appendChild(close);
+
+    var item = { el: el, data: data };
+    el.addEventListener('click', function (event) {
+      if (event.target === close) return;
+      remove(item);
+    });
+    close.addEventListener('click', function (event) {
+      event.stopPropagation();
+      remove(item);
+    });
+
+    state.items.unshift(item);
+    board.appendChild(el);
+
+    while (state.items.length > LIMIT) {
+      var dropped = state.items.pop();
+      if (dropped && dropped.el.parentNode) dropped.el.parentNode.removeChild(dropped.el);
+    }
+
+    layout();
+    updateStatus();
+  }
+
+  function remove(item) {
+    var index = state.items.indexOf(item);
+    if (index < 0) return;
+    state.items.splice(index, 1);
+    if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
+    layout();
+    updateStatus();
+  }
+
+  function clear() {
+    state.items.forEach(function (item) {
+      if (item.el.parentNode) item.el.parentNode.removeChild(item.el);
+    });
+    state.items.length = 0;
+    layout();
+    updateStatus();
+  }
+
+  function send() {
+    var data = MESSAGES[state.serial % MESSAGES.length];
+    state.serial += 1;
+    push({ title: data.title, desc: data.desc + ' · #' + state.serial });
+  }
+
+  $('send').addEventListener('click', send);
+
+  $('burst').addEventListener('click', function () {
+    send();
+    window.setTimeout(send, 160);
+    window.setTimeout(send, 320);
+  });
+
+  $('clear').addEventListener('click', clear);
+
+  board.addEventListener('pointerenter', function () {
+    if (state.mode !== 'expanded') return;
+    state.hover = true;
+    layout();
+  });
+
+  board.addEventListener('pointerleave', function () {
+    if (state.mode !== 'expanded') return;
+    state.hover = false;
+    layout();
+  });
+
+  $('mode').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.mode = event.target.value;
+    state.hover = false;
+    layout();
+    updateStatus();
+  });
+
+  function updateStatus() {
+    var label = { stacked: '层叠', expanded: '层叠 + 展开', flat: '平铺' }[state.mode];
+    statusEl.textContent = '模式：' + label + ' · ' + state.items.length + ' 条';
+  }
+
+  layout();
+  updateStatus();
+})();
+</script>
+</body>
+</html>

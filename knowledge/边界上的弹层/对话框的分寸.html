@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>对话框的两个分寸：出现缩放与先缩后滚</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e6e8ec; --text:#1d2129; --muted:#6b7280;
+    --accent:#2f6feb; --warn:#c0392b;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;
+    font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px 12px}
+  header h1{font-size:16px;margin:0 0 4px;font-weight:600}
+  header p{margin:0;color:var(--muted);font-size:13px;max-width:920px}
+  main{flex:1;padding:14px 20px 10px;display:flex;flex-direction:column;gap:12px;align-items:center}
+  .bar{width:100%;max-width:940px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .field{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);white-space:nowrap}
+  input[type=range]{width:130px;accent-color:var(--accent)}
+  output{font-variant-numeric:tabular-nums;color:var(--text);min-width:3.5ch;display:inline-block}
+  button{font:inherit;font-size:12px;padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text);cursor:pointer}
+  button:hover{border-color:#c8ccd4}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .seg{display:flex;gap:2px;border:1px solid var(--line);border-radius:999px;padding:3px;margin:0}
+  .seg legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .seg label{position:relative;font-size:12px;color:var(--muted);padding:3px 9px;border-radius:999px;cursor:pointer;white-space:nowrap}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px}
+  .seg label:has(input:checked){background:var(--text);color:#fff}
+  .seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  .stage-wrap{position:relative;overflow:hidden;border-radius:14px}
+  .stage{position:relative;width:900px;height:560px;overflow:hidden;border:1px solid var(--line);border-radius:14px;background:#fff;transform-origin:0 0}
+  .page{padding:22px 24px;display:flex;flex-direction:column;gap:10px}
+  .page h2{margin:0;font-size:16px}
+  .page p{margin:0;font-size:13px;color:var(--muted);max-width:560px}
+  .page .row{display:flex;gap:10px;margin-top:6px}
+  .page .box{flex:1;height:54px;border-radius:8px;background:#f3f5f8}
+  .backdrop{position:absolute;inset:0;background:rgba(17,24,39,.34);opacity:0;pointer-events:none;transition:opacity 200ms ease-out}
+  .dialog{
+    position:absolute;left:50%;top:50%;width:420px;margin:0;
+    transform:translate(-50%,-50%);transform-origin:50% 50%;
+    background:#fff;border-radius:14px;box-shadow:0 24px 70px rgba(17,24,39,.28);
+    display:flex;flex-direction:column;opacity:0;
+  }
+  .dialog[hidden]{display:none}
+  .dhead{flex:none;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px}
+  .dhead span{color:var(--muted);font-weight:400;cursor:pointer}
+  .dbody{overflow:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;scrollbar-color:#c8ccd4 #f1f3f7}
+  .dbody::-webkit-scrollbar{width:9px}
+  .dbody::-webkit-scrollbar-track{background:#f1f3f7;border-radius:9px}
+  .dbody::-webkit-scrollbar-thumb{background:#c8ccd4;border-radius:9px;border:2px solid #f1f3f7}
+  .dbody.fade{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 30px),rgba(0,0,0,.12));mask-image:linear-gradient(to bottom,#000 calc(100% - 30px),rgba(0,0,0,.12))}
+  .dbody .line{flex:none;height:34px;border-radius:8px;background:#f4f6f9;display:flex;align-items:center;padding:0 10px;font-size:13px;color:#4b5563}
+  .dfoot{flex:none;height:48px;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 16px;border-top:1px solid var(--line)}
+  .dfoot .primary{background:var(--text);color:#fff;border-color:var(--text)}
+  .readout{width:100%;max-width:940px;margin:0;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .readout b{color:var(--text);font-weight:600}
+  .readout .bad{color:var(--warn);font-weight:600}
+  footer{background:var(--panel);border-top:1px solid var(--line);padding:12px 20px 14px;font-size:12px;color:var(--muted);margin-top:10px}
+  footer b{color:var(--text);font-weight:600}
+  footer ol{margin:4px 0 0;padding-left:18px}
+  footer li{margin:2px 0}
+  footer .tail{margin-top:8px;color:#8a909a}
+</style>
+</head>
+<body>
+<header>
+  <h1>对话框的两个分寸：出现缩放与先缩后滚</h1>
+  <p>出现时从多少倍开始，和屏幕装不下时先缩还是先滚。两处都是"分寸"，没有唯一答案，只有可观察的差别。</p>
+</header>
+
+<main>
+  <section class="bar" aria-label="参数">
+    <fieldset class="seg" aria-label="出现缩放">
+      <legend>出现缩放</legend>
+      <label><input type="radio" name="entry" value="0">0</label>
+      <label><input type="radio" name="entry" value="0.5">0.5</label>
+      <label><input type="radio" name="entry" value="0.8" checked>0.8</label>
+      <label><input type="radio" name="entry" value="1">1（不缩放）</label>
+    </fieldset>
+    <label class="field">内容行数
+      <input type="range" id="rows" min="3" max="16" step="1" value="5">
+      <output id="rows-out" for="rows">5 行 · 226px</output>
+    </label>
+    <fieldset class="seg" aria-label="溢出处理">
+      <legend>溢出处理</legend>
+      <label><input type="radio" name="mode" value="none">不适配</label>
+      <label><input type="radio" name="mode" value="scroll">滚动条</label>
+      <label><input type="radio" name="mode" value="fit" checked>先缩后滚</label>
+    </fieldset>
+    <button type="button" id="open">打开</button>
+  </section>
+
+  <div class="stage-wrap" id="wrap">
+    <div class="stage" id="stage">
+      <div class="page">
+        <h2>订单列表</h2>
+        <p>背后的页面。对话框打开时，它被遮罩盖住；对话框太高时，它可能被顶出可见区域。</p>
+        <div class="row"><div class="box"></div><div class="box"></div><div class="box"></div></div>
+        <div class="row"><div class="box"></div><div class="box"></div><div class="box"></div></div>
+      </div>
+      <div class="backdrop" id="backdrop"></div>
+      <div class="dialog" id="dialog" role="dialog" aria-modal="true" aria-label="示例对话框" hidden>
+        <div class="dhead">确认信息<span class="x" id="close">关闭</span></div>
+        <div class="dbody" id="dbody"></div>
+        <div class="dfoot"><button type="button">取消</button><button type="button" class="primary">确定</button></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="readout" id="readout"></p>
+</main>
+
+<footer>
+  <b>看什么</b>
+  <ol>
+    <li>点「打开」几次，切换「出现缩放」：0 是从无到有（整个画面被拽过来），0.8 只是长大一点。1 是完全不缩，直接出现。</li>
+    <li>把行数拉到 15：「先缩后滚」缩到 0.9 之后开始内滚；「滚动条」不缩，直接内滚；行数少的时候，先缩就能完全放下，不用滚。</li>
+    <li>切到「不适配」：对话框比屏幕高，上下直接被裁掉——标题和按钮都可能不见了。</li>
+    <li>看读数：缩放、内容高、可用高、是否内滚，四个数一起变。</li>
+  </ol>
+  <p class="tail">270ms 的出现动画只是为了让差别看得见，不是推荐时长；系统开启"减少动态效果"时直接出现。缩放会让文字跟着变小，这是 0.9 的代价。</p>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const STAGE_W = 900, STAGE_H = 560;
+  const MARGIN = 24;
+  const HEAD = 52, FOOT = 48;
+
+  const stage = document.getElementById('stage');
+  const wrap = document.getElementById('wrap');
+  const dialog = document.getElementById('dialog');
+  const dbody = document.getElementById('dbody');
+  const backdrop = document.getElementById('backdrop');
+  const readout = document.getElementById('readout');
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const ROW = 42, PAD = 24;
+  function rowsVal() { return Number(document.getElementById('rows').value); }
+  function contentVal() { return rowsVal() * ROW + PAD - 8; }
+  function entryVal() {
+    const el = document.querySelector('input[name=entry]:checked');
+    return el ? Number(el.value) : 0.8;
+  }
+  function modeVal() {
+    const el = document.querySelector('input[name=mode]:checked');
+    return el ? el.value : 'fit';
+  }
+
+  function buildBody() {
+    dbody.innerHTML = '';
+    const n = rowsVal();
+    for (let i = 1; i <= n; i++) {
+      const row = document.createElement('div');
+      row.className = 'line';
+      row.textContent = '第 ' + i + ' 行内容';
+      dbody.append(row);
+    }
+  }
+
+  function measure() {
+    const available = STAGE_H - MARGIN * 2;
+    const want = contentVal();
+    const mode = modeVal();
+    let scale = 1, bodyMax = want, scroll = false;
+
+    if (mode === 'none') {
+      bodyMax = want;
+      scroll = false;
+    } else if (mode === 'scroll') {
+      bodyMax = Math.max(60, available - HEAD - FOOT);
+      scroll = want > bodyMax;
+    } else {
+      const natural = want + HEAD + FOOT;
+      scale = Math.min(1, available / natural);
+      scale = Math.max(0.9, scale);
+      const scaledAvail = available / scale;
+      const roomForBody = scaledAvail - HEAD - FOOT;
+      if (roomForBody < want) {
+        bodyMax = Math.max(60, roomForBody);
+        scroll = true;
+      } else {
+        bodyMax = want;
+        scroll = false;
+      }
+    }
+    return { available, want, mode, scale, bodyMax, scroll, clipped: want + HEAD + FOOT > available && mode === 'none' };
+  }
+
+  function apply() {
+    const m = measure();
+    dbody.style.maxHeight = m.bodyMax + 'px';
+    dbody.classList.toggle('fade', m.scroll);
+    dialog.style.transform = `translate(-50%,-50%) scale(${m.scale})`;
+    buildBody();
+    const parts = [
+      `缩放 <b>${m.scale.toFixed(2)}</b>`,
+      `内容高 <b>${Math.round(m.want)}px</b>`,
+      `可用高 <b>${m.available}px</b>`,
+      `内滚 <b>${m.scroll ? '是' : '否'}</b>`,
+      `表单净高 <b>${Math.round((m.bodyMax + HEAD + FOOT) * m.scale)}px</b>`,
+      `框宽 <b>${Math.round(420 * m.scale)}px</b>`
+    ];
+    const atFloor = m.mode === 'fit' && m.scale <= 0.9005;
+    readout.innerHTML = parts.join(' · ') + (m.clipped
+      ? ' · <span class="bad">被裁</span>'
+      : '') + (atFloor
+      ? ' · <b>已到缩放下限，再长就别缩了</b>'
+      : '');
+  }
+
+  let t = 0;
+  function playOpen(animate = true) {
+    const m = measure();
+    const e = entryVal();
+    dialog.hidden = false;
+    backdrop.style.opacity = '1';
+    if (reduced || !animate) {
+      dialog.style.transition = 'none';
+      dialog.style.opacity = '1';
+      dialog.style.transform = `translate(-50%,-50%) scale(${m.scale})`;
+      return;
+    }
+    clearTimeout(t);
+    dialog.style.transition = 'none';
+    dialog.style.opacity = e === 0 ? '0' : '1';
+    dialog.style.transform = `translate(-50%,-50%) scale(${(m.scale * e).toFixed(3)})`;
+    // 强制回流，让起始状态生效
+    void dialog.offsetWidth;
+    requestAnimationFrame(() => {
+      dialog.style.transition = 'transform 270ms cubic-bezier(.2,.9,.25,1), opacity 200ms ease-out';
+      dialog.style.transform = `translate(-50%,-50%) scale(${m.scale})`;
+      dialog.style.opacity = '1';
+    });
+  }
+
+  function close() {
+    dialog.hidden = true;
+    backdrop.style.opacity = '0';
+  }
+
+  document.getElementById('open').addEventListener('click', playOpen);
+  document.getElementById('close').addEventListener('click', close);
+
+  document.getElementById('rows').addEventListener('input', () => {
+    syncRowsOut();
+    apply();
+  });
+
+  function syncRowsOut() {
+    document.getElementById('rows-out').textContent = rowsVal() + ' 行 · ' + contentVal() + 'px';
+  }
+  document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', apply));
+
+  function fit() {
+    const avail = Math.min(document.documentElement.clientWidth - 40, 940);
+    const s = Math.min(1, avail / STAGE_W);
+    stage.style.transform = `scale(${s})`;
+    wrap.style.width = (STAGE_W * s) + 'px';
+    wrap.style.height = (STAGE_H * s) + 'px';
+  }
+  window.addEventListener('resize', fit);
+
+  fit();
+  syncRowsOut();
+  apply();
+  playOpen(false);
+})();
+</script>
+</body>
+</html>

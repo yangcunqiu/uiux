@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>首尾相遇处：conic-gradient 的接缝</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e6e8ec; --text:#1d2129; --muted:#6b7280;
+    --accent:#2f6feb; --warn:#c0392b;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;
+    font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px 12px}
+  header h1{font-size:16px;margin:0 0 4px;font-weight:600}
+  header p{margin:0;color:var(--muted);font-size:13px;max-width:900px}
+  main{flex:1;padding:16px 20px 12px;display:flex;flex-direction:column;gap:14px}
+  .bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .field{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);white-space:nowrap}
+  input[type=range]{width:180px;accent-color:var(--accent)}
+  output{font-variant-numeric:tabular-nums;color:var(--text);min-width:3.5ch;display:inline-block}
+  .hint{font-size:12px;color:var(--muted)}
+  .row{display:grid;gap:12px}
+  .row.wheels{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .row.shapes{grid-template-columns:repeat(2,minmax(0,1fr))}
+  figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px 14px;display:flex;flex-direction:column;align-items:center;gap:8px}
+  figcaption{font-size:13px;font-weight:600}
+  .meta{margin:0;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .note{margin:0;font-size:12px;color:var(--muted);text-align:center;max-width:32em}
+  .note b{color:var(--text);font-weight:600}
+  .stage{position:relative;display:grid;place-items:center;height:252px}
+  .stage.tall{height:200px}
+  .tick{position:absolute;inset:0;pointer-events:none}
+  .tick span{position:absolute;left:50%;top:50%;width:1px;height:12px;background:#b3b9c4;transform-origin:50% 0}
+  .disc{width:200px;height:200px;border-radius:50%;position:relative}
+  .shape{width:160px;height:160px;border-radius:50%;position:relative}
+  .shape.squash{transform:scaleX(1.8)}
+  .dot{position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+  .stage.wide{width:320px}
+  footer{background:var(--panel);border-top:1px solid var(--line);padding:12px 20px 14px;font-size:12px;color:var(--muted)}
+  footer b{color:var(--text);font-weight:600}
+  footer ol{margin:4px 0 0;padding-left:18px}
+  footer li{margin:2px 0}
+  footer .tail{margin-top:8px;color:#8a909a}
+  @media (max-width:1100px){.row.wheels{grid-template-columns:1fr}.row.shapes{grid-template-columns:1fr}.disc{width:220px;height:220px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>首尾相遇处：conic-gradient 的接缝</h1>
+  <p>三个轮子是同一条色带，只有接缝的补法不同；下面两个是同一段渐变的两种形状。色带角度夸大了，方便看位置。</p>
+</header>
+
+<main>
+  <section class="bar" aria-label="参数">
+    <label class="field">整体旋转
+      <input type="range" id="rot" min="0" max="360" step="1" value="0">
+      <output id="rot-out" for="rot">0°</output>
+    </label>
+    <span class="hint">三个轮子同时转，色带位置始终可以对上。</span>
+  </section>
+
+  <section class="row wheels" aria-label="接缝的三种补法">
+    <figure>
+      <div class="stage"><div class="tick"></div><div class="disc" data-k="raw"></div></div>
+      <figcaption>直接导出</figcaption>
+      <p class="meta">from 0° · 首标 8°</p>
+      <p class="note">0/360 处没有色标，CSS 把最后一个色值钳到 360，起点留一条<b>硬边</b>。</p>
+    </figure>
+    <figure>
+      <div class="stage"><div class="tick"></div><div class="disc" data-k="wrap"></div></div>
+      <figcaption>补 360，from 加 8</figcaption>
+      <p class="meta">from 8° · 首标 0°</p>
+      <p class="note">两端同色，硬边消失；高光仍在 3 点方向，和「直接导出」<b>一致</b>。</p>
+    </figure>
+    <figure>
+      <div class="stage"><div class="tick"></div><div class="disc" data-k="wrong"></div></div>
+      <figcaption>补 360，from 减 8</figcaption>
+      <p class="meta">from −8° · 首标 0°</p>
+      <p class="note">硬边也消失，但整条色带<b>逆时针偏了 16°</b>——高光跑到 3 点刻度线上面去了。</p>
+    </figure>
+  </section>
+
+  <section class="row shapes" aria-label="形状">
+    <figure>
+      <div class="stage tall"><div class="shape"><i class="dot"></i></div></div>
+      <figcaption>正圆</figcaption>
+      <p class="note">conic-gradient 只能给出正圆的角向分布。</p>
+    </figure>
+    <figure>
+      <div class="stage tall wide"><div class="shape squash"><i class="dot"></i></div></div>
+      <figcaption>scaleX 1.8</figcaption>
+      <p class="note">拉成椭圆，才对应设计工具里被压扁的角向渐变；元素上的一切会一起被拉宽（看那个白点）。</p>
+    </figure>
+  </section>
+</main>
+
+<footer>
+  <b>看什么</b>
+  <ol>
+    <li>拖动整体旋转，看 12 点的刻度线：第一个轮子的硬边跟着刻度走，另外两个没有硬边。</li>
+    <li>看 3 点刻度线：第二个轮子的白色细线正指着它；第三个偏高约 16°。</li>
+    <li>两个轮子都没有接缝，但只有第二个和原来对得上——硬边一消失，人就停止检查了。</li>
+  </ol>
+  <p class="tail">页面上没有动画；色带、补法和角度都是构造出来的示意，不是某个真实导出的数值。</p>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  /* 色带：按「图案角度」定义，接缝处首尾故意不同色；高光在 90° */
+  const STOPS = [
+    [8, '#f1f5f9'], [40, '#334155'],
+    [80, '#1e1b4b'], [86, '#ffffff'], [94, '#ffffff'], [100, '#1e1b4b'],
+    [170, '#4c1d95'], [250, '#2e1065'], [350, '#0b1020']
+  ];
+  const FIRST = STOPS[0][1];
+
+  const grad = (from, stops) =>
+    `conic-gradient(from ${from}deg, ${stops.map(([p, c]) => `${c} ${p}deg`).join(', ')})`;
+
+  // 把首标的 8° 摊到 0°，并在 360° 补同一个颜色
+  const shifted = STOPS.map(([p, c]) => [p - 8, c]).concat([[360, FIRST]]);
+
+  const raw = (rot) => grad(rot, STOPS);
+  const wrap = (rot) => grad(rot + 8, shifted);
+  const wrong = (rot) => grad(rot - 8, shifted);
+
+  const discs = [...document.querySelectorAll('.disc')];
+  const shapes = [...document.querySelectorAll('.shape')];
+
+  // 表盘刻度：12 / 3 / 6 / 9 点
+  document.querySelectorAll('.tick').forEach((box) => {
+    [0, 90, 180, 270].forEach((deg) => {
+      const line = document.createElement('span');
+      line.style.transform = `rotate(${deg}deg) translateY(-116px)`;
+      box.append(line);
+    });
+  });
+
+  function render() {
+    const rot = Number(document.getElementById('rot').value);
+    document.getElementById('rot-out').textContent = rot + '°';
+    discs.forEach((d) => {
+      const k = d.dataset.k;
+      d.style.background = k === 'raw' ? raw(rot) : k === 'wrap' ? wrap(rot) : wrong(rot);
+    });
+    shapes.forEach((s) => { s.style.background = wrap(rot); });
+  }
+
+  document.getElementById('rot').addEventListener('input', render);
+  render();
+})();
+</script>
+</body>
+</html>

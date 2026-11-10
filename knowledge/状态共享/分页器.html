@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>分页器：indicator 在下面，还是在上面</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .bar + .bar{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+
+  .seg{display:inline-flex;padding:2px;gap:2px;background:var(--line-soft);border-radius:8px}
+  .seg label{position:relative;display:inline-flex}
+  .seg input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+  .seg span{
+    display:inline-block;padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text-2);
+    white-space:nowrap;cursor:pointer
+  }
+  .seg input:checked + span{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(31,35,41,.1)}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
+  .hint{margin:0;font-size:11px;color:var(--text-3)}
+
+  .stage{flex:1;min-height:0;padding:40px 24px;display:flex;justify-content:center;align-items:flex-start}
+  .wrap{width:min(560px,100%)}
+
+  .pager{display:flex;align-items:center;gap:8px;justify-content:center}
+
+  .arrow{
+    width:34px;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--panel);
+    color:var(--text-2);font-size:16px;line-height:1;cursor:pointer
+  }
+  .arrow:hover{background:#f7f8fa}
+
+  .track{
+    position:relative;display:flex;gap:2px;padding:4px;
+    background:#f7f8fa;border-radius:10px
+  }
+
+  .hover-fill{
+    position:absolute;left:0;top:0;z-index:1;border-radius:8px;background:#eceef1;
+    opacity:0;pointer-events:none;
+    transition:transform .18s cubic-bezier(.2,.7,.3,1),width .18s cubic-bezier(.2,.7,.3,1),opacity .12s ease
+  }
+  .hover-fill[data-on="true"]{opacity:1}
+
+  .indicator{
+    position:absolute;left:0;top:0;z-index:2;border-radius:8px;background:var(--accent);
+    pointer-events:none;
+    transition:transform .24s cubic-bezier(.2,.7,.3,1),width .24s cubic-bezier(.2,.7,.3,1)
+  }
+  .indicator span{
+    display:none;position:absolute;inset:0;align-items:center;justify-content:center;
+    color:#fff;font-size:13px;font-variant-numeric:tabular-nums
+  }
+
+  .page{
+    position:relative;z-index:3;width:36px;height:36px;border:0;border-radius:8px;
+    background:transparent;color:var(--text-2);font-size:13px;cursor:pointer;
+    font-variant-numeric:tabular-nums;transition:color .12s ease
+  }
+  .page:hover{color:var(--text)}
+
+  /* 合并模式：indicator 盖在数字上面，并且自带数字 */
+  .pager[data-mode="merged"] .indicator{z-index:4}
+  .pager[data-mode="merged"] .indicator span{display:flex}
+  .pager[data-mode="merged"] .page{z-index:3}
+  .pager[data-mode="merged"] .page[data-hidden="true"]{opacity:0}
+
+  .caption{
+    margin-top:22px;padding:14px 16px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;font-size:12px;line-height:1.7;color:var(--text-2)
+  }
+  .caption b{color:var(--text)}
+
+  .notes{
+    flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:28vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin-top:6px;color:var(--text-3);font-size:11px}
+
+  @media (prefers-reduced-motion: reduce){
+    .indicator,.hover-fill{transition:none !important}
+  }
+  @media (max-width:640px){
+    .stage{padding:22px 14px}
+    .notes{padding:8px 14px 12px;max-height:26vh}
+    .status{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="bar">
+      <div class="title">分页器<span>indicator 在数字下面，还是在数字上面</span></div>
+      <div class="seg" id="mode">
+        <label><input type="radio" name="mode" value="separated" checked><span>分离：在数字下</span></label>
+        <label><input type="radio" name="mode" value="merged"><span>合并：带数字滑动</span></label>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="bar">
+      <p class="hint">点页码，看高亮怎么移动；再快速悬停几个页码，看悬停背景。</p>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="wrap">
+      <div class="pager" id="pager" data-mode="separated" role="group" aria-label="分页器">
+        <button type="button" class="arrow" id="prev" aria-label="上一页">‹</button>
+
+        <div class="track" id="track">
+          <div class="hover-fill" id="hoverFill"></div>
+          <div class="indicator" id="indicator"><span id="indicatorNum"></span></div>
+          <button type="button" class="page" data-page="1">1</button>
+          <button type="button" class="page" data-page="2">2</button>
+          <button type="button" class="page" data-page="3">3</button>
+          <button type="button" class="page" data-page="4">4</button>
+          <button type="button" class="page" data-page="5">5</button>
+        </div>
+
+        <button type="button" class="arrow" id="next" aria-label="下一页">›</button>
+      </div>
+
+      <div class="caption" id="caption"></div>
+    </div>
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li><b>分离</b>：点 5，蓝块从 1 滑到 5，数字一直待在自己的位置。你看到的是「同一个高亮在移动」。</li>
+      <li><b>合并</b>：点 5，蓝块里的数字先变成 5，然后整块带 5 滑过去——滑动途中，「5」会经过 2、3、4 的位置。</li>
+      <li>两种模式下悬停背景都是共享的，会跟着鼠标滑动。注意分离模式下高亮和悬停背景是两层，合并模式下它们会叠在一起。</li>
+      <li>把两种都试一遍，比较哪一种让你更清楚「当前在第几页」。</li>
+    </ol>
+    <p class="limit">这个演示只做页码之间的共享，没有做翻页按钮的共享。时长是演示值。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var pager = $('pager');
+  var track = $('track');
+  var indicator = $('indicator');
+  var indicatorNum = $('indicatorNum');
+  var hoverFill = $('hoverFill');
+  var captionEl = $('caption');
+  var statusEl = $('status');
+  var pages = Array.prototype.slice.call(track.querySelectorAll('.page'));
+
+  var state = {
+    mode: 'separated',
+    current: 0
+  };
+
+  function place(el, target) {
+    var box = track.getBoundingClientRect();
+    var rect = target.getBoundingClientRect();
+    el.style.width = rect.width + 'px';
+    el.style.height = rect.height + 'px';
+    el.style.transform =
+      'translate(' + (rect.left - box.left) + 'px,' + (rect.top - box.top) + 'px)';
+  }
+
+  function renderCaption() {
+    var pageText = '当前第 ' + (state.current + 1) + ' 页';
+    var modeText = state.mode === 'separated'
+      ? '分离：蓝块在数字下面，数字不动。'
+      : '合并：蓝块带着数字一起走。';
+    captionEl.innerHTML = '<b>' + pageText + '</b><br>' + modeText;
+  }
+
+  function syncHidden() {
+    pages.forEach(function (page, i) {
+      page.dataset.hidden = state.mode === 'merged' && i === state.current ? 'true' : 'false';
+    });
+  }
+
+  function goTo(index, animate) {
+    state.current = index;
+    if (!animate) indicator.style.transition = 'none';
+    indicatorNum.textContent = String(index + 1);
+    place(indicator, pages[index]);
+    if (!animate) {
+      void indicator.offsetWidth;
+      indicator.style.transition = '';
+    }
+    syncHidden();
+    renderCaption();
+  }
+
+  pages.forEach(function (page, i) {
+    page.addEventListener('click', function () { goTo(i, true); });
+    page.addEventListener('pointerenter', function () {
+      hoverFill.dataset.on = 'true';
+      place(hoverFill, page);
+    });
+  });
+
+  track.addEventListener('pointerleave', function () {
+    hoverFill.dataset.on = 'false';
+  });
+
+  $('prev').addEventListener('click', function () {
+    goTo(Math.max(0, state.current - 1), true);
+  });
+  $('next').addEventListener('click', function () {
+    goTo(Math.min(pages.length - 1, state.current + 1), true);
+  });
+
+  $('mode').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.mode = event.target.value;
+    pager.dataset.mode = state.mode;
+    goTo(state.current, false);
+    updateStatus();
+  });
+
+  function updateStatus() {
+    statusEl.textContent = state.mode === 'separated' ? '模式：分离' : '模式：合并';
+  }
+
+  /* ---------- 启动 ---------- */
+  goTo(0, false);
+  updateStatus();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>换皮与换规则</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e6e8ec; --text:#1d2129; --muted:#6b7280;
+    --accent:#2f6feb; --soft:#f0f2f6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;
+    font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px 12px}
+  header h1{font-size:16px;margin:0 0 4px;font-weight:600}
+  header p{margin:0;color:var(--muted);font-size:13px;max-width:920px}
+  main{flex:1;padding:14px 20px 10px;display:flex;flex-direction:column;gap:12px;align-items:center}
+  .bar{width:100%;max-width:980px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .seg{display:flex;gap:2px;border:1px solid var(--line);border-radius:999px;padding:3px;margin:0}
+  .seg legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .seg label{position:relative;font-size:12px;color:var(--muted);padding:3px 9px;border-radius:999px;cursor:pointer;white-space:nowrap}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px}
+  .seg label:has(input:checked){background:var(--text);color:#fff}
+  .seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  button{font:inherit;font-size:12px;padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text);cursor:pointer}
+  button:hover{border-color:#c8ccd4}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:980px}
+  figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
+  figcaption{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;font-size:13px}
+  figcaption b{font-weight:600}
+  figcaption span{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  canvas{display:block;width:100%;height:auto;border-radius:8px;background:#f5f6f8}
+  .readout{width:100%;max-width:980px;margin:0;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .readout b{color:var(--text);font-weight:600}
+  footer{background:var(--panel);border-top:1px solid var(--line);padding:12px 20px 14px;font-size:12px;color:var(--muted);margin-top:10px}
+  footer b{color:var(--text);font-weight:600}
+  footer ol{margin:4px 0 0;padding-left:18px}
+  footer li{margin:2px 0}
+  footer .tail{margin-top:8px;color:#8a909a}
+  @media (max-width:760px){.stage{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>换皮与换规则</h1>
+  <p>左边是锁住的一张，右边是当前的一张。只换配色，还是连规则一起换——看哪一边改完之后，它还是"同一件东西"。</p>
+</header>
+
+<main>
+  <section class="bar" aria-label="参数">
+    <fieldset class="seg" aria-label="规则">
+      <legend>规则</legend>
+      <label><input type="radio" name="rule" value="free" checked>独立随机</label>
+      <label><input type="radio" name="rule" value="grad">横向渐变</label>
+      <label><input type="radio" name="rule" value="wave">同心波</label>
+    </fieldset>
+    <fieldset class="seg" aria-label="配色">
+      <legend>配色</legend>
+      <label><input type="radio" name="pal" value="mono" checked>单色</label>
+      <label><input type="radio" name="pal" value="duo">双色</label>
+      <label><input type="radio" name="pal" value="vivid">高饱和</label>
+    </fieldset>
+    <button type="button" id="seed">换个种子</button>
+    <button type="button" id="lock">锁住当前</button>
+  </section>
+
+  <section class="stage">
+    <figure>
+      <figcaption><b>参照</b><span id="ref-cap"></span></figcaption>
+      <canvas id="ref" width="1080" height="720" aria-label="参照图案"></canvas>
+    </figure>
+    <figure>
+      <figcaption><b>当前</b><span id="cur-cap"></span></figcaption>
+      <canvas id="cur" width="1080" height="720" aria-label="当前图案"></canvas>
+    </figure>
+  </section>
+
+  <p class="readout" id="readout"></p>
+</main>
+
+<footer>
+  <b>看什么</b>
+  <ol>
+    <li>只换配色：每个点的大小和位置完全一样，只有颜色变了——同一件作品的另一个版本。</li>
+    <li>只换规则（配色不变）：元素还是圆点、还在同一个网格里，但"大小由什么决定"变了，整个图案的疏密关系跟着变——这已经是另一件作品。</li>
+    <li>只换种子：同一个规则，每次都不一样，可是"像同一个系列"。</li>
+    <li>先「锁住当前」，再连着换几次配色，最后换一次规则：哪种改动让你觉得"换了一件东西"？</li>
+  </ol>
+  <p class="tail">这里的"规则"只是三种画法，不是完整的生成系统；种子用的是确定性的伪随机，所以同样的规则、配色、种子画出来完全一样。</p>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const COLS = 14, ROWS = 9;
+
+  const PALETTES = {
+    mono:  { bg: '#f5f6f8', fg: ['#1f2937'], name: '单色' },
+    duo:   { bg: '#ffffff', fg: ['#2563eb', '#f59e0b'], name: '双色' },
+    vivid: { bg: '#0f172a', fg: ['#ec4899', '#22d3ee', '#a855f7', '#facc15'], name: '高饱和' }
+  };
+
+  /* 三条规则都画圆点；区别只在"大小由什么决定"——也就是元素之间的关系 */
+  const RULES = {
+    free: {
+      name: '独立随机',
+      size(i, j, rnd) { return 0.12 + rnd() * 0.32; }
+    },
+    grad: {
+      name: '横向渐变',
+      size(i, j, rnd, cols) {
+        const t = i / (cols - 1);
+        return 0.10 + 0.34 * t + (rnd() - 0.5) * 0.06;
+      }
+    },
+    wave: {
+      name: '同心波',
+      size(i, j, rnd, cols, rows) {
+        const dx = i - (cols - 1) / 2;
+        const dy = (j - (rows - 1) / 2) * 1.25;
+        const d = Math.hypot(dx, dy);
+        return 0.10 + 0.30 * (0.5 + 0.5 * Math.cos(d * 0.62)) + (rnd() - 0.5) * 0.05;
+      }
+    }
+  };
+
+  /* 确定性伪随机：同一个种子给同一串数 */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  let currentSeed = 1234;
+  let locked = { rule: 'free', pal: 'mono', seed: 1234 };
+
+  function state() {
+    return {
+      rule: document.querySelector('input[name=rule]:checked').value,
+      pal: document.querySelector('input[name=pal]:checked').value,
+      seed: currentSeed
+    };
+  }
+
+  function draw(canvas, st) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const pal = PALETTES[st.pal];
+    ctx.fillStyle = pal.bg;
+    ctx.fillRect(0, 0, w, h);
+
+    const cw = w / COLS, ch = h / ROWS;
+    const s = Math.min(cw, ch);
+    const rnd = mulberry32(st.seed);
+    const rule = RULES[st.rule];
+
+    for (let j = 0; j < ROWS; j++) {
+      for (let i = 0; i < COLS; i++) {
+        const k = rule.size(i, j, rnd, COLS, ROWS);
+        ctx.fillStyle = pal.fg[(i + j) % pal.fg.length];
+        ctx.beginPath();
+        ctx.arc((i + 0.5) * cw, (j + 0.5) * ch, Math.max(1.5, k * s), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  function cap(el, st) {
+    el.textContent = `${RULES[st.rule].name} · ${PALETTES[st.pal].name} · 种子 ${st.seed}`;
+  }
+
+  const refCanvas = document.getElementById('ref');
+  const curCanvas = document.getElementById('cur');
+
+  function render() {
+    const st = state();
+    draw(curCanvas, st);
+    draw(refCanvas, locked);
+    cap(document.getElementById('cur-cap'), st);
+    cap(document.getElementById('ref-cap'), locked);
+    const same = st.rule === locked.rule && st.pal === locked.pal && st.seed === locked.seed;
+    document.getElementById('readout').innerHTML = same
+      ? '<b>两张一样</b>'
+      : `规则 ${st.rule !== locked.rule ? '变了' : '没变'} · 配色 ${st.pal !== locked.pal ? '变了' : '没变'} · 种子 ${st.seed !== locked.seed ? '变了' : '没变'}`;
+  }
+
+  document.querySelectorAll('input[name=rule],input[name=pal]').forEach((r) => {
+    r.addEventListener('change', render);
+  });
+
+  document.getElementById('seed').addEventListener('click', () => {
+    currentSeed = 1 + Math.floor(Math.random() * 99999);
+    render();
+  });
+
+  document.getElementById('lock').addEventListener('click', () => {
+    locked = state();
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

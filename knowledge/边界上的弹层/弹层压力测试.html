@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>弹层压力测试：三个功能，三种失败</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e6e8ec; --text:#1d2129; --muted:#6b7280;
+    --accent:#2f6feb; --warn:#c0392b; --soft:#f0f2f6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;
+    font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px 12px}
+  header h1{font-size:16px;margin:0 0 4px;font-weight:600}
+  header p{margin:0;color:var(--muted);font-size:13px;max-width:900px}
+  main{flex:1;padding:14px 20px 10px;display:flex;flex-direction:column;gap:12px;align-items:center}
+  .bar{width:100%;max-width:840px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .field{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);white-space:nowrap}
+  .field.check{gap:6px;color:var(--text);cursor:pointer}
+  input[type=range]{width:130px;accent-color:var(--accent)}
+  input[type=checkbox]{accent-color:var(--accent)}
+  output{font-variant-numeric:tabular-nums;color:var(--text);min-width:2.5ch;display:inline-block}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font:inherit;font-size:12px;color:var(--muted);background:var(--soft);border:1px solid transparent;border-radius:999px;padding:3px 10px;cursor:pointer}
+  .chip:hover{color:var(--text);border-color:var(--line)}
+  .chip:focus-visible,.trigger:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .stage{
+    position:relative;width:720px;max-width:100%;height:420px;overflow:hidden;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    background-image:radial-gradient(circle at 1px 1px, #e9ebf0 1px, transparent 0);
+    background-size:16px 16px;
+  }
+  .trigger{
+    position:absolute;left:80px;top:80px;width:96px;height:36px;border:0;border-radius:999px;
+    background:var(--text);color:#fff;font:inherit;font-size:13px;cursor:grab;touch-action:none;
+  }
+  .trigger:active{cursor:grabbing}
+  .pop{
+    position:absolute;width:220px;background:#fff;border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 12px 32px rgba(17,24,39,.14);display:flex;flex-direction:column;
+  }
+  .pop .list{overflow:auto;padding:6px;border-radius:9px}
+  .pop .item{display:block;width:100%;text-align:left;border:0;background:transparent;font:inherit;font-size:13px;
+    color:var(--text);padding:6px 8px;border-radius:6px;cursor:pointer}
+  .pop .item:hover{background:var(--soft)}
+  .arrow{position:absolute;width:10px;height:10px;background:#fff;border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
+  .readout{width:100%;max-width:840px;margin:0;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .readout b{color:var(--text);font-weight:600}
+  .readout .bad{color:var(--warn);font-weight:600}
+  footer{background:var(--panel);border-top:1px solid var(--line);padding:12px 20px 14px;font-size:12px;color:var(--muted);margin-top:10px}
+  footer b{color:var(--text);font-weight:600}
+  footer ol{margin:4px 0 0;padding-left:18px}
+  footer li{margin:2px 0}
+  footer .tail{margin-top:8px;color:#8a909a}
+  @media (max-width:760px){.stage{height:360px}.trigger{left:220px;top:170px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>弹层压力测试：三个功能，三种失败</h1>
+  <p>把按钮拖到角落、把内容调长。三个开关分别关掉一个功能，看它对应哪一种失败。</p>
+</header>
+
+<main>
+  <section class="bar" aria-label="参数">
+    <label class="field">内容条数
+      <input type="range" id="count" min="2" max="24" step="1" value="4">
+      <output id="count-out" for="count">4</output>
+    </label>
+    <label class="field check"><input type="checkbox" id="flip" checked> 翻转</label>
+    <label class="field check"><input type="checkbox" id="shift" checked> 偏移</label>
+    <label class="field check"><input type="checkbox" id="adaptive" checked> 自适应高度</label>
+    <div class="chips" role="group" aria-label="把按钮放到">
+      <button class="chip" type="button" data-pos="tl">左上</button>
+      <button class="chip" type="button" data-pos="tr">右上</button>
+      <button class="chip" type="button" data-pos="bl">左下</button>
+      <button class="chip" type="button" data-pos="br">右下</button>
+      <button class="chip" type="button" data-pos="c">中间</button>
+    </div>
+  </section>
+
+  <div class="stage" id="stage">
+    <button class="trigger" id="trigger" type="button">打开</button>
+    <div class="pop" id="pop" role="dialog" aria-label="示例弹层">
+      <div class="arrow" id="arrow"></div>
+      <div class="list" id="list"></div>
+    </div>
+  </div>
+
+  <p class="readout" id="readout"></p>
+</main>
+
+<footer>
+  <b>看什么</b>
+  <ol>
+    <li>把按钮放到「右下」：弹层往上翻、往左偏——两个功能一起把位置救回来。</li>
+    <li>关掉「翻转」：同样在右下，弹层仍然往下开，被屏幕裁掉一截。</li>
+    <li>关掉「偏移」：放到右上，弹层有一半在屏幕外。</li>
+    <li>内容调到 20 条，再关掉「自适应高度」：弹层比屏幕还高，多出来的部分直接没了。</li>
+  </ol>
+  <p class="tail">这里用的是一个 720×420 的"屏幕"，边界是画出来的；真实页面里边界是视口和各种滚动容器。按钮可以用方向键移动（聚焦后按方向键）。页面没有动画。</p>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const stage = document.getElementById('stage');
+  const trigger = document.getElementById('trigger');
+  const pop = document.getElementById('pop');
+  const list = document.getElementById('list');
+  const arrow = document.getElementById('arrow');
+  const readout = document.getElementById('readout');
+
+  const MARGIN = 10;
+  const GAP = 6;
+  const POP_W = 220;
+  const ITEM_H = 32;
+  const PAD = 12;
+
+  let tx = 80, ty = 80;
+
+  function stageSize() {
+    return { w: stage.clientWidth, h: stage.clientHeight };
+  }
+
+  function contentHeight() {
+    return list.children.length * ITEM_H + PAD;
+  }
+
+  function buildList(n) {
+    list.innerHTML = '';
+    for (let i = 1; i <= n; i++) {
+      const b = document.createElement('button');
+      b.className = 'item';
+      b.type = 'button';
+      b.textContent = '选项 ' + i;
+      list.append(b);
+    }
+  }
+
+  function placeTrigger() {
+    const { w, h } = stageSize();
+    tx = Math.max(0, Math.min(w - 96, tx));
+    ty = Math.max(0, Math.min(h - 36, ty));
+    trigger.style.left = tx + 'px';
+    trigger.style.top = ty + 'px';
+  }
+
+  function layout() {
+    const { w, h } = stageSize();
+    const tw = 96, th = 36;
+    const wantFlip = document.getElementById('flip').checked;
+    const wantShift = document.getElementById('shift').checked;
+    const wantAdapt = document.getElementById('adaptive').checked;
+
+    const desired = contentHeight();
+    const below = h - (ty + th) - MARGIN - GAP;
+    const above = ty - MARGIN - GAP;
+
+    let dir = 'down';
+    if (wantFlip && below < desired && above > below) dir = 'up';
+
+    const avail = dir === 'down' ? below : above;
+    let height = desired;
+    let scrolling = false;
+    if (wantAdapt && desired > avail) {
+      height = Math.max(72, avail);
+      scrolling = true;
+    }
+    height = Math.min(height, Math.max(72, desired));
+
+    let left = tx + tw / 2 - POP_W / 2;
+    if (wantShift) left = Math.max(MARGIN, Math.min(w - POP_W - MARGIN, left));
+
+    const top = dir === 'down' ? ty + th + GAP : ty - height - GAP;
+
+    pop.style.width = POP_W + 'px';
+    pop.style.height = height + 'px';
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+
+    // 箭头：贴住按钮中心，但不超出圆角
+    const ax = Math.max(14, Math.min(POP_W - 14, tx + tw / 2 - left));
+    arrow.style.left = (ax - 5) + 'px';
+    if (dir === 'down') {
+      arrow.style.top = '-6px';
+      arrow.style.borderLeft = '1px solid var(--line)';
+      arrow.style.borderTop = '1px solid var(--line)';
+      arrow.style.borderRight = '0';
+      arrow.style.borderBottom = '0';
+    } else {
+      arrow.style.top = (height - 4) + 'px';
+      arrow.style.borderLeft = '0';
+      arrow.style.borderTop = '0';
+      arrow.style.borderRight = '1px solid var(--line)';
+      arrow.style.borderBottom = '1px solid var(--line)';
+    }
+
+    // 是否被"屏幕"裁掉
+    const clippedTop = top < 0;
+    const clippedBottom = top + height > h;
+    const clippedLeft = left < 0;
+    const clippedRight = left + POP_W > w;
+    const clipped = clippedTop || clippedBottom || clippedLeft || clippedRight;
+
+    const dirText = dir === 'down' ? '向下' : '向上';
+    const parts = [
+      `方向 <b>${dirText}</b>`,
+      `弹层高 <b>${Math.round(height)}px</b>`,
+      `可用高 <b>${Math.round(avail)}px</b>`,
+      `内滚 <b>${scrolling ? '是' : '否'}</b>`
+    ];
+    readout.innerHTML = parts.join(' · ') + (clipped
+      ? ' · <span class="bad">被裁：' +
+        [clippedTop && '上', clippedBottom && '下', clippedLeft && '左', clippedRight && '右'].filter(Boolean).join('、') +
+        '</span>'
+      : ' · <b>完整在屏幕内</b>');
+  }
+
+  function refresh() {
+    placeTrigger();
+    layout();
+  }
+
+  /* ---------- 拖动 ---------- */
+
+  let drag = null;
+  trigger.addEventListener('pointerdown', (e) => {
+    drag = { x: e.clientX, y: e.clientY, tx, ty };
+    trigger.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    tx = drag.tx + (e.clientX - drag.x);
+    ty = drag.ty + (e.clientY - drag.y);
+    refresh();
+  });
+  function endDrag() { drag = null; }
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+
+  // 方向键移动按钮
+  trigger.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 40 : 10;
+    const map = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    const d = map[e.key];
+    if (!d) return;
+    e.preventDefault();
+    tx += d[0]; ty += d[1];
+    refresh();
+  });
+
+  /* ---------- 控件 ---------- */
+
+  const count = document.getElementById('count');
+  count.addEventListener('input', () => {
+    document.getElementById('count-out').textContent = count.value;
+    buildList(Number(count.value));
+    layout();
+  });
+
+  ['flip', 'shift', 'adaptive'].forEach((id) => {
+    document.getElementById(id).addEventListener('change', layout);
+  });
+
+  document.querySelectorAll('[data-pos]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const { w, h } = stageSize();
+      const pos = btn.dataset.pos;
+      tx = pos === 'tl' || pos === 'bl' ? 20 : pos === 'c' ? (w - 96) / 2 : w - 96 - 20;
+      ty = pos === 'tl' || pos === 'tr' ? 20 : pos === 'c' ? (h - 36) / 2 : h - 36 - 20;
+      refresh();
+    });
+  });
+
+  window.addEventListener('resize', refresh);
+
+  /* ---------- 启动 ---------- */
+
+  buildList(Number(count.value));
+  refresh();
+})();
+</script>
+</body>
+</html>

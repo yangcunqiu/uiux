@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>插入与删除：谁先动</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --row-h:48px;
+    --row-gap:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .bar + .bar{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+
+  .seg{display:inline-flex;padding:2px;gap:2px;background:var(--line-soft);border-radius:8px}
+  .seg label{position:relative;display:inline-flex}
+  .seg input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+  .seg span{
+    display:inline-block;padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text-2);
+    white-space:nowrap;cursor:pointer
+  }
+  .seg input:checked + span{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(31,35,41,.1)}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
+
+  .actions{display:inline-flex;align-items:center;gap:8px}
+  .chk{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2);cursor:pointer}
+  .chk input{accent-color:var(--accent);margin:0;cursor:pointer}
+  .actions button{
+    height:30px;padding:0 12px;border:1px solid #d6d9e0;border-radius:8px;background:#fff;
+    font-size:12px;color:var(--text-2);cursor:pointer
+  }
+  .actions button:hover{background:#f7f8fa}
+  .actions .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .actions .primary:hover{background:#1f5ce0}
+
+  .stage{flex:1;min-height:0;overflow-y:auto;padding:26px 24px}
+  .listwrap{max-width:520px;margin:0 auto}
+  .listhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .listhead h2{margin:0;font-size:13px;font-weight:600;color:var(--text-2)}
+  .listhead .count{font:11px/1.5 var(--mono);color:var(--text-3)}
+
+  .list{position:relative}
+
+  /* 每个可动画的条目：外层负责「空间」，内层负责「内容」 */
+  .row-wrap{position:relative;overflow:hidden;height:0;margin-bottom:0}
+  .item{
+    height:var(--row-h);display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:0 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    opacity:0
+  }
+  .item-main{min-width:0}
+  .item h3{margin:0;font-size:13px;font-weight:500;line-height:1.3}
+  .item p{margin:0;font-size:11px;color:var(--text-3);line-height:1.4}
+  .item-tag{
+    flex:none;padding:2px 8px;border-radius:999px;background:var(--line-soft);
+    font-size:11px;color:var(--text-3)
+  }
+  .item[data-new="true"]{border-color:var(--accent);background:#f2f6ff}
+  .item[data-new="true"] h3{color:var(--accent)}
+
+  .notes{
+    flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:26vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin-top:6px;color:var(--text-3);font-size:11px}
+
+  @media (max-width:640px){
+    .stage{padding:18px 14px}
+    .notes{padding:8px 14px 12px;max-height:24vh}
+    .status{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="bar">
+      <div class="title">插入与删除：谁先动<span>同一件事，四种顺序</span></div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="bar">
+      <div class="seg" id="order">
+        <label><input type="radio" name="order" value="none"><span>无编排</span></label>
+        <label><input type="radio" name="order" value="sync"><span>同时</span></label>
+        <label><input type="radio" name="order" value="moveFirst" checked><span>空间先，内容后</span></label>
+        <label><input type="radio" name="order" value="fadeFirst"><span>内容先，空间后</span></label>
+      </div>
+      <div class="actions">
+        <label class="chk"><input type="checkbox" id="highlight" checked> 高亮新增</label>
+        <button type="button" class="primary" id="insert">插入一条</button>
+        <button type="button" id="remove">删除一条</button>
+        <button type="button" id="reset">重置</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="listwrap">
+      <div class="listhead">
+        <h2>审核队列</h2>
+        <span class="count" id="count"></span>
+      </div>
+      <div class="list" id="list" role="list" aria-label="审核队列"></div>
+    </div>
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li>先点<b>插入一条</b>，依次切换四种编排，比较同一个位置上的表现。</li>
+      <li>再点<b>删除一条</b>，同样比较四种。</li>
+      <li>注意同一种编排，在插入和删除时未必是同一个效果——有的顺序在插入时成立，在删除时正好相反。</li>
+      <li>把<b>高亮新增</b>关掉再看一遍：高亮是事后的静态标记，编排是当时的过程。关掉之后，你只能靠过程认出哪条是新的；删除则本来就没法标记。</li>
+      <li>看两件事：新条目出现时，周围有没有一块「先空出来」的地方；旧条目消失时，它有没有被「挤掉」或和下面的内容叠在一起。</li>
+    </ol>
+    <p class="limit">这是演示用的队列和时长，不是推荐值。四种编排里没有标对错，需要你自己看。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var listEl = $('list');
+  var statusEl = $('status');
+  var countEl = $('count');
+
+  var ROW_H = 48;
+  var ROW_GAP = 8;
+  var WRAP_H = ROW_H + ROW_GAP;
+
+  var ORDERS = {
+    none:      { moveDur: 0,   fadeDur: 0,   moveDelay: 0,   fadeDelay: 0 },
+    sync:      { moveDur: 220, fadeDur: 160, moveDelay: 0,   fadeDelay: 0 },
+    moveFirst: { moveDur: 220, fadeDur: 160, moveDelay: 0,   fadeDelay: 210 },
+    fadeFirst: { moveDur: 220, fadeDur: 160, moveDelay: 210, fadeDelay: 0 }
+  };
+
+  var ORDER_LABEL = {
+    none: '无编排',
+    sync: '同时',
+    moveFirst: '空间先，内容后',
+    fadeFirst: '内容先，空间后'
+  };
+
+  var SEED = [
+    { title: '素材审核', meta: '5 项待处理', tag: '进行中' },
+    { title: '合同归档', meta: '12 项待处理', tag: '待处理' },
+    { title: '排期确认', meta: '3 项待处理', tag: '已完成' },
+    { title: '账单核对', meta: '8 项待处理', tag: '待处理' },
+    { title: '权限申请', meta: '2 项待处理', tag: '已完成' }
+  ];
+
+  var state = { order: 'moveFirst', rows: [], serial: 0, inserting: false, highlight: true };
+
+  function makeRow(data) {
+    var wrap = document.createElement('div');
+    wrap.className = 'row-wrap';
+    wrap.setAttribute('role', 'listitem');
+
+    var row = document.createElement('div');
+    row.className = 'item';
+    if (data.isNew) row.dataset.new = 'true';
+
+    var main = document.createElement('div');
+    main.className = 'item-main';
+    var title = document.createElement('h3');
+    title.textContent = data.title;
+    var meta = document.createElement('p');
+    meta.textContent = data.meta;
+    main.appendChild(title);
+    main.appendChild(meta);
+
+    var tag = document.createElement('span');
+    tag.className = 'item-tag';
+    tag.textContent = data.tag;
+
+    row.appendChild(main);
+    row.appendChild(tag);
+    wrap.appendChild(row);
+
+    return { wrap: wrap, row: row };
+  }
+
+  function mount(data, index, collapsed) {
+    var built = makeRow(data);
+    if (collapsed) {
+      built.wrap.style.height = '0px';
+      built.row.style.opacity = '0';
+    } else {
+      built.wrap.style.height = WRAP_H + 'px';
+      built.row.style.opacity = '1';
+    }
+    var ref = listEl.children[index] || null;
+    listEl.insertBefore(built.wrap, ref);
+    var item = { data: data, wrap: built.wrap, row: built.row };
+    state.rows.splice(index, 0, item);
+    return item;
+  }
+
+  function setTransition(el, prop, dur, delay) {
+    if (dur <= 0) {
+      el.style.transition = 'none';
+    } else {
+      el.style.transition = prop + ' ' + dur + 'ms cubic-bezier(.2,.7,.3,1) ' + delay + 'ms';
+    }
+  }
+
+  function insert(index) {
+    if (state.inserting) return;
+    var data = {
+      title: '新条目 ' + (++state.serial),
+      meta: '刚插入 · 待分配',
+      tag: '待处理',
+      isNew: state.highlight
+    };
+    var item = mount(data, index, true);
+    var cfg = ORDERS[state.order];
+
+    /* 让浏览器先认下 0 高度，再改目标值 */
+    void item.wrap.offsetHeight;
+
+    setTransition(item.wrap, 'height', cfg.moveDur, cfg.moveDelay);
+    setTransition(item.row, 'opacity', cfg.fadeDur, cfg.fadeDelay);
+
+    item.wrap.style.height = WRAP_H + 'px';
+    item.row.style.opacity = '1';
+
+    state.inserting = true;
+    var total = Math.max(cfg.moveDur + cfg.moveDelay, cfg.fadeDur + cfg.fadeDelay);
+    window.setTimeout(function () { state.inserting = false; }, total + 60);
+    updateStatus();
+  }
+
+  function remove(index) {
+    var item = state.rows[index];
+    if (!item) return;
+    var cfg = ORDERS[state.order];
+
+    setTransition(item.row, 'opacity', cfg.fadeDur, cfg.fadeDelay);
+    setTransition(item.wrap, 'height', cfg.moveDur, cfg.moveDelay);
+
+    item.row.style.opacity = '0';
+    item.wrap.style.height = '0px';
+
+    state.rows.splice(index, 1);
+    var total = Math.max(cfg.moveDur + cfg.moveDelay, cfg.fadeDur + cfg.fadeDelay);
+    window.setTimeout(function () {
+      if (item.wrap.parentNode) item.wrap.parentNode.removeChild(item.wrap);
+    }, total + 60);
+    updateStatus();
+  }
+
+  function seed() {
+    while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+    state.rows.length = 0;
+    state.serial = 0;
+    SEED.forEach(function (data, i) { mount(data, i, false); });
+    updateStatus();
+  }
+
+  function updateStatus() {
+    statusEl.textContent = '编排：' + ORDER_LABEL[state.order] + ' · 队列 ' + state.rows.length + ' 项';
+    countEl.textContent = state.rows.length + ' 项';
+  }
+
+  /* ---------- 事件 ---------- */
+  $('order').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.order = event.target.value;
+    updateStatus();
+  });
+
+  $('highlight').addEventListener('change', function (event) {
+    state.highlight = event.target.checked;
+  });
+
+  $('insert').addEventListener('click', function () {
+    var index = Math.min(2, state.rows.length);
+    insert(index);
+  });
+
+  $('remove').addEventListener('click', function () {
+    var index = state.rows.length > 2 ? 2 : state.rows.length - 1;
+    if (index < 0) return;
+    remove(index);
+  });
+
+  $('reset').addEventListener('click', seed);
+
+  /* ---------- 启动 ---------- */
+  seed();
+})();
+</script>
+</body>
+</html>

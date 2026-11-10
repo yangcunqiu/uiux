@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>空间一致性：确认和取消，用方向区分</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .bar + .bar{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+
+  .seg{display:inline-flex;padding:2px;gap:2px;background:var(--line-soft);border-radius:8px}
+  .seg label{position:relative;display:inline-flex}
+  .seg input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+  .seg span{
+    display:inline-block;padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text-2);
+    white-space:nowrap;cursor:pointer
+  }
+  .seg input:checked + span{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(31,35,41,.1)}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
+  .hint{margin:0;font-size:11px;color:var(--text-3)}
+
+  .stage{position:relative;flex:1;min-height:0;padding:22px;display:flex;justify-content:center;align-items:flex-start;overflow:hidden;background:#e9ebf0}
+  .page{
+    width:min(560px,100%);height:100%;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px
+  }
+  .page h2{margin:0;font-size:15px;font-weight:600}
+  .page p{margin:0;font-size:12px;color:var(--text-2)}
+  .page .open{
+    align-self:flex-start;height:32px;padding:0 14px;border:1px solid var(--accent);
+    border-radius:8px;background:var(--accent);color:#fff;font-size:12px;cursor:pointer
+  }
+  .page .open:hover{background:#1f5ce0}
+
+  .scrim{
+    position:absolute;inset:0;z-index:2;background:rgba(15,23,42,.36);
+    opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s .2s
+  }
+  .scrim[data-show="true"]{opacity:1;visibility:visible;transition:opacity .2s ease}
+
+  .dialog{
+    position:absolute;left:50%;top:50%;z-index:3;
+    width:min(360px,calc(100% - 48px));transform:translate(-50%,-50%);
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;
+    box-shadow:0 18px 48px rgba(15,23,42,.2);
+    opacity:0;visibility:hidden
+  }
+  .dialog[data-show="true"]{opacity:1;visibility:visible}
+  .dialog h3{margin:0 0 6px;font-size:15px;font-weight:600}
+  .dialog p{margin:0 0 16px;font-size:12px;line-height:1.7;color:var(--text-2)}
+  .dialog-actions{display:flex;justify-content:flex-end;gap:8px}
+  .dialog-actions button{
+    height:30px;padding:0 14px;border:1px solid #d6d9e0;border-radius:8px;background:#fff;
+    font-size:12px;color:var(--text-2);cursor:pointer
+  }
+  .dialog-actions button:hover{background:#f7f8fa}
+  .dialog-actions .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .dialog-actions .primary:hover{background:#1f5ce0}
+
+  @keyframes enter{
+    from{transform:translate(-50%,-50%) translateY(-56px);opacity:0}
+    to{transform:translate(-50%,-50%) translateY(0);opacity:1}
+  }
+  @keyframes exitUp{
+    from{transform:translate(-50%,-50%) translateY(0);opacity:1}
+    to{transform:translate(-50%,-50%) translateY(-56px);opacity:0}
+  }
+  @keyframes exitDown{
+    from{transform:translate(-50%,-50%) translateY(0);opacity:1}
+    to{transform:translate(-50%,-50%) translateY(56px);opacity:0}
+  }
+
+  .notes{
+    flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:30vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin-top:6px;color:var(--text-3);font-size:11px}
+
+  @media (max-width:640px){
+    .stage{padding:14px}
+    .dialog{width:calc(100% - 40px)}
+    .notes{padding:8px 14px 12px;max-height:28vh}
+    .status{margin-left:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .scrim{transition:none !important}
+    .dialog{animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="bar">
+      <div class="title">空间一致性<span>确认和取消，用方向区分</span></div>
+      <div class="seg" id="mode">
+        <label><input type="radio" name="mode" value="none"><span>无动画</span></label>
+        <label><input type="radio" name="mode" value="consistent" checked><span>都原路返回</span></label>
+        <label><input type="radio" name="mode" value="encoded"><span>取消回上、确认向下</span></label>
+        <label><input type="radio" name="mode" value="reversed"><span>反过来</span></label>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="bar">
+      <p class="hint">打开弹层，分别点取消和确定，看它是往哪边消失的。</p>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="page">
+      <h2>修改投放计划</h2>
+      <p>这份计划下周一执行。提交后可以在记录里撤回。</p>
+      <button type="button" class="open" id="open">编辑计划</button>
+    </div>
+
+    <div class="scrim" id="scrim" data-show="false"></div>
+
+    <div class="dialog" id="dialog" data-show="false" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <h3 id="dialogTitle">提交本次修改？</h3>
+      <p>修改会立即生效，并通知相关成员。</p>
+      <div class="dialog-actions">
+        <button type="button" id="cancel">取消</button>
+        <button type="button" class="primary" id="confirm">确定</button>
+      </div>
+    </div>
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li><b>无动画</b>：弹层瞬间消失，没有任何方向信息。这是基线，后面每一档都是在它之上加东西。</li>
+      <li><b>都原路返回</b>：两个按钮都往上消失。方向不携带信息，但和「从上面来」对得上。</li>
+      <li><b>取消回上、确认向下</b>：取消原路退回，确认往反方向走。观察自己能不能把这个方向读成「返回 / 前进」。</li>
+      <li><b>反过来</b>：取消向下、确认向上。如果前一组让你觉得顺，这一组应该让你觉得别扭；如果两组都没感觉，说明方向编码对你没什么作用。</li>
+      <li>注意状态栏会记录每次关闭的方向，方便你对照。</li>
+    </ol>
+    <p class="limit">位移距离和时长是演示值。这个演示只有指针和键盘，没有考虑触摸端的返回手势。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var dialog = $('dialog');
+  var scrim = $('scrim');
+  var statusEl = $('status');
+
+  var state = { mode: 'consistent' };
+
+  function dirFor(action) {
+    if (state.mode === 'consistent') return 'up';
+    if (state.mode === 'encoded') return action === 'cancel' ? 'up' : 'down';
+    return action === 'cancel' ? 'down' : 'up';
+  }
+
+  function openDialog() {
+    dialog.style.animation = 'none';
+    dialog.dataset.show = 'true';
+    scrim.dataset.show = 'true';
+    void dialog.offsetWidth;
+    dialog.style.animation = 'enter .22s cubic-bezier(.2,.7,.3,1) both';
+    updateStatus('已打开');
+  }
+
+  function closeDialog(action) {
+    var label = action === 'cancel' ? '取消' : '确定';
+
+    if (state.mode === 'none') {
+      dialog.style.animation = 'none';
+      dialog.dataset.show = 'false';
+      scrim.dataset.show = 'false';
+      updateStatus('点了' + label + '，弹层直接消失');
+      return;
+    }
+
+    var dir = dirFor(action);
+    var name = dir === 'up' ? 'exitUp' : 'exitDown';
+    dialog.style.animation = name + ' .22s cubic-bezier(.2,.7,.3,1) both';
+    scrim.dataset.show = 'false';
+
+    var onEnd = function () {
+      dialog.removeEventListener('animationend', onEnd);
+      dialog.style.animation = 'none';
+      dialog.dataset.show = 'false';
+    };
+    dialog.addEventListener('animationend', onEnd);
+
+    updateStatus('点了' + label + '，弹层向' + (dir === 'up' ? '上' : '下') + '消失');
+  }
+
+  function updateStatus(text) {
+    var modeLabel = {
+      none: '无动画',
+      consistent: '都原路返回',
+      encoded: '取消回上、确认向下',
+      reversed: '反过来'
+    }[state.mode];
+    statusEl.textContent = '模式：' + modeLabel + (text ? ' · ' + text : '');
+  }
+
+  $('open').addEventListener('click', openDialog);
+  $('cancel').addEventListener('click', function () { closeDialog('cancel'); });
+  $('confirm').addEventListener('click', function () { closeDialog('confirm'); });
+  scrim.addEventListener('click', function () { closeDialog('cancel'); });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    if (dialog.dataset.show !== 'true') return;
+    closeDialog('cancel');
+  });
+
+  $('mode').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.mode = event.target.value;
+    updateStatus('已切换');
+  });
+
+  updateStatus('');
+})();
+</script>
+</body>
+</html>

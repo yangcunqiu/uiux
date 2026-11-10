@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>错落：入场与滚动，两个场景</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .bar + .bar{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+
+  .seg{display:inline-flex;padding:2px;gap:2px;background:var(--line-soft);border-radius:8px}
+  .seg label{position:relative;display:inline-flex}
+  .seg input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+  .seg span{
+    display:inline-block;padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text-2);
+    white-space:nowrap;cursor:pointer
+  }
+  .seg input:checked + span{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(31,35,41,.1)}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
+
+  .field{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
+  .field input[type=range]{width:110px;accent-color:var(--accent);cursor:pointer}
+  .field output{font:11px/1 var(--mono);color:var(--text);min-width:34px;text-align:right}
+
+  .plain{
+    height:28px;padding:0 10px;border:1px solid #d6d9e0;border-radius:8px;background:#fff;
+    font-size:12px;color:var(--text-2);cursor:pointer
+  }
+  .plain:hover{background:#f7f8fa}
+
+  .controls[data-for]{display:none}
+  .controls[data-for][data-active="true"]{display:flex}
+
+  .stage{flex:1;min-height:0;padding:22px 24px;display:flex;justify-content:center}
+
+  .scene{display:none;width:min(560px,100%)}
+  .scene[data-active="true"]{display:block}
+
+  /* 入场场景 */
+  .enter-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .enter-card{
+    height:84px;display:flex;flex-direction:column;justify-content:center;gap:2px;
+    padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    will-change:transform,opacity
+  }
+  .enter-card h3{margin:0;font-size:12px;font-weight:500}
+  .enter-card p{margin:0;font-size:11px;color:var(--text-3)}
+
+  /* 滚动场景 */
+  .scroll-wrap{display:flex;justify-content:center}
+  .viewport{
+    position:relative;width:100%;max-width:420px;height:100%;min-height:320px;overflow:hidden;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    touch-action:none;cursor:grab
+  }
+  .viewport.dragging{cursor:grabbing}
+  .viewport:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .stack{position:absolute;inset:0}
+  .scroll-card{
+    position:absolute;left:12px;right:12px;top:0;height:76px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:0 16px;background:#fff;border:1px solid var(--line);border-radius:10px;
+    will-change:transform
+  }
+  .scroll-card h3{margin:0;font-size:13px;font-weight:500}
+  .scroll-card p{margin:0;font-size:11px;color:var(--text-3)}
+  .scroll-card span{
+    flex:none;padding:2px 8px;border-radius:999px;background:var(--line-soft);
+    font-size:11px;color:var(--text-3)
+  }
+  .viewport-tip{
+    position:absolute;left:50%;bottom:10px;transform:translateX(-50%);
+    font-size:11px;color:#c3c8d0;pointer-events:none
+  }
+
+  .notes{
+    flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:26vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin-top:6px;color:var(--text-3);font-size:11px}
+
+  @media (max-width:640px){
+    .stage{padding:14px}
+    .enter-grid{grid-template-columns:repeat(2,1fr)}
+    .notes{padding:8px 14px 12px;max-height:24vh}
+    .status{margin-left:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .enter-card,.scroll-card{transition-duration:0s !important}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="bar">
+      <div class="title">错落：入场与滚动<span>两个场景分开看</span></div>
+      <div class="seg" id="scene">
+        <label><input type="radio" name="scene" value="enter" checked><span>入场</span></label>
+        <label><input type="radio" name="scene" value="scroll"><span>滚动</span></label>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="bar controls" data-for="enter" id="enterControls" data-active="true">
+      <div class="seg" id="enterMode">
+        <label><input type="radio" name="enterMode" value="sync"><span>同步</span></label>
+        <label><input type="radio" name="enterMode" value="stagger" checked><span>依次</span></label>
+      </div>
+      <label class="field">间隔<input type="range" id="enterAmount" min="0" max="100" value="35"><output id="enterAmountOut">35</output></label>
+      <button type="button" class="plain" id="replay">重放</button>
+    </div>
+
+    <div class="bar controls" data-for="scroll" id="scrollControls">
+      <div class="seg" id="scrollMode">
+        <label><input type="radio" name="scrollMode" value="sync"><span>同步</span></label>
+        <label><input type="radio" name="scrollMode" value="stagger" checked><span>错落</span></label>
+      </div>
+      <label class="field">幅度<input type="range" id="scrollAmount" min="0" max="100" value="35"><output id="scrollAmountOut">35</output></label>
+      <button type="button" class="plain" id="scrollReset">重置</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="scene" id="scene-enter" data-active="true" aria-label="入场场景">
+      <div class="enter-grid" id="enterGrid"></div>
+    </section>
+
+    <section class="scene" id="scene-scroll" aria-label="滚动场景">
+      <div class="scroll-wrap">
+        <div class="viewport" id="viewport" role="region" aria-label="滚动场景：上下拖动，或聚焦后用上下方向键" tabindex="0">
+          <div class="stack" id="stack"></div>
+          <div class="viewport-tip">上下拖动</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li><b>入场</b>：先「同步」重放一次，再切「依次」重放。间隔从 0 慢慢推大，看它什么时候从「一起出现」变成「排队进场」。</li>
+      <li><b>滚动</b>：先「同步」拖几下，再切「错落」拖同样的距离。这一档大概率会让你觉得别扭——这是结论，不是 bug：它演示的是错落被放到错误场景里的样子。</li>
+      <li>两个场景的差别不在参数，在<b>元素之间的相对位置要不要保持</b>：入场结束后每张卡回到原位，错落只改变到达时间；滚动时行距本身就在被改变。</li>
+      <li>错落幅度推到很大时，注意你还能不能把这一屏看成一个组。</li>
+    </ol>
+    <p class="limit">卡片数量和时长都是演示值。这里也没有测量错误率或反应时间。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var statusEl = $('status');
+  var enterGrid = $('enterGrid');
+  var stackEl = $('stack');
+  var viewport = $('viewport');
+
+  var ENTER_COUNT = 8;
+  var SCROLL_COUNT = 8;
+  var CARD_H = 76;
+  var STEP = 84;
+  var PAD = 12;
+  var BASE_K = 900;
+  var BASE_C = 42;
+
+  var ENTER_DATA = [
+    { title: '素材审核', meta: '5 项' },
+    { title: '合同归档', meta: '12 项' },
+    { title: '排期确认', meta: '3 项' },
+    { title: '账单核对', meta: '8 项' },
+    { title: '权限申请', meta: '2 项' },
+    { title: '版本发布', meta: '1 项' },
+    { title: '数据导出', meta: '4 项' },
+    { title: '通知设置', meta: '6 项' }
+  ];
+
+  var SCROLL_DATA = [
+    { title: '素材审核', meta: '5 项待处理', tag: '进行中' },
+    { title: '合同归档', meta: '12 项待处理', tag: '待处理' },
+    { title: '排期确认', meta: '3 项待处理', tag: '已完成' },
+    { title: '账单核对', meta: '8 项待处理', tag: '待处理' },
+    { title: '权限申请', meta: '2 项待处理', tag: '已完成' },
+    { title: '版本发布', meta: '1 项待处理', tag: '待处理' },
+    { title: '数据导出', meta: '4 项待处理', tag: '已完成' },
+    { title: '通知设置', meta: '6 项待处理', tag: '待处理' }
+  ];
+
+  var state = {
+    scene: 'enter',
+    enterMode: 'stagger',
+    enterAmount: 0.35,
+    scrollMode: 'stagger',
+    scrollAmount: 0.35,
+    scroll: 0,
+    dragging: false,
+    lastPointer: 0,
+    lastT: 0,
+    cards: [],
+    enterTimer: 0
+  };
+
+  /* ---------- 入场 ---------- */
+  function buildEnter() {
+    ENTER_DATA.forEach(function (item, i) {
+      var card = document.createElement('div');
+      card.className = 'enter-card';
+      card.style.transform = 'translateY(0)';
+      card.style.opacity = '1';
+
+      var h3 = document.createElement('h3');
+      h3.textContent = item.title;
+      var p = document.createElement('p');
+      p.textContent = item.meta;
+      card.appendChild(h3);
+      card.appendChild(p);
+
+      card.dataset.index = String(i);
+      enterGrid.appendChild(card);
+    });
+  }
+
+  function replayEnter() {
+    var cards = enterGrid.querySelectorAll('.enter-card');
+    var interval = state.enterAmount * 80; /* 0–80ms */
+    window.clearTimeout(state.enterTimer);
+
+    for (var i = 0; i < cards.length; i += 1) {
+      var card = cards[i];
+      card.style.transition = 'none';
+      card.style.transform = 'translateY(26px)';
+      card.style.opacity = '0';
+    }
+
+    /* 强制 reflow，让上面的起点生效 */
+    void enterGrid.offsetHeight;
+
+    for (var j = 0; j < cards.length; j += 1) {
+      var el = cards[j];
+      var delay = state.enterMode === 'stagger' ? Math.round(j * interval) : 0;
+      el.style.transition =
+        'transform 400ms cubic-bezier(.2,.7,.3,1) ' + delay +
+        'ms, opacity 320ms ease ' + delay + 'ms';
+      el.style.transform = 'translateY(0)';
+      el.style.opacity = '1';
+    }
+    updateStatus();
+  }
+
+  /* ---------- 滚动 ---------- */
+  function buildScroll() {
+    SCROLL_DATA.forEach(function (item, i) {
+      var card = document.createElement('div');
+      card.className = 'scroll-card';
+
+      var main = document.createElement('div');
+      var h3 = document.createElement('h3');
+      h3.textContent = item.title;
+      var p = document.createElement('p');
+      p.textContent = item.meta;
+      main.appendChild(h3);
+      main.appendChild(p);
+
+      var tag = document.createElement('span');
+      tag.textContent = item.tag;
+
+      card.appendChild(main);
+      card.appendChild(tag);
+      stackEl.appendChild(card);
+
+      card.style.transform = 'translateY(' + (PAD + i * STEP) + 'px)';
+      state.cards.push({
+        el: card,
+        y: PAD + i * STEP,
+        v: 0,
+        offset: i * STEP,
+        index: i
+      });
+    });
+  }
+
+  function maxScroll() {
+    var total = (SCROLL_COUNT - 1) * STEP + CARD_H + PAD * 2;
+    return Math.max(0, total - viewport.clientHeight);
+  }
+
+  function clampScroll(value) {
+    return Math.max(0, Math.min(maxScroll(), value));
+  }
+
+  function paramsFor(card) {
+    if (state.scrollMode !== 'stagger' || SCROLL_COUNT < 2) {
+      return { k: BASE_K, c: BASE_C };
+    }
+    var t = card.index / (SCROLL_COUNT - 1);
+    var k = BASE_K * (1 - 0.55 * t * state.scrollAmount);
+    var c = BASE_C * (1 + 0.9 * t * state.scrollAmount);
+    return { k: k, c: c };
+  }
+
+  function stepScroll(dt) {
+    state.cards.forEach(function (card) {
+      var targetY = PAD + card.offset - state.scroll;
+      var p = paramsFor(card);
+      var substeps = Math.max(1, Math.ceil(dt / (1 / 240)));
+      var h = dt / substeps;
+      for (var s = 0; s < substeps; s += 1) {
+        var a = -p.k * (card.y - targetY) - p.c * card.v;
+        card.v += a * h;
+        card.y += card.v * h;
+      }
+      if (!Number.isFinite(card.y) || !Number.isFinite(card.v)) {
+        card.y = targetY;
+        card.v = 0;
+      }
+      card.el.style.transform = 'translateY(' + card.y.toFixed(2) + 'px)';
+    });
+  }
+
+  /* ---------- 主循环 ---------- */
+  function frame(now) {
+    var dt = state.lastT ? Math.min(0.05, (now - state.lastT) / 1000) : 1 / 60;
+    state.lastT = now;
+    if (state.scene === 'scroll') stepScroll(dt);
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- 场景 ---------- */
+  function applyScene() {
+    $('scene-enter').dataset.active = state.scene === 'enter' ? 'true' : 'false';
+    $('scene-scroll').dataset.active = state.scene === 'scroll' ? 'true' : 'false';
+    $('enterControls').dataset.active = state.scene === 'enter' ? 'true' : 'false';
+    $('scrollControls').dataset.active = state.scene === 'scroll' ? 'true' : 'false';
+    if (state.scene === 'scroll') {
+      state.scroll = clampScroll(state.scroll);
+    }
+    updateStatus();
+  }
+
+  function updateStatus() {
+    var text = state.scene === 'enter'
+      ? '入场 · ' + (state.enterMode === 'stagger' ? '依次' : '同步') + ' · 间隔 ' + Math.round(state.enterAmount * 100)
+      : '滚动 · ' + (state.scrollMode === 'stagger' ? '错落' : '同步') + ' · 幅度 ' + Math.round(state.scrollAmount * 100);
+    statusEl.textContent = text;
+  }
+
+  /* ---------- 拖动 ---------- */
+  viewport.addEventListener('pointerdown', function (event) {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    state.dragging = true;
+    state.lastPointer = event.clientY;
+    viewport.classList.add('dragging');
+    viewport.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  viewport.addEventListener('pointermove', function (event) {
+    if (!state.dragging) return;
+    var current = event.clientY;
+    state.scroll = clampScroll(state.scroll - (current - state.lastPointer));
+    state.lastPointer = current;
+  });
+
+  function endDrag(event) {
+    if (!state.dragging) return;
+    state.dragging = false;
+    viewport.classList.remove('dragging');
+    if (event.pointerId !== undefined && viewport.hasPointerCapture(event.pointerId)) {
+      viewport.releasePointerCapture(event.pointerId);
+    }
+  }
+  viewport.addEventListener('pointerup', endDrag);
+  viewport.addEventListener('pointercancel', endDrag);
+
+  viewport.addEventListener('wheel', function (event) {
+    state.scroll = clampScroll(state.scroll + event.deltaY);
+    event.preventDefault();
+  }, { passive: false });
+
+  viewport.addEventListener('keydown', function (event) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      state.scroll = clampScroll(state.scroll + 44);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      state.scroll = clampScroll(state.scroll - 44);
+    }
+  });
+
+  /* ---------- 控制 ---------- */
+  $('scene').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.scene = event.target.value;
+    applyScene();
+  });
+
+  $('enterMode').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.enterMode = event.target.value;
+    updateStatus();
+    replayEnter();
+  });
+
+  $('enterAmount').addEventListener('input', function (event) {
+    state.enterAmount = Number(event.target.value) / 100;
+    $('enterAmountOut').textContent = String(event.target.value);
+    updateStatus();
+    window.clearTimeout(state.enterTimer);
+    state.enterTimer = window.setTimeout(replayEnter, 140);
+  });
+
+  $('replay').addEventListener('click', replayEnter);
+
+  $('scrollMode').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.scrollMode = event.target.value;
+    updateStatus();
+  });
+
+  $('scrollAmount').addEventListener('input', function (event) {
+    state.scrollAmount = Number(event.target.value) / 100;
+    $('scrollAmountOut').textContent = String(event.target.value);
+    updateStatus();
+  });
+
+  $('scrollReset').addEventListener('click', function () {
+    state.scroll = 0;
+    state.cards.forEach(function (card) {
+      card.y = PAD + card.offset;
+      card.v = 0;
+      card.el.style.transform = 'translateY(' + card.y + 'px)';
+    });
+  });
+
+  /* ---------- 启动 ---------- */
+  buildEnter();
+  buildScroll();
+  applyScene();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

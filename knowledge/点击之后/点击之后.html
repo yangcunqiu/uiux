@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>点击之后：压缩该发生在哪个时刻</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --heart:#e5484d;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .bar + .bar{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+  .hint{margin:0;font-size:11px;color:var(--text-3)}
+  .actions button{
+    height:28px;padding:0 10px;border:1px solid #d6d9e0;border-radius:8px;background:#fff;
+    font-size:12px;color:var(--text-2);cursor:pointer
+  }
+  .actions button:hover{background:#f7f8fa}
+  .stage{flex:1;min-height:0;display:flex;gap:14px;padding:16px 18px 0}
+  .col{
+    flex:1;min-width:0;display:flex;flex-direction:column;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:12px 14px 10px
+  }
+  .col-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+  .col-head h3{margin:0;font-size:13px;font-weight:600}
+  .tag{font:11px/1 var(--mono);padding:3px 6px;border-radius:4px;color:#fff;background:var(--text-3)}
+  .col[data-v="c"] .tag{background:var(--accent)}
+  .pitch{
+    position:relative;flex:1;min-height:180px;display:flex;flex-direction:column;
+    justify-content:space-between;align-items:center;padding:10px 0 6px;overflow:hidden
+  }
+  .count{
+    display:inline-block;font:600 26px/1.2 var(--mono);letter-spacing:.02em;
+    transform-origin:50% 50%;will-change:transform
+  }
+  .heart{
+    width:56px;height:56px;border-radius:50%;border:1px solid #d6d9e0;background:#fff;
+    display:grid;place-items:center;cursor:pointer;padding:0
+  }
+  .col[data-v="b"] .heart,
+  .col[data-v="c"] .heart{transition:background-color .15s ease,border-color .15s ease}
+  .col[data-v="b"] .glyph,
+  .col[data-v="c"] .glyph{will-change:transform}
+  .col[data-v="b"] .glyph{transition:transform .12s ease}
+  .col[data-v="b"] .heart:hover,
+  .col[data-v="c"] .heart:hover{background:#fdf2f2;border-color:#eeb9bb}
+  .col[data-v="b"] .heart:active,
+  .col[data-v="c"] .heart:active{background:#f9dfe1;border-color:#e59a9d}
+  .col[data-v="b"] .heart:active .glyph{transform:scale(.92)}
+  .col[data-v="c"] .heart.full{
+    border-color:var(--heart);box-shadow:0 0 0 5px rgba(229,72,77,.16)
+  }
+  .heart:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .glyph{font-size:28px;line-height:1;color:var(--heart);display:block}
+  .flyer{
+    position:absolute;left:0;top:0;width:56px;height:56px;display:grid;place-items:center;
+    font-size:28px;line-height:1;color:var(--heart);pointer-events:none;will-change:transform,opacity
+  }
+  .spark{
+    position:absolute;left:0;top:0;width:6px;height:6px;border-radius:50%;
+    background:var(--heart);opacity:0;pointer-events:none;will-change:transform,opacity
+  }
+  .badge{
+    margin:0;text-align:center;font:11px/1.6 var(--mono);color:var(--text-3);
+    min-height:18px;letter-spacing:.02em
+  }
+  .badge.on{color:var(--accent)}
+  .desc{margin:4px 0 0;font-size:11px;line-height:1.6;color:var(--text-3);min-height:52px}
+  .lag{display:block;margin-top:6px;font:11px/1.5 var(--mono);color:var(--text-3)}
+  .lag b{color:var(--text-2);font-weight:500}
+  .modes{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)}
+  .modes p{margin:0 0 4px;font-size:11px;color:var(--text-3)}
+  .modes .group{display:inline-flex;border:1px solid #d6d9e0;border-radius:7px;overflow:hidden}
+  .modes button{height:24px;padding:0 8px;border:0;background:#fff;font-size:11px;color:var(--text-2);cursor:pointer}
+  .modes button + button{border-left:1px solid #d6d9e0}
+  .modes button:hover{background:#f7f8fa}
+  .modes button[aria-pressed="true"]{background:#eef3ff;color:var(--accent);font-weight:600}
+  .notes{
+    flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:30vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin:6px 0 0;color:var(--text-3);font-size:11px}
+  @media (max-width:760px){
+    .stage{flex-direction:column;padding:12px 12px 0;overflow-y:auto}
+    .col{flex:none}
+    .pitch{min-height:150px}
+    .desc{min-height:0}
+    .notes{max-height:26vh;padding:8px 14px 12px}
+    .status{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="bar">
+      <div class="title">点击之后<span>压缩该发生在哪个时刻</span></div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="bar">
+      <div class="actions" role="group" aria-label="操作">
+        <button type="button" id="reset">归位</button>
+      </div>
+      <p class="hint">按住不放，三列一起看。C 的三档分别是压缩发生在按下、松开之后、按住累积。</p>
+    </div>
+  </header>
+
+  <main class="stage">
+
+    <section class="col" data-v="a">
+      <div class="col-head"><span class="tag">A</span><h3>只有结果</h3></div>
+      <div class="pitch" id="pitchA">
+        <div class="count" id="countA">1,234</div>
+        <button type="button" class="heart" id="btnA" aria-label="给方案 A 投一票">
+          <span class="glyph" id="glyphA" aria-hidden="true">♥</span>
+        </button>
+      </div>
+      <p class="badge" id="badgeA">—</p>
+      <p class="desc">悬停不变，按下不变，松开数字 +1。</p>
+      <span class="lag">数字在松开后 <b id="lagA">—</b> 变化</span>
+    </section>
+
+    <section class="col" data-v="b">
+      <div class="col-head"><span class="tag">B</span><h3>有按下态</h3></div>
+      <div class="pitch" id="pitchB">
+        <div class="count" id="countB">1,234</div>
+        <button type="button" class="heart" id="btnB" aria-label="给方案 B 投一票">
+          <span class="glyph" id="glyphB" aria-hidden="true">♥</span>
+        </button>
+      </div>
+      <p class="badge" id="badgeB">—</p>
+      <p class="desc">按下缩一档并保持到你松手。数字仍然在松开瞬间变。</p>
+      <span class="lag">数字在松开后 <b id="lagB">—</b> 变化</span>
+    </section>
+
+    <section class="col" data-v="c">
+      <div class="col-head"><span class="tag">C</span><h3>加蓄力</h3></div>
+      <div class="pitch" id="pitchC">
+        <div class="count" id="countC">1,234</div>
+        <button type="button" class="heart" id="btnC" aria-label="给方案 C 投一票">
+          <span class="glyph" id="glyphC" aria-hidden="true">♥</span>
+        </button>
+      </div>
+      <p class="badge" id="badgeC">—</p>
+      <p class="desc" id="descC"></p>
+      <span class="lag">数字在松开后 <b id="lagC">—</b> 变化</span>
+      <div class="modes">
+        <p>压缩发生在</p>
+        <div class="group" role="group" aria-label="C 的压缩时机">
+          <button type="button" data-mode="press" aria-pressed="true">按下</button>
+          <button type="button" data-mode="release" aria-pressed="false">松开后</button>
+          <button type="button" data-mode="hold" aria-pressed="false">按住累积</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li>按住不放。A 从按下到松开毫无变化；B 缩一档停住；C 压下去之后也停住（「按下」这一档）。</li>
+      <li>C 切到「松开后」：按住只缩一点点，真正的压缩发生在你松手之后。那一下不属于你。</li>
+      <li>C 切到「按住累积」：按住会一直往下压，到头亮一圈并显示「满了」。松手的时候，你判断一下这一下值不值这个等待——它没有接任何结果，因为一票就是一票。</li>
+      <li>看读数。「按下」和「按住累积」是 0.42s，「松开后」是 0.51s：压缩提前到按下，动作就能早 90ms 结束。</li>
+      <li>连点 C 三下，三个爱心同时在飞，数字按到达顺序依次跳。</li>
+    </ol>
+    <p class="limit">演示值：压缩 120ms、松开后的蓄力 90ms、飞行 420ms、累积上限 500ms。只有指针按下会触发压缩，键盘激活没有这一段。系统开启「减少动态效果」时这里仍然会动——运动本身是被观察的对象。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var VOTE0 = 1234;
+  var counters = { a: VOTE0, b: VOTE0, c: VOTE0 };
+
+  var FLY = 0.42;        /* 飞到数字的时长 */
+  var SQUASH = 0.09;     /* 「松开后」那一档的压缩时长 */
+  var REBOUND = 0.15;    /* 「按下」和「按住累积」起飞后的回弹时长 */
+  var HOLD_MS = 0.5;     /* 「按住累积」压到顶要多久 */
+  var CHARGE_RATE = 1 / 0.12;
+
+  var pitchA = $('pitchA');
+  var pitchB = $('pitchB');
+  var pitchC = $('pitchC');
+  var btnA = $('btnA');
+  var btnB = $('btnB');
+  var btnC = $('btnC');
+  var glyphC = $('glyphC');
+  var countA = $('countA');
+  var countB = $('countB');
+  var countC = $('countC');
+  var lagA = $('lagA');
+  var lagB = $('lagB');
+  var lagC = $('lagC');
+  var badgeA = $('badgeA');
+  var badgeB = $('badgeB');
+  var badgeC = $('badgeC');
+  var descC = $('descC');
+  var statusEl = $('status');
+  var modeEls = Array.prototype.slice.call(document.querySelectorAll('[data-mode]'));
+
+  var clock = 0;
+  var players = [];
+  var charging = 0;
+
+  var phases = {
+    a: { hovering: false, pressed: false, downAt: 0, el: badgeA },
+    b: { hovering: false, pressed: false, downAt: 0, el: badgeB },
+    c: { hovering: false, pressed: false, downAt: 0, el: badgeC }
+  };
+
+  /* C 的压缩：charge 从 0 到 1，按钮和飞行体都用它算形变 */
+  var cMode = 'press';
+  var charge = 0;
+  var pressing = false;
+  var pressAt = 0;
+  var isFull = false;
+  var releasedCharge = 0;
+
+  var MODE_DESC = {
+    press: '按下就被压住，松手直接弹出去。压缩属于你的手。',
+    release: '按住只缩一点，真正的压缩在你松手之后补上。',
+    hold: '按住越久压得越扁，到头亮一圈。松手飞出去。'
+  };
+
+  function fmt(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function easeOut(t) { return 1 - (1 - t) * (1 - t); }
+  function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+  function bez(a, b, c, t) {
+    var u = 1 - t;
+    return u * u * a + 2 * u * t * b + t * t * c;
+  }
+
+  function keyed(t, frames) {
+    var k = t < 0 ? 0 : t > 1 ? 1 : t;
+    for (var i = 1; i < frames.length; i += 1) {
+      if (k <= frames[i][0]) {
+        var a = frames[i - 1];
+        var b = frames[i];
+        var span = b[0] - a[0];
+        var u = span > 0 ? (k - a[0]) / span : 1;
+        return a[1] + (b[1] - a[1]) * u;
+      }
+    }
+    return frames[frames.length - 1][1];
+  }
+
+  function addPlayer(player) {
+    if (player.owner) {
+      for (var i = players.length - 1; i >= 0; i -= 1) {
+        if (players[i].owner === player.owner) players.splice(i, 1);
+      }
+    }
+    players.push(player);
+    return player;
+  }
+
+  function step(dt) {
+    for (var i = players.length - 1; i >= 0; i -= 1) {
+      var p = players[i];
+      p.t += dt;
+      if (p.tick(p.t)) players.splice(i, 1);
+    }
+  }
+
+  function detach(el) {
+    if (el.parentNode && el.parentNode.removeChild) el.parentNode.removeChild(el);
+    else if (el.remove) el.remove();
+  }
+
+  function centerIn(box, el) {
+    var a = box.getBoundingClientRect();
+    var b = el.getBoundingClientRect();
+    return { x: b.left - a.left + b.width / 2, y: b.top - a.top + b.height / 2 };
+  }
+
+  function makeNode(box, cls, text) {
+    var el = document.createElement('div');
+    el.className = cls;
+    if (text) el.textContent = text;
+    el.style.opacity = '0';
+    box.appendChild(el);
+    return el;
+  }
+
+  /* 蓄力时飞行体压在红心上，按钮自己那颗心要藏起来，否则底下会露出一颗原尺寸的心 */
+  function beginCharge() {
+    charging += 1;
+    if (charging === 1) {
+      glyphC.style.transition = '';
+      glyphC.style.opacity = '0';
+    }
+  }
+
+  function endCharge() {
+    charging = Math.max(0, charging - 1);
+    if (charging === 0) {
+      /* 不要淡入：半透明的红心在白色圆里是一颗浅粉色的心，比直接出现更怪 */
+      glyphC.style.transition = '';
+      glyphC.style.opacity = '1';
+    }
+  }
+
+  function addVote(key, el, lagEl, startedAt) {
+    counters[key] += 1;
+    el.textContent = fmt(counters[key]);
+    lagEl.textContent = Math.max(0, clock - startedAt).toFixed(2) + 's';
+    bounceCount(el);
+  }
+
+  function bounceCount(el) {
+    addPlayer({
+      owner: el,
+      t: 0,
+      tick: function (t) {
+        var k = Math.min(1, t / 0.22);
+        var s = keyed(k, [[0, 1], [0.4, 1.22], [1, 1]]);
+        el.style.transform = 'scale(' + s.toFixed(3) + ')';
+        return k >= 1;
+      }
+    });
+  }
+
+  function burst(box, target) {
+    var q = centerIn(box, target);
+    var n = 7;
+    for (var i = 0; i < n; i += 1) {
+      var el = makeNode(box, 'spark', '');
+      var angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+      var dist = 24 + (i % 3) * 7;
+      addPlayer({
+        owner: el,
+        t: 0,
+        tick: (function (node, ang, d) {
+          return function (t) {
+            var k = Math.min(1, t / 0.5);
+            var r = d * easeOut(k);
+            var x = q.x + Math.cos(ang) * r;
+            var y = q.y + Math.sin(ang) * r;
+            node.style.opacity = String(1 - k);
+            node.style.transform =
+              'translate3d(' + (x - 3).toFixed(2) + 'px,' + (y - 3).toFixed(2) + 'px,0) scale(' +
+              (1 - 0.6 * k).toFixed(3) + ')';
+            if (k >= 1) { detach(node); return true; }
+            return false;
+          };
+        })(el, angle, dist)
+      });
+    }
+  }
+
+  /*
+   * 从红心飞到数字。
+   * 「松开后」这一档必须把按钮的心藏起来才不穿帮——因为压缩发生在松手之后，
+   * 飞行体要当着按钮那颗心的面变成一张更扁更大的心。
+   * 「按下」和「按住累积」不用藏：压缩的就是按钮那颗心，松手时它自己离开。
+   */
+  function flyToCount(box, from, target, onArrive) {
+    var el = makeNode(box, 'flyer', '♥');
+    var p = centerIn(box, from);
+    var q = centerIn(box, target);
+    var cx = (p.x + q.x) / 2 + 26;
+    var cy = (p.y + q.y) / 2 - 10;
+    var doSquash = cMode === 'release';
+    var startCharge = releasedCharge;
+    var restored = false;
+
+    if (doSquash) beginCharge();
+
+    el.style.opacity = '1';
+    el.style.transform =
+      'translate3d(' + (p.x - 28).toFixed(2) + 'px,' + (p.y - 28).toFixed(2) + 'px,0) scale(' +
+      (doSquash ? 0.96 : 1 + 0.14 * startCharge).toFixed(3) + ',' +
+      (doSquash ? 0.96 : 1 - 0.18 * startCharge).toFixed(3) + ')';
+
+    addPlayer({
+      owner: el,
+      t: 0,
+      tick: function (t) {
+        if (doSquash && t < SQUASH) {
+          var c = t / SQUASH;
+          var qx = keyed(c, [[0, 0.96], [0.5, 1.3], [1, 1]]);
+          var qy = keyed(c, [[0, 0.96], [0.5, 0.72], [1, 1]]);
+          el.style.opacity = '1';
+          el.style.transform =
+            'translate3d(' + (p.x - 28).toFixed(2) + 'px,' + (p.y - 28).toFixed(2) + 'px,0) scale(' +
+            qx.toFixed(3) + ',' + qy.toFixed(3) + ')';
+          return false;
+        }
+        if (doSquash && !restored) {
+          restored = true;
+          endCharge();
+        }
+
+        var flightT = doSquash ? t - SQUASH : t;
+        var k = Math.min(1, flightT / FLY);
+        var e = easeOut(k);
+        var x = bez(p.x, cx, q.x, e);
+        var y = bez(p.y, cy, q.y, e);
+        var rot = k < 0.7 ? (18 * k) / 0.7 : 18 * (1 - (k - 0.7) / 0.3);
+        var base = 1 - 0.45 * k;
+        var sx = base;
+        var sy = base;
+        if (!doSquash && startCharge > 0) {
+          /* 和按钮那颗心用同一条衰减，两边尺寸始终一致，看起来只是一颗心分成两颗 */
+          var rc = Math.max(0, startCharge - CHARGE_RATE * flightT);
+          sx = base * (1 + 0.14 * rc);
+          sy = base * (1 - 0.18 * rc);
+        }
+        el.style.opacity = String(k > 0.78 ? 1 - (k - 0.78) / 0.22 : 1);
+        el.style.transform =
+          'translate3d(' + (x - 28).toFixed(2) + 'px,' + (y - 28).toFixed(2) + 'px,0) rotate(' +
+          rot.toFixed(1) + 'deg) scale(' + sx.toFixed(3) + ',' + sy.toFixed(3) + ')';
+        if (k >= 1) {
+          if (!restored) { restored = true; endCharge(); }
+          detach(el);
+          onArrive();
+          return true;
+        }
+        return false;
+      }
+    });
+  }
+
+  function bindPhase(key, btn) {
+    var st = phases[key];
+    btn.addEventListener('pointerenter', function () { st.hovering = true; });
+    btn.addEventListener('pointerleave', function () { st.hovering = false; });
+    function up() {
+      st.pressed = false;
+      if (key === 'c') {
+        releasedCharge = charge;
+        pressing = false;
+      }
+    }
+    btn.addEventListener('pointerdown', function () {
+      st.pressed = true;
+      st.downAt = clock;
+      if (key === 'c') {
+        pressing = true;
+        pressAt = clock;
+        if (cMode !== 'hold') charge = 0;
+      }
+    });
+    btn.addEventListener('pointerup', up);
+    btn.addEventListener('pointercancel', up);
+    window.addEventListener('blur', up);
+  }
+
+  bindPhase('a', btnA);
+  bindPhase('b', btnB);
+  bindPhase('c', btnC);
+
+  btnA.addEventListener('click', function () {
+    addVote('a', countA, lagA, clock);
+    statusEl.textContent = 'A：按下到松开没有任何反馈';
+  });
+
+  btnB.addEventListener('click', function () {
+    addVote('b', countB, lagB, clock);
+    statusEl.textContent = 'B：有按下态，数字仍然立刻变';
+  });
+
+  btnC.addEventListener('click', function () {
+    var t0 = clock;
+    /* 从红心自己的中心起飞，不是从按钮中心——压缩时红心还下移了几像素 */
+    flyToCount(pitchC, glyphC, countC, function () {
+      addVote('c', countC, lagC, t0);
+      burst(pitchC, countC);
+    });
+    statusEl.textContent = 'C：压缩在' + (cMode === 'release' ? '松开之后' : cMode === 'hold' ? '按住累积' : '按下');
+  });
+
+  function setMode(next) {
+    cMode = next;
+    pressedCleanup();
+    modeEls.forEach(function (btn) {
+      var on = btn.getAttribute('data-mode') === next;
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    descC.textContent = MODE_DESC[next];
+  }
+
+  function pressedCleanup() {
+    pressing = false;
+    charge = 0;
+    isFull = false;
+    releasedCharge = 0;
+    btnC.className = 'heart';
+    glyphC.style.transform = '';
+  }
+
+  modeEls.forEach(function (btn) {
+    btn.addEventListener('click', function () { setMode(btn.getAttribute('data-mode')); });
+  });
+
+  /* 每帧根据 charge 算红心的形变：非等比压缩 + 轻微下沉。圆圈不动。 */
+  function renderC(dt) {
+    if (pressing) {
+      if (cMode === 'hold') {
+        charge = Math.min(1, (clock - pressAt) / HOLD_MS);
+      } else {
+        var target = cMode === 'press' ? 0.62 : 0.22;
+        charge = Math.min(target, charge + CHARGE_RATE * dt);
+      }
+    } else {
+      charge = Math.max(0, charge - CHARGE_RATE * dt);
+    }
+
+    var full = cMode === 'hold' && pressing && charge >= 0.999;
+    if (full !== isFull) {
+      isFull = full;
+      btnC.className = full ? 'heart full' : 'heart';
+    }
+
+    if (charge > 0.002) {
+      var sx = 1 + 0.14 * charge;
+      var sy = 1 - 0.18 * charge;
+      var ty = 3 * charge;
+      glyphC.style.transform =
+        'translate3d(0,' + ty.toFixed(2) + 'px,0) scale(' + sx.toFixed(3) + ',' + sy.toFixed(3) + ')';
+    } else if (glyphC.style.transform) {
+      glyphC.style.transform = '';
+    }
+  }
+
+  function renderBadges() {
+    var keys = ['a', 'b', 'c'];
+    for (var i = 0; i < keys.length; i += 1) {
+      var st = phases[keys[i]];
+      var text;
+      var on = false;
+      if (st.pressed) {
+        text = '按住 ' + Math.max(0, clock - st.downAt).toFixed(2) + 's';
+        if (keys[i] === 'c' && isFull) text += ' · 满了';
+        on = true;
+      } else if (st.hovering) {
+        text = '悬停';
+        on = true;
+      } else {
+        text = '—';
+      }
+      if (st.el.textContent !== text) st.el.textContent = text;
+      var cls = on ? 'badge on' : 'badge';
+      if (st.el.className !== cls) st.el.className = cls;
+    }
+  }
+
+  $('reset').addEventListener('click', function () {
+    counters.a = VOTE0;
+    counters.b = VOTE0;
+    counters.c = VOTE0;
+    countA.textContent = fmt(VOTE0);
+    countB.textContent = fmt(VOTE0);
+    countC.textContent = fmt(VOTE0);
+    countA.style.transform = '';
+    countB.style.transform = '';
+    countC.style.transform = '';
+    lagA.textContent = '—';
+    lagB.textContent = '—';
+    lagC.textContent = '—';
+    players.length = 0;
+    charging = 0;
+    glyphC.style.transition = '';
+    glyphC.style.opacity = '';
+    pressedCleanup();
+    clearNodes(pitchA);
+    clearNodes(pitchB);
+    clearNodes(pitchC);
+    statusEl.textContent = '归位';
+  });
+
+  function clearNodes(box) {
+    var kids = box.childNodes || [];
+    for (var i = kids.length - 1; i >= 0; i -= 1) {
+      var node = kids[i];
+      if (!node || !node.className) continue;
+      var c = String(node.className);
+      if (c.indexOf('flyer') >= 0 || c.indexOf('spark') >= 0) {
+        box.removeChild(node);
+      }
+    }
+  }
+
+  var lastT = 0;
+  function frame(now) {
+    var dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 0;
+    lastT = now;
+    clock += dt;
+    renderC(dt);
+    step(dt);
+    renderBadges();
+    requestAnimationFrame(frame);
+  }
+
+  setMode('press');
+  statusEl.textContent = '按住按钮别松手，比较三列';
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

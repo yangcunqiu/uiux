@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>后景与可操作性：画法和行为分开</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+  /* 控制台 */
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .row + .row{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+  .field{display:inline-flex;align-items:center;gap:8px}
+  .field > .label{font-size:12px;color:var(--text-3);white-space:nowrap}
+  .seg{display:inline-flex;padding:2px;gap:2px;background:var(--line-soft);border-radius:8px}
+  .seg label{position:relative;display:inline-flex}
+  .seg input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+  .seg span{
+    display:inline-block;padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text-2);
+    white-space:nowrap;cursor:pointer
+  }
+  .seg input:checked + span{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(31,35,41,.1)}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
+  .hint{margin:0;font-size:11px;color:var(--text-3)}
+
+  /* 舞台 */
+  .stage{
+    position:relative;flex:1;min-height:0;padding:22px 24px;overflow:hidden;
+    background:#e9ebf0
+  }
+  .bg{
+    height:100%;display:flex;flex-direction:column;gap:14px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;
+    transform-origin:50% 50%;transition:transform .28s ease
+  }
+  .bg[data-receded="true"]{transform:scale(.965)}
+  .bg-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .bg-head h2{margin:0;font-size:14px;font-weight:600}
+  .open{
+    height:30px;padding:0 12px;border:1px solid #d6d9e0;border-radius:8px;background:#fff;
+    font-size:12px;color:var(--text-2);cursor:pointer
+  }
+  .open:hover{background:#f7f8fa}
+
+  .cards{flex:1;min-height:0;overflow:auto;display:grid;gap:12px;align-content:start;
+    grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+  .card{
+    text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    padding:12px 14px;cursor:pointer;transition:border-color .15s ease,background .15s ease
+  }
+  .card:hover{background:#fafbfc}
+  .card h3{margin:0 0 2px;font-size:13px;font-weight:500}
+  .card p{margin:0;font-size:11px;color:var(--text-3)}
+  .card[aria-pressed="true"]{border-color:var(--accent);background:#f2f6ff}
+  .card[aria-pressed="true"] h3{color:var(--accent)}
+
+  /* 后景处理层 */
+  .scrim{
+    position:absolute;inset:0;z-index:2;opacity:0;visibility:hidden;
+    transition:opacity .18s ease,visibility 0s .18s
+  }
+  .scrim[data-show="true"]{opacity:1;visibility:visible;transition:opacity .18s ease}
+  .scrim[data-paint="dim"]{background:rgba(15,23,42,.42)}
+  .scrim[data-paint="blur"]{background:rgba(15,23,42,.10);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+  .scrim[data-paint="recede"]{background:transparent}
+  .scrim[data-paint="dim-recede"]{background:rgba(15,23,42,.38)}
+  .scrim[data-paint="blur-recede"]{background:rgba(15,23,42,.10);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+
+  /* 弹层 */
+  .dialog{
+    position:absolute;left:50%;top:50%;z-index:3;
+    width:min(360px,calc(100% - 48px));
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;
+    box-shadow:0 18px 48px rgba(15,23,42,.2);
+    opacity:0;visibility:hidden;transform:translate(-50%,-48%) scale(.96);
+    transition:opacity .18s ease,transform .18s ease,visibility 0s .18s
+  }
+  .dialog[data-open="true"]{
+    opacity:1;visibility:visible;transform:translate(-50%,-50%) scale(1);
+    transition:opacity .18s ease,transform .18s ease
+  }
+  .dialog h3{margin:0 0 6px;font-size:15px;font-weight:600}
+  .dialog p{margin:0 0 16px;font-size:12px;line-height:1.7;color:var(--text-2)}
+  .dialog-actions{display:flex;justify-content:flex-end;gap:8px}
+  .dialog-actions button{
+    height:30px;padding:0 14px;border:1px solid #d6d9e0;border-radius:8px;background:#fff;
+    font-size:12px;color:var(--text-2);cursor:pointer
+  }
+  .dialog-actions button:hover{background:#f7f8fa}
+  .dialog-actions .primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .dialog-actions .primary:hover{background:#1f5ce0}
+
+  /* 提示 */
+  .toast{
+    position:absolute;left:50%;bottom:22px;transform:translate(-50%,6px);z-index:4;
+    padding:6px 12px;border-radius:8px;background:rgba(31,35,41,.9);color:#fff;
+    font-size:12px;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease
+  }
+  .toast[data-show="true"]{opacity:1;transform:translate(-50%,0)}
+
+  .notes{
+    flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:24vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin-top:6px;color:var(--text-3);font-size:11px}
+
+  @media (max-width:640px){
+    .stage{padding:12px}
+    .bg{padding:12px;border-radius:10px}
+    .cards{grid-template-columns:1fr 1fr}
+    .notes{padding:8px 14px 12px;max-height:22vh}
+    .status{margin-left:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .bg,.scrim,.dialog,.toast{transition-duration:0s !important}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="row">
+      <div class="title">后景与可操作性<span>画法和行为，本来就是两件事</span></div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <span class="label">后景画法</span>
+        <div class="seg" id="paint">
+          <label><input type="radio" name="paint" value="none" checked><span>不动</span></label>
+          <label><input type="radio" name="paint" value="dim"><span>变暗</span></label>
+          <label><input type="radio" name="paint" value="blur"><span>模糊</span></label>
+          <label><input type="radio" name="paint" value="recede"><span>后退</span></label>
+          <label><input type="radio" name="paint" value="dim-recede"><span>变暗 + 后退</span></label>
+          <label><input type="radio" name="paint" value="blur-recede"><span>模糊 + 后退</span></label>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">后景行为</span>
+        <div class="seg" id="behaviour">
+          <label><input type="radio" name="behaviour" value="block" checked><span>不可点</span></label>
+          <label><input type="radio" name="behaviour" value="allow"><span>可点</span></label>
+        </div>
+      </div>
+      <p class="hint">打开弹层，然后去点后景。四乘二，随便组合。</p>
+    </div>
+  </header>
+
+  <main class="stage" id="stage" data-paint="none">
+    <div class="bg" id="bg">
+      <div class="bg-head">
+        <h2>本周待处理</h2>
+        <button type="button" class="open" id="open">打开弹层</button>
+      </div>
+      <div class="cards" id="cards"></div>
+    </div>
+
+    <div class="scrim" id="scrim" data-show="false" data-paint="none"></div>
+
+    <div class="dialog" id="dialog" data-open="false" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <h3 id="dialogTitle">提交本次修改？</h3>
+      <p>修改会立即生效，并通知相关成员。提交后可以在记录里撤回。</p>
+      <div class="dialog-actions">
+        <button type="button" id="cancel">取消</button>
+        <button type="button" class="primary" id="confirm">确定</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" data-show="false" role="status" aria-live="polite"></div>
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li><b>变暗</b>：后景还在，字还能读，但明显退了一层。它说的是「可以看，但现在别用」。</li>
+      <li><b>模糊</b>：形状还在，字读不了。它说的是「别再看了」。如果弹层需要你参考后景才能做决定，这一档会帮倒忙。</li>
+      <li><b>后退</b>：后景缩小，像退了一层。它只说「层级变了」，不说「能不能用」——单独用的时候，你多半只觉得界面缩了一下。</li>
+      <li>和「不可点 / 可点」组合起来看：画法和行为不一致时，你会先信画法。</li>
+    </ol>
+    <p class="limit">这个演示没有测量你的反应时间或错误率。哪种更别扭、哪种让你犹豫，那就是你要记的判断依据。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var stage = $('stage');
+  var bg = $('bg');
+  var scrim = $('scrim');
+  var dialog = $('dialog');
+  var toast = $('toast');
+  var statusEl = $('status');
+  var cardsEl = $('cards');
+
+  var CARDS = [
+    { title: '合同归档', meta: '12 项待处理' },
+    { title: '素材审核', meta: '5 项待处理' },
+    { title: '排期确认', meta: '3 项待处理' },
+    { title: '账单核对', meta: '8 项待处理' },
+    { title: '权限申请', meta: '2 项待处理' },
+    { title: '版本发布', meta: '1 项待处理' }
+  ];
+
+  var state = {
+    paint: 'none',
+    behaviour: 'block',
+    open: false,
+    selected: {}
+  };
+
+  var PAINT_LABEL = {
+    none: '不动',
+    dim: '变暗',
+    blur: '模糊',
+    recede: '后退',
+    'dim-recede': '变暗 + 后退',
+    'blur-recede': '模糊 + 后退'
+  };
+  var toastTimer = 0;
+  var lastFocus = null;
+
+  /* ---------- 卡片 ---------- */
+  CARDS.forEach(function (item, index) {
+    var card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'card';
+    card.setAttribute('aria-pressed', 'false');
+    card.dataset.index = String(index);
+
+    var h3 = document.createElement('h3');
+    h3.textContent = item.title;
+    var p = document.createElement('p');
+    p.textContent = item.meta;
+    card.appendChild(h3);
+    card.appendChild(p);
+
+    card.addEventListener('click', function () {
+      var id = String(index);
+      var next = !state.selected[id];
+      state.selected[id] = next;
+      card.setAttribute('aria-pressed', next ? 'true' : 'false');
+      updateStatus();
+    });
+
+    cardsEl.appendChild(card);
+  });
+
+  /* ---------- 状态 ---------- */
+  function updateStatus() {
+    var count = Object.keys(state.selected).filter(function (k) { return state.selected[k]; }).length;
+    statusEl.textContent =
+      '画法：' + PAINT_LABEL[state.paint] +
+      ' · 行为：后景' + (state.behaviour === 'block' ? '不可点' : '可点') +
+      ' · 已选 ' + count + ' 项';
+  }
+
+  function showToast(text) {
+    toast.textContent = text;
+    toast.dataset.show = 'true';
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function () {
+      toast.dataset.show = 'false';
+    }, 1300);
+  }
+
+  /* ---------- 画法 ---------- */
+  function applyPaint() {
+    stage.dataset.paint = state.paint;
+    scrim.dataset.paint = state.paint;
+    applyBackdrop();
+    updateStatus();
+  }
+
+  /*
+   * 后退只在弹层打开时生效：画法描述的是「弹层打开时后景长什么样」，
+   * 不是「后景被永久改成什么样」。
+   */
+  function applyBackdrop() {
+    var receded = state.open && (
+      state.paint === 'recede' ||
+      state.paint === 'dim-recede' ||
+      state.paint === 'blur-recede'
+    );
+    bg.dataset.receded = receded ? 'true' : 'false';
+  }
+
+  /* ---------- 行为 ---------- */
+  function applyBehaviour() {
+    var block = state.behaviour === 'block';
+    var active = block && state.open;
+
+    scrim.style.pointerEvents = active ? 'auto' : 'none';
+    dialog.setAttribute('aria-modal', active ? 'true' : 'false');
+
+    if ('inert' in HTMLElement.prototype) {
+      bg.inert = active;
+    } else if (active) {
+      bg.setAttribute('aria-hidden', 'true');
+    } else {
+      bg.removeAttribute('aria-hidden');
+    }
+    updateStatus();
+  }
+
+  /* ---------- 开关 ---------- */
+  function openDialog() {
+    if (state.open) return;
+    state.open = true;
+    lastFocus = document.activeElement;
+    dialog.dataset.open = 'true';
+    scrim.dataset.show = 'true';
+    applyBackdrop();
+    applyBehaviour();
+    $('cancel').focus();
+  }
+
+  function closeDialog() {
+    if (!state.open) return;
+    state.open = false;
+    dialog.dataset.open = 'false';
+    scrim.dataset.show = 'false';
+    scrim.style.pointerEvents = 'none';
+    if ('inert' in HTMLElement.prototype) bg.inert = false;
+    bg.removeAttribute('aria-hidden');
+    applyBackdrop();
+    if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
+    updateStatus();
+  }
+
+  /* ---------- 事件 ---------- */
+  $('open').addEventListener('click', openDialog);
+  $('cancel').addEventListener('click', closeDialog);
+  $('confirm').addEventListener('click', closeDialog);
+
+  scrim.addEventListener('pointerdown', function () {
+    if (state.open && state.behaviour === 'block') {
+      showToast('后景暂时不可用');
+    }
+  });
+
+  dialog.addEventListener('keydown', function (event) {
+    if (event.key !== 'Tab') return;
+    var focusable = dialog.querySelectorAll('button');
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && state.open) closeDialog();
+  });
+
+  $('paint').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.paint = event.target.value;
+    applyPaint();
+  });
+
+  $('behaviour').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.behaviour = event.target.value;
+    applyBehaviour();
+  });
+
+  /* ---------- 启动 ---------- */
+  updateStatus();
+  applyPaint();
+  applyBehaviour();
+})();
+</script>
+</body>
+</html>

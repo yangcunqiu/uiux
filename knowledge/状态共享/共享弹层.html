@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>共享弹层：一个还是四个</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .bar + .bar{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+
+  .seg{display:inline-flex;padding:2px;gap:2px;background:var(--line-soft);border-radius:8px}
+  .seg label{position:relative;display:inline-flex}
+  .seg input{position:absolute;inset:0;opacity:0;cursor:pointer;margin:0}
+  .seg span{
+    display:inline-block;padding:4px 10px;border-radius:6px;font-size:12px;color:var(--text-2);
+    white-space:nowrap;cursor:pointer
+  }
+  .seg input:checked + span{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(31,35,41,.1)}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:1px}
+  .hint{margin:0;font-size:11px;color:var(--text-3)}
+  .field{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
+  .field input[type=range]{width:110px;accent-color:var(--accent);cursor:pointer}
+  .field output{font:11px/1 var(--mono);color:var(--text);min-width:34px;text-align:right}
+
+  .stage{flex:1;min-height:0;padding:26px 24px;display:flex;justify-content:center;align-items:flex-start}
+  .panel{width:min(680px,100%)}
+
+  .nav-bar{
+    position:relative;display:flex;gap:6px;align-items:center;
+    padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px
+  }
+  .nav{
+    height:32px;padding:0 12px;border:0;border-radius:7px;background:transparent;
+    color:var(--text-2);font-size:13px;cursor:pointer;transition:background .15s ease
+  }
+  .nav:hover,.nav:focus-visible{background:#f2f3f5}
+
+  .layer-tip{position:relative;height:120px;margin-top:14px}
+
+  .tip{
+    position:absolute;left:0;top:0;width:200px;
+    background:#1f2329;color:#fff;border-radius:10px;padding:9px 12px;
+    box-shadow:0 10px 28px rgba(15,23,42,.24);
+    opacity:0;transform:translateY(-4px);
+    transition:opacity .14s ease,transform .14s ease,left .2s cubic-bezier(.2,.7,.3,1),top .2s cubic-bezier(.2,.7,.3,1);
+    pointer-events:none
+  }
+  .tip[data-show="true"]{opacity:1;transform:translateY(0)}
+  .tip h4{margin:0 0 2px;font-size:12px;font-weight:600}
+  .tip p{margin:0;font-size:11px;color:#c9cdd4;line-height:1.5}
+  .tip .arrow{
+    position:absolute;left:18px;top:-4px;width:8px;height:8px;background:#1f2329;
+    transform:rotate(45deg);border-radius:1px
+  }
+
+  .notes{
+    flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:28vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin-top:6px;color:var(--text-3);font-size:11px}
+
+  @media (max-width:640px){
+    .stage{padding:16px 14px}
+    .tip{width:180px}
+    .notes{padding:8px 14px 12px;max-height:26vh}
+    .status{margin-left:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .tip{transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="bar">
+      <div class="title">共享弹层<span>一个还是四个</span></div>
+      <div class="seg" id="mode">
+        <label><input type="radio" name="mode" value="separate" checked><span>每个自己一个</span></label>
+        <label><input type="radio" name="mode" value="shared"><span>共享一个</span></label>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="bar">
+      <label class="field">隐藏延迟<input type="range" id="hideDelay" min="0" max="600" step="50" value="450"><output id="hideDelayOut">450</output></label>
+      <p class="hint">快速从左划到右，再快速来回划。注意弹层是几个同时存在。</p>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="panel">
+      <div class="nav-bar" id="navBar" role="toolbar" aria-label="导航，悬停查看说明">
+        <button type="button" class="nav" data-i="0">商业推广</button>
+        <button type="button" class="nav" data-i="1">广告技术</button>
+        <button type="button" class="nav" data-i="2">成功案例</button>
+        <button type="button" class="nav" data-i="3">广告场景</button>
+      </div>
+
+      <div class="layer-tip" id="layer">
+        <div class="tip" id="tipShared">
+          <div class="arrow"></div>
+          <h4></h4>
+          <p></p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li><b>每个自己一个</b>：快速划过时，你会看到两三个弹层同时挂着、位置重叠、内容叠在一起，然后各自慢慢消失。</li>
+      <li><b>共享一个</b>：永远只有一个弹层。它在按钮之间平移，内容直接替换——你看到的是「同一个东西换了内容」，不是「好几个东西先后出现」。</li>
+      <li>两种模式都给第一个弹层加了约 150ms 的显示延迟，之后的切换立即生效。差别在「之后的切换」发生在几个弹层上。</li>
+      <li>把<b>隐藏延迟</b>拉到 0：独立模式下重叠会消失。这说明遮挡是延迟的产物，不是「多弹层」的固有属性。</li>
+      <li>慢速一个个看时，两种都正常。问题只在快速移动时出现。</li>
+    </ol>
+    <p class="limit">这个演示依赖 hover，触摸设备上看不到。没有做「鼠标移进弹层保持显示」，所以验证不了「延迟够不够让鼠标走到弹层上」。延迟和时长是演示值。</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var navBar = $('navBar');
+  var layer = $('layer');
+  var tipShared = $('tipShared');
+  var statusEl = $('status');
+  var navs = Array.prototype.slice.call(navBar.querySelectorAll('.nav'));
+
+  var DATA = [
+    { title: '商业推广', desc: '按目标优化投放' },
+    { title: '广告技术', desc: '定向、归因与测量' },
+    { title: '成功案例', desc: '行业里的实际效果' },
+    { title: '广告场景', desc: '朋友圈与视频号' }
+  ];
+
+  var SHOW_DELAY = 150;
+
+  var state = {
+    mode: 'separate',
+    hideDelay: 450,
+    shownOnce: false,
+    showTimer: 0,
+    hideTimer: 0,
+    tips: []
+  };
+
+  /* ---------- 独立模式的弹层 ---------- */
+  function buildSeparateTips() {
+    DATA.forEach(function (item, i) {
+      var tip = document.createElement('div');
+      tip.className = 'tip';
+      tip.dataset.i = String(i);
+
+      var arrow = document.createElement('div');
+      arrow.className = 'arrow';
+      var h4 = document.createElement('h4');
+      h4.textContent = item.title;
+      var p = document.createElement('p');
+      p.textContent = item.desc;
+
+      tip.appendChild(arrow);
+      tip.appendChild(h4);
+      tip.appendChild(p);
+      layer.appendChild(tip);
+
+      state.tips.push({
+        el: tip,
+        showTimer: 0,
+        hideTimer: 0
+      });
+    });
+  }
+
+  function placeAt(tipEl, button) {
+    var box = layer.getBoundingClientRect();
+    var rect = button.getBoundingClientRect();
+    tipEl.style.left = (rect.left - box.left) + 'px';
+    tipEl.style.top = (rect.bottom - box.top + 8) + 'px';
+  }
+
+  /* ---------- 独立模式 ---------- */
+  function enterSeparate(index, button) {
+    state.tips.forEach(function (tip, i) {
+      window.clearTimeout(tip.showTimer);
+      window.clearTimeout(tip.hideTimer);
+      if (i === index) {
+        tip.showTimer = window.setTimeout(function () {
+          placeAt(tip.el, button);
+          tip.el.dataset.show = 'true';
+        }, SHOW_DELAY);
+      } else {
+        tip.hideTimer = window.setTimeout(function () {
+          tip.el.dataset.show = 'false';
+        }, state.hideDelay);
+      }
+    });
+  }
+
+  /* ---------- 共享模式 ---------- */
+  function enterShared(index, button) {
+    var item = DATA[index];
+    window.clearTimeout(state.hideTimer);
+
+    if (!state.shownOnce) {
+      window.clearTimeout(state.showTimer);
+      state.showTimer = window.setTimeout(function () {
+        placeAt(tipShared, button);
+        tipShared.querySelector('h4').textContent = item.title;
+        tipShared.querySelector('p').textContent = item.desc;
+        tipShared.dataset.show = 'true';
+        state.shownOnce = true;
+      }, SHOW_DELAY);
+    } else {
+      placeAt(tipShared, button);
+      tipShared.querySelector('h4').textContent = item.title;
+      tipShared.querySelector('p').textContent = item.desc;
+      tipShared.dataset.show = 'true';
+    }
+  }
+
+  function leaveAll() {
+    if (state.mode === 'shared') {
+      window.clearTimeout(state.hideTimer);
+      state.hideTimer = window.setTimeout(function () {
+        tipShared.dataset.show = 'false';
+        state.shownOnce = false;
+      }, state.hideDelay);
+      return;
+    }
+    state.tips.forEach(function (tip) {
+      window.clearTimeout(tip.hideTimer);
+      tip.hideTimer = window.setTimeout(function () {
+        tip.el.dataset.show = 'false';
+      }, state.hideDelay);
+    });
+  }
+
+  /* ---------- 事件 ---------- */
+  navs.forEach(function (button, index) {
+    button.addEventListener('pointerenter', function () {
+      if (state.mode === 'shared') enterShared(index, button);
+      else enterSeparate(index, button);
+    });
+  });
+
+  navBar.addEventListener('pointerleave', leaveAll);
+
+  $('hideDelay').addEventListener('input', function (event) {
+    state.hideDelay = Number(event.target.value);
+    $('hideDelayOut').textContent = String(event.target.value);
+    updateStatus();
+  });
+
+  $('mode').addEventListener('change', function (event) {
+    if (!event.target.name) return;
+    state.mode = event.target.value;
+    window.clearTimeout(state.showTimer);
+    window.clearTimeout(state.hideTimer);
+    tipShared.dataset.show = 'false';
+    state.shownOnce = false;
+    state.tips.forEach(function (tip) {
+      window.clearTimeout(tip.showTimer);
+      window.clearTimeout(tip.hideTimer);
+      tip.el.dataset.show = 'false';
+    });
+    updateStatus();
+  });
+
+  function updateStatus() {
+    statusEl.textContent = state.mode === 'shared' ? '模式：共享一个' : '模式：每个自己一个';
+  }
+
+  /* ---------- 启动 ---------- */
+  buildSeparateTips();
+  updateStatus();
+})();
+</script>
+</body>
+</html>

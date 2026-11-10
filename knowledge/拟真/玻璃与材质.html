@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>玻璃的三条线索：折射、色散、高光</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e6e8ec; --text:#1d2129; --muted:#6b7280;
+    --accent:#2f6feb;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;
+    font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px 12px}
+  header h1{font-size:16px;margin:0 0 4px;font-weight:600}
+  header p{margin:0;color:var(--muted);font-size:13px;max-width:920px}
+  main{flex:1;padding:14px 20px 10px;display:flex;flex-direction:column;gap:12px;align-items:center}
+  .bar{width:100%;max-width:960px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .field{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);white-space:nowrap}
+  .field.check{gap:6px;cursor:pointer;color:var(--text)}
+  .seg{display:flex;gap:2px;border:1px solid var(--line);border-radius:999px;padding:3px;margin:0}
+  .seg legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .seg label{position:relative;font-size:12px;color:var(--muted);padding:3px 10px;border-radius:999px;cursor:pointer}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px}
+  .seg label:has(input:checked){background:var(--text);color:#fff}
+  .seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  input[type=range]{width:150px;accent-color:var(--accent)}
+  input[type=checkbox]{accent-color:var(--accent)}
+  output{font-variant-numeric:tabular-nums;color:var(--text);min-width:3ch;display:inline-block}
+  .stage-wrap{position:relative;overflow:hidden;border-radius:16px}
+  .stage{
+    position:relative;width:920px;height:520px;transform-origin:0 0;overflow:hidden;border-radius:16px;
+    background:#0f172a;
+  }
+  .bg,.inner{
+    background:
+      radial-gradient(240px 240px at 72% 26%, #f59e0b 0%, rgba(245,158,11,0) 68%),
+      radial-gradient(300px 300px at 22% 74%, #22d3ee 0%, rgba(34,211,238,0) 66%),
+      radial-gradient(200px 200px at 88% 82%, #ec4899 0%, rgba(236,72,153,0) 70%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.2) 0 1.5px, rgba(0,0,0,0) 1.5px 30px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.2) 0 1.5px, rgba(0,0,0,0) 1.5px 30px),
+      linear-gradient(158deg, #0b1220 0%, #1e1b4b 48%, #3b0764 100%);
+  }
+  .bg{position:absolute;inset:0}
+  .inner{position:absolute;left:0;top:0;width:920px;height:520px;filter:url(#glassFilter);will-change:filter}
+  .labels{position:absolute;inset:0;pointer-events:none}
+  .labels span{position:absolute;color:rgba(255,255,255,.82);font-weight:700;letter-spacing:.02em;line-height:1;text-shadow:0 2px 18px rgba(0,0,0,.35)}
+  .glass{
+    position:absolute;left:310px;top:175px;width:300px;height:170px;border-radius:36px;
+    overflow:hidden;cursor:grab;touch-action:none;
+    box-shadow:0 22px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.16);
+  }
+  .glass:active{cursor:grabbing}
+  .tint{position:absolute;inset:0;background:rgba(255,255,255,.045);pointer-events:none}
+  .hl{
+    position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    border:1.5px solid transparent;
+    background:conic-gradient(from var(--light,210deg),
+      rgba(255,255,255,.38) 0deg, rgba(255,255,255,.98) 40deg, rgba(255,255,255,.28) 100deg,
+      rgba(255,255,255,.14) 170deg, rgba(255,255,255,.5) 250deg, rgba(255,255,255,.88) 320deg,
+      rgba(255,255,255,.38) 360deg) border-box;
+    -webkit-mask:linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    mix-blend-mode:overlay;
+  }
+  .caption{font-size:12px;color:var(--muted);text-align:center}
+  .mapbox{display:flex;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;max-width:960px;width:100%}
+  .mapbox canvas{width:180px;height:102px;border-radius:8px;background:#000;flex:none;image-rendering:auto}
+  .mapbox p{margin:0;font-size:12px;color:var(--muted)}
+  .mapbox p b{color:var(--text);font-weight:600}
+  footer{background:var(--panel);border-top:1px solid var(--line);padding:12px 20px 14px;font-size:12px;color:var(--muted);margin-top:12px}
+  footer b{color:var(--text);font-weight:600}
+  footer ol{margin:4px 0 0;padding-left:18px}
+  footer li{margin:2px 0}
+  footer .tail{margin-top:8px;color:#8a909a}
+  @media (max-width:760px){.mapbox{flex-direction:column;align-items:flex-start}}
+</style>
+</head>
+<body>
+<header>
+  <h1>玻璃的三条线索：折射、色散、高光</h1>
+  <p>同一块玻璃，三个开关，外加三种材质预设。拖它、关掉某一条，看它什么时候从玻璃变成别的材质。</p>
+</header>
+
+<main>
+  <section class="bar" aria-label="参数">
+    <fieldset class="seg" aria-label="材质">
+      <legend>材质</legend>
+      <label><input type="radio" name="mat" value="glass" checked>透明玻璃</label>
+      <label><input type="radio" name="mat" value="frosted">磨砂玻璃</label>
+      <label><input type="radio" name="mat" value="plastic">染色塑料</label>
+    </fieldset>
+    <label class="field">折射强度
+      <input type="range" id="scale" min="0" max="80" step="1" value="32">
+      <output id="scale-out" for="scale">32</output>
+    </label>
+    <label class="field check"><input type="checkbox" id="dispersion" checked> 色散</label>
+    <label class="field check"><input type="checkbox" id="highlight" checked> 高光</label>
+    <label class="field">光源角度
+      <input type="range" id="light" min="0" max="360" step="1" value="210">
+      <output id="light-out" for="light">210°</output>
+    </label>
+    <label class="field check"><input type="checkbox" id="showmap" checked> 显示位移图</label>
+  </section>
+
+  <div class="stage-wrap" id="wrap">
+    <div class="stage" id="stage">
+      <div class="bg"><div class="labels"><span style="left:56px;top:74px;font-size:46px">REFRACTION</span>
+        <span style="left:330px;top:296px;font-size:56px">LIQUID</span>
+        <span style="left:636px;top:420px;font-size:40px">GLASS</span></div></div>
+      <div class="glass" id="glass">
+        <div class="inner" id="inner"><div class="labels"><span style="left:56px;top:74px;font-size:46px">REFRACTION</span>
+        <span style="left:330px;top:296px;font-size:56px">LIQUID</span>
+        <span style="left:636px;top:420px;font-size:40px">GLASS</span></div></div>
+        <div class="tint"></div>
+        <div class="hl" id="hl"></div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">拖动玻璃。当前配方：<b id="recipe">折射 32 · 色散 开 · 高光 开 · 模糊 0</b></p>
+
+  <section class="mapbox" id="mapbox">
+    <canvas id="mapcanvas" width="360" height="204" aria-label="位移图：中心中性，边缘彩色"></canvas>
+    <p><b>位移图</b>：每个像素的颜色决定"这一点往哪挪"。中心是中性灰（R=G=B=127），所以不位移；越靠边越饱和，蓝通道管上下，红通道管左右。整块玻璃的样子，是这张图加上一个强度值。</p>
+  </section>
+</main>
+
+<footer>
+  <b>看什么</b>
+  <ol>
+    <li>关掉高光：边缘那条亮线没了，剩下的折射和色散还在，但玻璃变成了一块"软塑料"。</li>
+    <li>关掉色散：边缘的彩边消失，折射还在，但看起来像水而不是玻璃。</li>
+    <li>把折射强度拉到 0：玻璃完全透明，只剩一圈壳。三条线索里它最容易被忽视，但没了它，另外两条无处依附。</li>
+    <li>拖到背景的亮色块上：高光会跟着变亮变暗（混合模式），色散在亮暗交界处最明显。</li>
+    <li>切到「磨砂玻璃」「彩色塑料」：折射几乎归零，位移图派不上用场了。它们的身份来自模糊、染色和高光强弱——同一张图，只服务"折射"这一类线索。</li>
+  </ol>
+  <p class="tail">这页用 SVG 滤镜加"复制一层背景"的办法实现，没有用 backdrop-filter，所以任何浏览器都能看到同样的结果；代价是玻璃只能在这个舞台里移动。真实落地时 Safari 不支持 backdrop-filter 引用 SVG 滤镜，这是另一道边界。</p>
+</footer>
+
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <filter id="glassFilter" filterUnits="userSpaceOnUse" x="0" y="0" width="920" height="520" color-interpolation-filters="sRGB">
+    <feImage id="fmap" result="map" preserveAspectRatio="none"/>
+    <feDisplacementMap id="dR" in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="B" scale="32" result="dispR"/>
+    <feColorMatrix in="dispR" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="chR"/>
+    <feDisplacementMap id="dG" in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="B" scale="32" result="dispG"/>
+    <feColorMatrix in="dispG" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="chG"/>
+    <feDisplacementMap id="dB" in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="B" scale="32" result="dispB"/>
+    <feColorMatrix in="dispB" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="chB"/>
+    <feBlend in="chR" in2="chG" mode="screen" result="rg"/>
+    <feBlend in="rg" in2="chB" mode="screen" result="out"/>
+  </filter>
+</svg>
+
+<script>
+(() => {
+  'use strict';
+
+  const STAGE_W = 920, STAGE_H = 520;
+  const glass = document.getElementById('glass');
+  const inner = document.getElementById('inner');
+  const hl = document.getElementById('hl');
+  const stage = document.getElementById('stage');
+  const wrap = document.getElementById('wrap');
+  const mapcanvas = document.getElementById('mapcanvas');
+  const fmap = document.getElementById('fmap');
+  const dR = document.getElementById('dR'), dG = document.getElementById('dG'), dB = document.getElementById('dB');
+
+  let gx = 310, gy = 175;
+  let GW = 300, GH = 170, RADIUS = 36;
+
+  /* ---------- 位移图 ---------- */
+
+  function sdf(px, py, w, h, r) {
+    const qx = Math.abs(px - w / 2) - (w / 2 - r);
+    const qy = Math.abs(py - h / 2) - (h / 2 - r);
+    const ax = Math.max(qx, 0), ay = Math.max(qy, 0);
+    return Math.sqrt(ax * ax + ay * ay) + Math.min(Math.max(qx, qy), 0) - r;
+  }
+
+  function buildMap(w, h, radius) {
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d');
+    const img = ctx.createImageData(w, h);
+    const data = img.data;
+    const edge = Math.max(14, Math.min(26, Math.min(w, h) * 0.15));
+    const e = 0.7;
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const d = sdf(x + 0.5, y + 0.5, w, h, radius);
+        const inside = -d; // 正值表示在内侧多远
+        let vx = 0, vy = 0;
+        if (inside > 0 && inside < edge) {
+          const gx1 = sdf(x + 0.5 + e, y + 0.5, w, h, radius) - sdf(x + 0.5 - e, y + 0.5, w, h, radius);
+          const gy1 = sdf(x + 0.5, y + 0.5 + e, w, h, radius) - sdf(x + 0.5, y + 0.5 - e, w, h, radius);
+          const len = Math.hypot(gx1, gy1) || 1;
+          const nx = gx1 / len, ny = gy1 / len; // 向外
+          const t = 1 - inside / edge;
+          const s = Math.pow(t, 1.6);
+          // 向外取样本：边缘放大
+          vx = nx * s;
+          vy = ny * s;
+        }
+        const i = (y * w + x) * 4;
+        data[i] = Math.round(127 + 127 * vx);
+        data[i + 1] = 127;
+        data[i + 2] = Math.round(127 + 127 * vy);
+        data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    return cv;
+  }
+
+  function refreshMap() {
+    GW = glass.clientWidth; GH = glass.clientHeight;
+    RADIUS = parseFloat(getComputedStyle(glass).borderRadius) || 36;
+    const cv = buildMap(GW, GH, RADIUS);
+    fmap.setAttribute('href', cv.toDataURL('image/png'));
+    fmap.setAttribute('x', gx);
+    fmap.setAttribute('y', gy);
+    fmap.setAttribute('width', GW);
+    fmap.setAttribute('height', GH);
+
+    // 侧栏预览
+    mapcanvas.width = 360; mapcanvas.height = Math.round(360 * GH / GW);
+    const c2 = mapcanvas.getContext('2d');
+    c2.imageSmoothingEnabled = true;
+    c2.drawImage(cv, 0, 0, mapcanvas.width, mapcanvas.height);
+  }
+
+  /* ---------- 位置与滤镜 ---------- */
+
+  function place() {
+    glass.style.left = gx + 'px';
+    glass.style.top = gy + 'px';
+    inner.style.left = -gx + 'px';
+    inner.style.top = -gy + 'px';
+    fmap.setAttribute('x', gx);
+    fmap.setAttribute('y', gy);
+  }
+
+  function applyFilter() {
+    const s = Number(document.getElementById('scale').value);
+    const d = document.getElementById('dispersion').checked;
+    dR.setAttribute('scale', s);
+    dG.setAttribute('scale', d ? (s * 0.9).toFixed(1) : s);
+    dB.setAttribute('scale', d ? (s * 0.8).toFixed(1) : s);
+  }
+
+  /* ---------- 控件 ---------- */
+
+  const scaleInput = document.getElementById('scale');
+  const tintEl = document.querySelector('.tint');
+  let blurAmount = 0;
+
+  function updateRecipe() {
+    const d = document.getElementById('dispersion').checked ? '开' : '关';
+    const h = document.getElementById('highlight').checked ? '开' : '关';
+    document.getElementById('recipe').textContent =
+      `折射 ${scaleInput.value} · 色散 ${d} · 高光 ${h} · 模糊 ${blurAmount ? blurAmount + 'px' : 0}`;
+  }
+
+  const MATERIALS = {
+    glass:   { scale: 32, dispersion: true,  highlight: true, blur: 0, tint: 'rgba(255,255,255,.045)', hl: 1,    hlBlur: 0 },
+    frosted: { scale: 10, dispersion: false, highlight: true, blur: 6, tint: 'rgba(255,255,255,.20)',  hl: 0.55, hlBlur: 2 },
+    plastic: { scale: 0,  dispersion: false, highlight: true, blur: 0, tint: 'rgba(220,38,38,.45)',   hl: 1,    hlBlur: 0 }
+  };
+
+  function applyMaterial(id) {
+    const m = MATERIALS[id];
+    scaleInput.value = m.scale;
+    document.getElementById('scale-out').textContent = m.scale;
+    document.getElementById('dispersion').checked = m.dispersion;
+    document.getElementById('highlight').checked = m.highlight;
+    tintEl.style.background = m.tint;
+    hl.style.opacity = m.hl;
+    hl.style.filter = m.hlBlur ? `blur(${m.hlBlur}px)` : 'none';
+    blurAmount = m.blur;
+    inner.style.filter = m.blur ? `url(#glassFilter) blur(${m.blur}px)` : 'url(#glassFilter)';
+    applyFilter();
+    updateRecipe();
+  }
+
+  scaleInput.addEventListener('input', () => {
+    document.getElementById('scale-out').textContent = scaleInput.value;
+    applyFilter();
+    updateRecipe();
+  });
+
+  document.getElementById('dispersion').addEventListener('change', () => {
+    applyFilter();
+    updateRecipe();
+  });
+
+  document.getElementById('highlight').addEventListener('change', (e) => {
+    hl.style.display = e.target.checked ? '' : 'none';
+    updateRecipe();
+  });
+
+  document.getElementById('light').addEventListener('input', (e) => {
+    document.getElementById('light-out').textContent = e.target.value + '°';
+    hl.style.setProperty('--light', e.target.value + 'deg');
+  });
+
+  document.getElementById('showmap').addEventListener('change', (e) => {
+    document.getElementById('mapbox').style.display = e.target.checked ? '' : 'none';
+  });
+
+  document.querySelectorAll('input[name=mat]').forEach((r) => {
+    r.addEventListener('change', (e) => { if (e.target.checked) applyMaterial(e.target.value); });
+  });
+
+  /* ---------- 拖动 ---------- */
+
+  function stageScale() {
+    return stage.getBoundingClientRect().width / STAGE_W;
+  }
+
+  let drag = null;
+  glass.addEventListener('pointerdown', (e) => {
+    const s = stageScale();
+    drag = { x: e.clientX, y: e.clientY, gx, gy, s };
+    glass.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    gx = Math.max(0, Math.min(STAGE_W - GW, drag.gx + (e.clientX - drag.x) / drag.s));
+    gy = Math.max(0, Math.min(STAGE_H - GH, drag.gy + (e.clientY - drag.y) / drag.s));
+    place();
+  });
+  function endDrag() { drag = null; }
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+
+  /* ---------- 自适应缩放 ---------- */
+
+  function fit() {
+    const avail = Math.min(document.documentElement.clientWidth - 40, 960);
+    const s = Math.min(1, avail / STAGE_W);
+    stage.style.transform = `scale(${s})`;
+    wrap.style.width = (STAGE_W * s) + 'px';
+    wrap.style.height = (STAGE_H * s) + 'px';
+  }
+  window.addEventListener('resize', fit);
+
+  /* ---------- 启动 ---------- */
+
+  fit();
+  place();
+  applyFilter();
+  refreshMap();
+  updateRecipe();
+  window.addEventListener('load', () => { place(); refreshMap(); });
+})();
+</script>
+</body>
+</html>

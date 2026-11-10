@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>实时与连续：同一个输入，两种跟随</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff;
+    --raw:#86909c;
+    --spring:#2b6cff;
+    --aim:#e5484d;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .layout{height:100vh;height:100dvh;display:grid;grid-template-rows:auto minmax(210px,1fr) auto auto}
+
+  /* 顶栏 */
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 8px}
+  .topbar-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-2)}
+  .ctl{display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
+  .ctl input[type=range]{width:88px;accent-color:var(--accent);cursor:pointer}
+  .ctl output{font:11px/1 var(--mono);color:var(--text);min-width:44px;text-align:right}
+  .ctl select{
+    height:26px;border:1px solid #d6d9e0;border-radius:6px;background:#fff;
+    font:inherit;font-size:12px;color:var(--text-2);padding:0 4px;cursor:pointer
+  }
+  .controls button{
+    height:26px;padding:0 10px;border:1px solid #d6d9e0;border-radius:6px;background:#fff;
+    font:inherit;font-size:12px;color:var(--text-2);cursor:pointer
+  }
+  .controls button:hover{background:#f7f8fa}
+  .controls button[aria-pressed=true]{background:var(--text);border-color:var(--text);color:#fff}
+  .readout{
+    margin-top:6px;font:11px/1.6 var(--mono);color:var(--text-3);
+    display:flex;flex-wrap:wrap;gap:4px 18px;min-height:17px
+  }
+  .readout b{font-weight:500;color:var(--text-2)}
+
+  /* 拖拽区 */
+  .stage{
+    position:relative;margin:0;padding:20px 22px 10px;
+    display:flex;flex-direction:column;justify-content:center;gap:18px;
+    touch-action:none;cursor:grab;overflow:clip;
+  }
+  .stage.dragging{cursor:grabbing}
+  .stage::after{
+    content:"拖动这里，或用左右方向键";position:absolute;right:22px;top:6px;
+    font-size:11px;color:#c3c8d0;pointer-events:none
+  }
+
+  .lane{display:flex;flex-direction:column;gap:7px}
+  .lane-head{display:flex;align-items:baseline;gap:8px;font-size:12px;color:var(--text-3)}
+  .tag{
+    font:11px/1 var(--mono);padding:3px 6px;border-radius:4px;letter-spacing:.02em;
+    color:#fff;background:var(--raw)
+  }
+  .lane[data-kind=spring] .tag{background:var(--spring)}
+  .lane-head .hint{color:var(--text-3)}
+  .lane-head .val{margin-left:auto;font:11px/1 var(--mono);color:var(--text-2);white-space:nowrap}
+
+  .track{
+    position:relative;height:54px;border-radius:12px;background:var(--line-soft);
+    overflow:hidden
+  }
+  .ghost{
+    position:absolute;left:0;top:50%;width:52px;height:34px;margin-top:-17px;border-radius:8px;
+    border:1.5px dashed rgba(229,72,77,.7);background:rgba(229,72,77,.03);
+    z-index:3;pointer-events:none;will-change:transform
+  }
+  .block{
+    position:absolute;left:0;top:50%;width:52px;height:34px;margin-top:-17px;border-radius:8px;
+    z-index:2;will-change:transform
+  }
+  .block.raw{background:#fff;border:1.5px solid #c9cdd4;box-shadow:0 1px 2px rgba(31,35,41,.06)}
+  .block.spring{background:var(--spring);box-shadow:0 4px 14px rgba(43,108,255,.28)}
+
+  /* 图表 */
+  .chartwrap{background:var(--panel);border-top:1px solid var(--line);padding:8px 18px 10px}
+  .chart-head{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:var(--text-3);margin-bottom:2px}
+  .legend{display:flex;gap:12px}
+  .legend i{display:inline-block;width:10px;height:2px;vertical-align:middle;margin-right:4px;border-radius:2px}
+  .legend .l-aim{background:var(--aim);opacity:.55}
+  .legend .l-raw{background:var(--raw)}
+  .legend .l-spring{background:var(--spring)}
+  #chart{display:block;width:100%;height:96px}
+
+  /* 说明 */
+  .notes{
+    background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:26vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin-top:6px;color:var(--text-3);font-size:11px}
+
+  @media (max-width:720px){
+    .stage{padding:14px 14px 6px;gap:14px}
+    .stage::after{display:none}
+    .track{height:46px}
+    .block{width:46px;height:30px;margin-top:-15px}
+    .topbar{padding:8px 14px 6px}
+    .controls{gap:10px}
+    .ctl input[type=range]{width:70px}
+    .notes{padding:8px 14px 12px}
+    #chart{height:74px}
+  }
+  @media (max-height:700px){
+    .notes{max-height:20vh}
+    #chart{height:70px}
+    .track{height:46px}
+    .stage{padding-top:12px}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="topbar-row">
+      <div class="title">实时与连续<span>同一个输入，直接显示 vs 先过一层弹簧</span></div>
+      <div class="controls">
+        <label class="ctl">跟随时间<input id="dur" type="range" min="30" max="400" step="5" value="100" /><output id="durOut">100 ms</output></label>
+        <label class="ctl">回弹<input id="bounce" type="range" min="0" max="65" step="1" value="0" /><output id="bounceOut">无</output></label>
+        <label class="ctl">输入抖动<input id="jitter" type="range" min="0" max="8" step="0.5" value="0" /><output id="jitterOut">0 px</output></label>
+        <label class="ctl">松手后
+          <select id="release">
+            <option value="catch">追赶</option>
+            <option value="snap">吸附</option>
+            <option value="freeze">冻结</option>
+          </select>
+        </label>
+        <button type="button" id="auto" aria-pressed="false">自动演示</button>
+        <button type="button" id="reset">重置</button>
+      </div>
+    </div>
+    <div class="readout" id="readout" aria-hidden="true"></div>
+  </header>
+
+  <main class="stage" id="stage" role="application" tabindex="0" aria-label="拖动区：在轨道上左右拖动，或聚焦后用左右方向键移动目标位置">
+    <div class="lane" data-kind="raw">
+      <div class="lane-head">
+        <span class="tag">RAW</span>
+        <span class="hint">每一帧的采样直接显示</span>
+        <span class="val" id="valRaw">Δ 0.0 px</span>
+      </div>
+      <div class="track" id="trackRaw">
+        <div class="ghost" id="ghostRaw"></div>
+        <div class="block raw" id="blockRaw"></div>
+      </div>
+    </div>
+
+    <div class="lane" data-kind="spring">
+      <div class="lane-head">
+        <span class="tag">弹簧</span>
+        <span class="hint">同一串采样，先过一层弹簧</span>
+        <span class="val" id="valSpring">Δ 0.0 px</span>
+      </div>
+      <div class="track" id="trackSpring">
+        <div class="ghost" id="ghostSpring"></div>
+        <div class="block spring" id="blockSpring"></div>
+      </div>
+    </div>
+  </main>
+
+  <section class="chartwrap">
+    <div class="chart-head">
+      <span>位置轨迹（最近 3.2 秒）</span>
+      <span class="legend">
+        <span><i class="l-aim"></i>目标</span>
+        <span><i class="l-raw"></i>RAW</span>
+        <span><i class="l-spring"></i>弹簧</span>
+      </span>
+    </div>
+    <canvas id="chart"></canvas>
+  </section>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li>每行轨道里都有一层<b>红色虚线框</b>，它标的是目标位置（手指在哪）。蓝色实心块是实际显示的位置。</li>
+      <li>慢速拖动：蓝块和虚线框基本重合。弹簧没有让东西变慢，它只是允许落后。</li>
+      <li>快速来回拖，尤其停住再反向：RAW 的蓝块围着虚线框抖，轨迹有毛刺；弹簧的蓝块更顺，但会明显离开虚线框——错开多少，就是落后多少，右边写着数字。</li>
+      <li>把「跟随时间」推到 300ms 以上：错位变宽，开始像拖不动。</li>
+      <li>「回弹」调出一点：停下时蓝块会越过虚线框再回来。</li>
+      <li>「输入抖动」归零再快速拖：两行的错位都变小，毛刺也消失。弹簧抹掉的是输入的抖动和采样不均，不是让画面变好看。</li>
+      <li>「松手后」切换三种处理：<b>追赶</b>＝虚线框不动，蓝块自己滑过去；<b>吸附</b>＝蓝块瞬间贴上，差距大时能看出跳；<b>冻结</b>＝虚线框跳到蓝块身上，等于把落点当成目标。松手瞬间的落后量显示在顶栏。</li>
+    </ol>
+    <p class="limit">抖动是模拟值，真实设备的采样不均、手抖、掉帧不完全是这个形状；这些参数是演示值，不是推荐值。</p>
+  </section>
+</div>
+
+<script src="motion.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var stage = $('stage');
+  var canvas = $('chart');
+  var ctx = canvas.getContext('2d');
+
+  var el = {
+    dur: $('dur'), durOut: $('durOut'),
+    bounce: $('bounce'), bounceOut: $('bounceOut'),
+    jitter: $('jitter'), jitterOut: $('jitterOut'),
+    release: $('release'),
+    auto: $('auto'), reset: $('reset'),
+    readout: $('readout'),
+    valRaw: $('valRaw'), valSpring: $('valSpring'),
+    blockRaw: $('blockRaw'), blockSpring: $('blockSpring'),
+    ghostRaw: $('ghostRaw'), ghostSpring: $('ghostSpring'),
+    trackRaw: $('trackRaw')
+  };
+
+  var state = {
+    aim: 0,            /* 意图位置：指针或自动轨迹 */
+    sample: 0,         /* 实际采样：意图 + 抖动 */
+    spring: Motion.createSpring(0),
+    params: Motion.springParams(0.1, 1),
+    jitterAmp: 0,
+    release: 'catch',
+    releaseLag: null,
+    auto: null,
+    range: 1,
+    lastT: 0,
+    renderedT: 0,
+    lastRaw: null,
+    history: [],
+    roughRaw: 0,
+    roughSpring: 0,
+    dragging: false
+  };
+
+  function blockWidth() {
+    return state.narrow ? 46 : 52;
+  }
+
+  function measure() {
+    state.narrow = window.innerWidth <= 720;
+    state.range = Math.max(1, el.trackRaw.clientWidth - blockWidth());
+    state.aim = Motion.clamp(state.aim, 0, state.range);
+    state.sample = Motion.clamp(state.sample, 0, state.range);
+    state.spring.x = Motion.clamp(state.spring.x, 0, state.range);
+  }
+
+  function readParams() {
+    var duration = Number(el.dur.value) / 1000;
+    var bounce = Number(el.bounce.value) / 100;
+    var ratio = 1 - bounce * 0.65; /* 1 为临界阻尼，越小越弹 */
+    state.params = Motion.springParams(duration, ratio);
+    state.jitterAmp = Number(el.jitter.value);
+    el.durOut.textContent = el.dur.value + ' ms';
+    el.bounceOut.textContent = Number(el.bounce.value) === 0 ? '无' : '有';
+    el.jitterOut.textContent = Number(el.jitter.value) === 0 ? '0 px' : el.jitter.value + ' px';
+  }
+
+  /* ---------- 自动演示的轨迹 ---------- */
+  var SEGMENTS = [
+    { dur: 1.00, from: 0.10, to: 0.86, ease: 'inout' },
+    { dur: 0.50, from: 0.86, to: 0.80, ease: 'out' },
+    { dur: 0.65, from: 0.80, to: 0.16, ease: 'inout' },
+    { dur: 1.10, from: 0.16, to: 0.52, ease: 'inout' },
+    { dur: 0.75, from: 0.52, to: 0.52, ease: 'hold' },
+    { dur: 0.80, from: 0.52, to: 0.40, ease: 'inout' }
+  ];
+  var AUTO_DURATION = SEGMENTS.reduce(function (sum, s) { return sum + s.dur; }, 0);
+
+  function autoValue(t) {
+    var acc = 0;
+    for (var i = 0; i < SEGMENTS.length; i += 1) {
+      var seg = SEGMENTS[i];
+      if (t <= acc + seg.dur || i === SEGMENTS.length - 1) {
+        var k = Math.min(1, Math.max(0, (t - acc) / seg.dur));
+        if (seg.ease === 'inout') k = k < 0.5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k);
+        else if (seg.ease === 'out') k = 1 - (1 - k) * (1 - k);
+        else if (seg.ease === 'hold') k = 0;
+        return seg.from + (seg.to - seg.from) * k;
+      }
+      acc += seg.dur;
+    }
+    return SEGMENTS[SEGMENTS.length - 1].to;
+  }
+
+  function startAuto() {
+    if (Number(el.jitter.value) === 0) {
+      el.jitter.value = '3';
+      readParams();
+    }
+    state.auto = { start: performance.now() };
+    el.auto.setAttribute('aria-pressed', 'true');
+    el.auto.textContent = '停止';
+  }
+
+  function stopAuto() {
+    state.auto = null;
+    el.auto.setAttribute('aria-pressed', 'false');
+    el.auto.textContent = '自动演示';
+  }
+
+  /* ---------- 指针 ---------- */
+  function aimFromEvent(event) {
+    var rect = stage.getBoundingClientRect();
+    var local = event.clientX - rect.left - 22 - blockWidth() / 2;
+    if (state.narrow) local = event.clientX - rect.left - 14 - blockWidth() / 2;
+    return Motion.clamp(local, 0, state.range);
+  }
+
+  stage.addEventListener('pointerdown', function (event) {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    stopAuto();
+    state.dragging = true;
+    stage.classList.add('dragging');
+    stage.setPointerCapture(event.pointerId);
+    state.aim = aimFromEvent(event);
+    event.preventDefault();
+  });
+
+  stage.addEventListener('pointermove', function (event) {
+    if (!state.dragging) return;
+    state.aim = aimFromEvent(event);
+  });
+
+  function endDrag(event) {
+    if (!state.dragging) return;
+    state.dragging = false;
+    stage.classList.remove('dragging');
+    if (event.pointerId !== undefined && stage.hasPointerCapture(event.pointerId)) {
+      stage.releasePointerCapture(event.pointerId);
+    }
+    applyRelease();
+  }
+
+  /*
+   * 松手时怎么处理已经产生的落后：
+   * catch  虚线框不动，弹簧自己追过去
+   * snap   立刻贴上（位置和速度一起归零，能看出跳）
+   * freeze 把目标改成落点，虚线框跟着方块走
+   */
+  function applyRelease() {
+    state.releaseLag = state.spring.x - state.aim;
+    if (state.release === 'snap') {
+      state.spring.x = state.aim;
+      state.spring.v = 0;
+    } else if (state.release === 'freeze') {
+      state.aim = state.spring.x;
+    }
+  }
+  stage.addEventListener('pointerup', endDrag);
+  stage.addEventListener('pointercancel', endDrag);
+
+  stage.addEventListener('keydown', function (event) {
+    var step = event.shiftKey ? 48 : 12;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      stopAuto();
+      state.aim = Motion.clamp(state.aim - step, 0, state.range);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      stopAuto();
+      state.aim = Motion.clamp(state.aim + step, 0, state.range);
+    }
+  });
+
+  /* ---------- 渲染 ---------- */
+  function renderFrame(dt) {
+    if (state.auto) {
+      var elapsed = (performance.now() - state.auto.start) / 1000;
+      if (elapsed >= AUTO_DURATION) {
+        stopAuto();
+        applyRelease();
+      } else {
+        state.aim = autoValue(elapsed) * state.range;
+      }
+    }
+
+    var jitter = 0;
+    if (state.jitterAmp > 0) {
+      var noise = (Math.random() * 2 - 1) * 0.65;
+      var slow = Math.sin(performance.now() / 95) * 0.35;
+      jitter = state.jitterAmp * (noise + slow);
+    }
+    state.sample = Motion.clamp(state.aim + jitter, 0, state.range);
+
+    Motion.advance(state.spring, state.sample, state.params, dt);
+
+    var dxRaw = state.lastRaw === null ? 0 : state.sample - state.lastRaw;
+    state.lastRaw = state.sample;
+
+    var t = performance.now() / 1000;
+    state.history.push({ t: t, aim: state.aim, raw: state.sample, spring: state.spring.x });
+    while (state.history.length > 420) state.history.shift();
+
+    var bw = blockWidth();
+    var aimX = state.aim + bw / 2;
+    var springX = state.spring.x + bw / 2;
+
+    el.blockRaw.style.transform = 'translateX(' + state.sample.toFixed(2) + 'px)';
+    el.blockSpring.style.transform = 'translateX(' + state.spring.x.toFixed(2) + 'px)';
+    el.ghostRaw.style.transform = 'translateX(' + state.aim.toFixed(2) + 'px)';
+    el.ghostSpring.style.transform = 'translateX(' + state.aim.toFixed(2) + 'px)';
+
+    /* 目标中心与物体中心的差：负数是落后，正数是超前 */
+    var lagPx = springX - aimX;
+    var lagAbs = Math.abs(lagPx);
+
+    el.valRaw.textContent = 'Δ ' + Math.abs(dxRaw).toFixed(1) + ' px';
+    el.valSpring.textContent = lagAbs < 0.6
+      ? '基本重合'
+      : (lagPx < 0 ? '落后 ' : '超前 ') + lagAbs.toFixed(1) + ' px';
+
+    if (t - state.renderedT > 0.1) {
+      state.renderedT = t;
+      updateReadout(lagPx);
+    }
+
+    drawChart();
+  }
+
+  function updateReadout(lagPx) {
+    var recent = state.history.slice(-70);
+    var raws = recent.map(function (p) { return p.raw; });
+    var springs = recent.map(function (p) { return p.spring; });
+    var roughRaw = Motion.roughness(raws);
+    var roughSpring = Motion.roughness(springs);
+    state.roughRaw = roughRaw;
+    state.roughSpring = roughSpring;
+
+    var gap = Math.abs(lagPx);
+    var gapText = lagPx < -0.5
+      ? '<b>落后 ' + gap.toFixed(1) + ' px</b>'
+      : lagPx > 0.5
+        ? '<b>超前 ' + gap.toFixed(1) + ' px</b>'
+        : '<b>基本重合</b>';
+
+    var roughText;
+    if (roughRaw < 0.35) {
+      roughText = '毛刺 <b>' + roughRaw.toFixed(1) + '</b> px，输入本身很顺，弹簧无事可做';
+    } else {
+      roughText = '毛刺 RAW <b>' + roughRaw.toFixed(1) + '</b> px · 弹簧 <b>' + roughSpring.toFixed(1) + '</b> px';
+    }
+
+    el.readout.innerHTML = gapText + '<span>' + roughText + '</span>' + releaseText();
+  }
+
+  function releaseText() {
+    if (state.releaseLag === null) return '';
+    var rl = state.releaseLag;
+    var body = Math.abs(rl) < 0.5
+      ? '基本重合'
+      : (rl < 0 ? '落后 ' : '超前 ') + Math.abs(rl).toFixed(1) + ' px';
+    return '<span>上次松手：' + body + '</span>';
+  }
+
+  function drawChart() {
+    var w = canvas.clientWidth;
+    var h = canvas.clientHeight;
+    if (!w || !h) return;
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    var windowSec = 3.2;
+    var last = state.history[state.history.length - 1];
+    if (!last) return;
+    var t0 = last.t - windowSec;
+    var maxY = Math.max(1, state.range);
+
+    ctx.strokeStyle = '#eef0f3';
+    ctx.lineWidth = 1;
+    for (var i = 1; i < 4; i += 1) {
+      var gy = (h / 4) * i + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(w, gy);
+      ctx.stroke();
+    }
+
+    function px(time) { return ((time - t0) / windowSec) * w; }
+    function py(value) { return h - 4 - (value / maxY) * (h - 8); }
+
+    function stroke(key, color, width, alpha) {
+      ctx.beginPath();
+      var started = false;
+      for (var j = 0; j < state.history.length; j += 1) {
+        var p = state.history[j];
+        var x = px(p.t);
+        if (x < -4) continue;
+        var y = py(p[key]);
+        if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+      }
+      if (started) {
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    stroke('aim', '#e5484d', 1.4, 0.5);
+    stroke('raw', '#86909c', 1.4, 0.9);
+    stroke('spring', '#2b6cff', 2, 1);
+  }
+
+  /* ---------- 主循环 ---------- */
+  function frame(now) {
+    var dt = state.lastT ? Math.min(0.05, (now - state.lastT) / 1000) : 1 / 60;
+    state.lastT = now;
+    renderFrame(dt);
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- 事件绑定 ---------- */
+  el.dur.addEventListener('input', readParams);
+  el.bounce.addEventListener('input', readParams);
+  el.jitter.addEventListener('input', readParams);
+  el.release.addEventListener('change', function () {
+    state.release = el.release.value;
+  });
+  el.auto.addEventListener('click', function () {
+    if (state.auto) stopAuto();
+    else startAuto();
+  });
+  el.reset.addEventListener('click', function () {
+    stopAuto();
+    el.dur.value = '100';
+    el.bounce.value = '0';
+    el.jitter.value = '0';
+    readParams();
+    state.aim = state.range / 2;
+    state.sample = state.aim;
+    state.spring = Motion.createSpring(state.aim);
+    state.history.length = 0;
+    state.lastRaw = null;
+    state.releaseLag = null;
+    state.roughRaw = 0;
+    state.roughSpring = 0;
+  });
+
+  var resizeTimer = 0;
+  window.addEventListener('resize', function () {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(function () {
+      measure();
+      state.history.length = 0;
+    }, 80);
+  });
+
+  /* ---------- 启动 ---------- */
+  measure();
+  readParams();
+  state.aim = state.range * 0.25;
+  state.sample = state.aim;
+  state.spring = Motion.createSpring(state.aim);
+  requestAnimationFrame(frame);
+
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    var note = document.createElement('p');
+    note.className = 'limit';
+    note.textContent = '系统开启了「减少动态效果」。这个页面用来观察运动本身，不会自动播放；需要你主动拖动或点「自动演示」。';
+    document.querySelector('.notes').appendChild(note);
+  }
+})();
+</script>
+</body>
+</html>

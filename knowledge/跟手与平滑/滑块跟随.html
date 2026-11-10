@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>滑块：即时跟随，还是过一层平滑</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .bar + .bar{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+  .hint{margin:0;font-size:11px;color:var(--text-3)}
+
+  .actions{display:inline-flex;gap:8px}
+  .actions button{
+    height:28px;padding:0 10px;border:1px solid #d6d9e0;border-radius:8px;background:#fff;
+    font-size:12px;color:var(--text-2);cursor:pointer
+  }
+  .actions button:hover{background:#f7f8fa}
+
+  .stage{flex:1;min-height:0;padding:32px 24px;display:flex;justify-content:center;align-items:flex-start}
+  .panel{width:min(640px,100%);display:flex;flex-direction:column;gap:30px}
+
+  .row{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px 14px
+  }
+  .row-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+  .row-head h3{margin:0;font-size:13px;font-weight:600}
+  .row-head .tag{
+    font:11px/1 var(--mono);padding:3px 6px;border-radius:4px;color:#fff;background:var(--text-3)
+  }
+  .row[data-mode="smooth"] .tag{background:#e5484d}
+  .row-head .desc{font-size:11px;color:var(--text-3);margin-left:auto}
+
+  .track{
+    position:relative;height:34px;display:flex;align-items:center;cursor:pointer;
+    touch-action:none
+  }
+  .rail{
+    position:absolute;left:0;right:0;height:6px;border-radius:3px;background:var(--line-soft)
+  }
+  .fill{
+    position:absolute;left:0;height:6px;border-radius:3px;background:var(--accent);width:0
+  }
+  .thumb{
+    position:absolute;top:50%;width:22px;height:22px;margin-left:-11px;margin-top:-11px;
+    border-radius:50%;background:#fff;border:2px solid var(--accent);
+    box-shadow:0 2px 6px rgba(15,23,42,.16);left:0
+  }
+  .row[data-mode="smooth"] .thumb{background:#fff5f5;border-color:#e5484d}
+  .row[data-mode="smooth"] .fill{background:#e5484d}
+
+  .readout{
+    display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;
+    font:11px/1.5 var(--mono);color:var(--text-3)
+  }
+  .readout b{color:var(--text-2);font-weight:500}
+
+  .gap-warn{color:#e5484d}
+
+  .notes{
+    flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:30vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin-top:6px;color:var(--text-3);font-size:11px}
+
+  @media (max-width:640px){
+    .stage{padding:18px 14px}
+    .panel{gap:22px}
+    .notes{padding:8px 14px 12px;max-height:28vh}
+    .status{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="bar">
+      <div class="title">滑块<span>即时跟随，还是过一层平滑</span></div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="bar">
+      <div class="actions">
+        <button type="button" id="to37">两边都设到 37</button>
+        <button type="button" id="to78">两边都设到 78</button>
+      </div>
+      <p class="hint">拖动任意一条轨道，或者点上面的按钮，比较两个游标停在哪里。</p>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="panel">
+      <div class="row" data-mode="direct">
+        <div class="row-head">
+          <span class="tag">1:1</span>
+          <h3>即时跟随</h3>
+          <span class="desc">游标就在手指位置，没有滞后</span>
+        </div>
+        <div class="track" id="trackDirect" role="slider" tabindex="0"
+             aria-label="即时跟随滑块" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="rail"></div>
+          <div class="fill" id="fillDirect"></div>
+          <div class="thumb" id="thumbDirect"></div>
+        </div>
+        <div class="readout" id="readDirect"></div>
+      </div>
+
+      <div class="row" data-mode="smooth">
+        <div class="row-head">
+          <span class="tag">平滑</span>
+          <h3>过一层弹簧</h3>
+          <span class="desc">游标落后于手指，松手后才追上</span>
+        </div>
+        <div class="track" id="trackSmooth" role="slider" tabindex="0"
+             aria-label="平滑跟随滑块" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="rail"></div>
+          <div class="fill" id="fillSmooth"></div>
+          <div class="thumb" id="thumbSmooth"></div>
+        </div>
+        <div class="readout" id="readSmooth"></div>
+      </div>
+    </div>
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li>快速拖两个游标，注意「游标位置」和「目标值」两行数字的差。</li>
+      <li>即时跟随那一行的差一直是 0；平滑那一行在拖动时会出现几到十几的差。</li>
+      <li>试着把平滑那一条精确拖到某个值（比如 37）：松手后它还会自己滑一小段，落点和你松手的位置不一样。</li>
+      <li>用「两边都设到 37」直接跳过去，看平滑那一条要多花多久才停稳。</li>
+    </ol>
+    <p class="limit">两条滑块的行程和弹簧参数都是演示值。真实滑块还要考虑键盘、读屏和触控的命中区域。</p>
+  </section>
+</div>
+
+<script>
+/* 只留这个演示用得到的部分：参数换算、一步积分、夹取 */
+var Motion = (function () {
+  'use strict';
+  function springParams(visualDuration, dampingRatio, mass) {
+    var m = mass > 0 ? mass : 1;
+    var period = Math.max(0.01, visualDuration || 0.12);
+    var omega = (2 * Math.PI) / period;
+    var stiffness = omega * omega * m;
+    var damping = 2 * dampingRatio * Math.sqrt(stiffness * m);
+    return { stiffness: stiffness, damping: damping, mass: m };
+  }
+  function createSpring(x) {
+    return { x: Number.isFinite(x) ? x : 0, v: 0 };
+  }
+  function advance(spring, target, p, dt) {
+    var step = 1 / 240;
+    var remain = Math.min(Math.max(dt || 0, 0), 0.1);
+    while (remain > 1e-6) {
+      var h = Math.min(step, remain);
+      var a = (-p.stiffness * (spring.x - target) - p.damping * spring.v) / p.mass;
+      spring.v += a * h;
+      spring.x += spring.v * h;
+      remain -= h;
+    }
+    if (!Number.isFinite(spring.x) || !Number.isFinite(spring.v)) {
+      spring.x = target;
+      spring.v = 0;
+    }
+    return spring;
+  }
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  return { springParams: springParams, createSpring: createSpring, advance: advance, clamp: clamp };
+})();
+</script>
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var statusEl = $('status');
+
+  var SMOOTH_PERIOD = 0.14;
+
+  var rows = [
+    {
+      mode: 'direct',
+      track: $('trackDirect'),
+      fill: $('fillDirect'),
+      thumb: $('thumbDirect'),
+      read: $('readDirect'),
+      target: 0,
+      shown: 0,
+      spring: null,
+      dragging: false
+    },
+    {
+      mode: 'smooth',
+      track: $('trackSmooth'),
+      fill: $('fillSmooth'),
+      thumb: $('thumbSmooth'),
+      read: $('readSmooth'),
+      target: 0,
+      shown: 0,
+      spring: null,
+      dragging: false
+    }
+  ];
+
+  var params = Motion.springParams(SMOOTH_PERIOD, 1);
+  rows.forEach(function (row) {
+    row.spring = Motion.createSpring(0);
+  });
+
+  function pctFromEvent(row, event) {
+    var rect = row.track.getBoundingClientRect();
+    var x = event.clientX - rect.left;
+    var pct = (x / Math.max(1, rect.width)) * 100;
+    return Motion.clamp(pct, 0, 100);
+  }
+
+  function bind(row) {
+    row.track.addEventListener('pointerdown', function (event) {
+      row.dragging = true;
+      row.track.setPointerCapture(event.pointerId);
+      row.target = pctFromEvent(row, event);
+      event.preventDefault();
+    });
+
+    row.track.addEventListener('pointermove', function (event) {
+      if (!row.dragging) return;
+      row.target = pctFromEvent(row, event);
+    });
+
+    function end(event) {
+      if (!row.dragging) return;
+      row.dragging = false;
+      if (event.pointerId !== undefined && row.track.hasPointerCapture(event.pointerId)) {
+        row.track.releasePointerCapture(event.pointerId);
+      }
+    }
+    row.track.addEventListener('pointerup', end);
+    row.track.addEventListener('pointercancel', end);
+
+    row.track.addEventListener('keydown', function (event) {
+      var step = event.shiftKey ? 10 : 1;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        row.target = Motion.clamp(row.target + step, 0, 100);
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        row.target = Motion.clamp(row.target - step, 0, 100);
+      }
+    });
+  }
+
+  rows.forEach(bind);
+
+  function render(row) {
+    var shown = row.shown;
+    row.thumb.style.left = shown + '%';
+    row.fill.style.width = shown + '%';
+    row.track.setAttribute('aria-valuenow', String(Math.round(shown)));
+
+    var gap = row.target - shown;
+    var gapText = Math.abs(gap) < 0.5
+      ? '<b>0.0</b>'
+      : '<span class="gap-warn"><b>' + gap.toFixed(1) + '</b></span>';
+
+    row.read.innerHTML =
+      '目标 <b>' + row.target.toFixed(1) + '</b>' +
+      ' · 游标 <b>' + shown.toFixed(1) + '</b>' +
+      ' · 差 ' + gapText;
+  }
+
+  var lastT = 0;
+  function frame(now) {
+    var dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 1 / 60;
+    lastT = now;
+
+    rows.forEach(function (row) {
+      if (row.mode === 'direct') {
+        row.shown = row.target;
+        row.spring.x = row.target;
+        row.spring.v = 0;
+      } else {
+        Motion.advance(row.spring, row.target, params, dt);
+        row.shown = row.spring.x;
+      }
+      render(row);
+    });
+
+    requestAnimationFrame(frame);
+  }
+
+  function setBoth(value) {
+    rows.forEach(function (row) {
+      row.target = value;
+    });
+    updateStatus('两边目标都设为 ' + value);
+  }
+
+  $('to37').addEventListener('click', function () { setBoth(37); });
+  $('to78').addEventListener('click', function () { setBoth(78); });
+
+  function updateStatus(text) {
+    statusEl.textContent = text || '拖动任意一条';
+  }
+
+  updateStatus();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

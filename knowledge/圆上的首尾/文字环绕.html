@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>文字沿圆排列：等分的是什么</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e6e8ec; --line-soft:#f0f1f4;
+    --text:#1d2129; --muted:#6b7280; --accent:#2f6feb; --warn:#c0392b;
+    --char:#111827; --tick:#c3c8d2; --ring:#4b5563;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);min-height:100vh;
+    display:flex;flex-direction:column;
+    font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  .topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px 12px}
+  .topbar h1{font-size:16px;margin:0 0 4px;font-weight:600}
+  .topbar p{margin:0;color:var(--muted);font-size:13px}
+  main{flex:1;padding:16px 20px 10px;display:flex;flex-direction:column;gap:12px}
+  .controls{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;display:flex;flex-direction:column;gap:10px;
+  }
+  .row{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+  .field{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);white-space:nowrap}
+  .field input[type=text]{
+    width:260px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;
+    font:inherit;color:var(--text);background:#fff;
+  }
+  .field input[type=text]:focus-visible,.chip:focus-visible,select:focus-visible,input[type=range]:focus-visible{
+    outline:2px solid var(--accent);outline-offset:2px;
+  }
+  input[type=range]{width:120px;accent-color:var(--accent)}
+  select{font:inherit;color:var(--text);padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  output{font-variant-numeric:tabular-nums;color:var(--text);min-width:3ch;display:inline-block}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{
+    font:inherit;font-size:12px;color:var(--muted);background:var(--line-soft);
+    border:1px solid transparent;border-radius:999px;padding:3px 10px;cursor:pointer;
+  }
+  .chip:hover{color:var(--text);border-color:var(--line)}
+  .seg{display:flex;gap:4px;border:1px solid var(--line);border-radius:999px;padding:3px;margin:0}
+  .seg legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .seg label{position:relative;font-size:12px;color:var(--muted);padding:3px 10px;border-radius:999px;cursor:pointer}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px}
+  .seg label:has(input:checked){background:var(--text);color:#fff}
+  .seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  .rings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .ring-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:10px 12px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;
+  }
+  .ring-card h2{font-size:13px;margin:0;font-weight:600;display:flex;gap:7px;align-items:baseline;flex-wrap:wrap;justify-content:center}
+  .ring-card h2 em{font-style:normal;font-weight:400;color:var(--muted);font-size:12px}
+  .stage{position:relative;width:360px;height:360px;flex:none}
+  .stage svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .spoke{position:absolute;left:50%;top:50%;width:0;height:0}
+  .char{
+    position:absolute;left:0;top:0;font-size:40px;line-height:1;color:var(--char);
+    white-space:pre;font-family:var(--ring-font);
+  }
+  .stats{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:0;font-size:12px;color:var(--muted)}
+  .stats div{display:flex;gap:5px}
+  .stats dt{white-space:nowrap}
+  .stats dd{margin:0;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .stats dd.warn{color:var(--warn)}
+  .sub{margin:0;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:center}
+  .hint{margin:0;font-size:12px;color:var(--muted)}
+  .hint b{color:var(--text);font-weight:600}
+  .hint .warn{color:var(--warn);font-weight:600}
+  footer{background:var(--panel);border-top:1px solid var(--line);padding:12px 20px 14px;font-size:12px;color:var(--muted)}
+  footer ol{margin:4px 0 0;padding-left:18px}
+  footer li{margin:2px 0}
+  footer .note{margin-top:8px;color:#8a909a}
+  @media (max-width:1180px){.rings{grid-template-columns:1fr}.stage{width:320px;height:320px}}
+  @media (max-width:640px){
+    .field input[type=text]{width:100%}
+    .field:has(input[type=text]){width:100%}
+    .stage{width:300px;height:300px}
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>文字沿圆排列：等分的是什么</h1>
+  <p>同一段文字、同一个半径，三种排法。看每个字到下一个字的空隙是不是一样宽。</p>
+</header>
+
+<main>
+  <section class="controls" aria-label="参数">
+    <div class="row">
+      <label class="field">文字
+        <input type="text" id="text" value="Aragakey·wxad.design" spellcheck="false">
+      </label>
+      <div class="chips" role="group" aria-label="示例文字">
+        <button class="chip" type="button" data-preset="bilibili·design·css" data-radius="82">bilibili·design·css</button>
+        <button class="chip" type="button" data-preset="CHANELN°5" data-radius="60">CHANELN°5</button>
+        <button class="chip" type="button" data-preset="微信广告十周年" data-radius="64">中文</button>
+        <button class="chip" type="button" data-preset="Merry Christmas 2026" data-radius="94">长句</button>
+      </div>
+    </div>
+    <div class="row">
+      <label class="field">半径
+        <input type="range" id="radius" min="60" max="150" step="1" value="100">
+        <output id="radius-out" for="radius">100</output>
+      </label>
+      <label class="field">字距
+        <input type="range" id="gap" min="0" max="30" step="1" value="8">
+        <output id="gap-out" for="gap">8</output>
+      </label>
+      <label class="field">字体
+        <select id="font">
+          <option value="sans">无衬线</option>
+          <option value="serif">衬线</option>
+          <option value="mono">等宽</option>
+        </select>
+      </label>
+      <fieldset class="seg">
+        <legend>字距策略</legend>
+        <label><input type="radio" name="fit" value="fill">撑满整圆</label>
+        <label><input type="radio" name="fit" value="fixed" checked>固定字距</label>
+      </fieldset>
+      <label class="field"><input type="checkbox" id="break-ring"> 描边跟着缺口断开</label>
+    </div>
+  </section>
+
+  <section class="rings" id="rings" aria-label="三种排法"></section>
+
+  <p class="hint" id="hint" aria-live="polite"></p>
+</main>
+
+<footer>
+  <div>蓝弧＝被文字占用的弧长，深色环＝设计里的描边，短线＝每个字分到的槽。字站在基线外侧，剩下的缺口留在 12 点方向。</div>
+  <ol>
+    <li>点「bilibili·design·css」：等角度那一栏在 <code>i</code> 两侧出现大洞——窄字也占一个整槽。</li>
+    <li>点「CHANELN°5」：<code>°</code> 和 <code>.</code> 旁边同样空着，另外两栏不空。</li>
+    <li>勾「描边跟着缺口断开」：同样一个缺口，描边不断时像画错了，断了才像刻意留的。</li>
+  </ol>
+  <p class="note">本页把每个字当成一个宽度来处理：没有考虑字的两侧留白、字形轮廓（圆/方/尖）和字偶距，所以它比较的是「弧长分配」，不是最终的视觉均匀。范围值只用于观察，不是推荐值；页面没有自动动画。</p>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const BOX = 360;
+  const FONT_PX = 40;
+  const NS = 'http://www.w3.org/2000/svg';
+
+  const STACKS = {
+    sans: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif',
+    serif: 'Georgia, "Times New Roman", "Songti SC", "SimSun", serif',
+    mono: 'ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace'
+  };
+
+  const MODES = [
+    { id: 'equal',   name: '等角度', note: '每个字占同样的角度' },
+    { id: 'advance', name: '字宽',   note: '按字体给出的字宽排' },
+    { id: 'ink',     name: '墨迹',   note: '按笔画实际占的宽度排' }
+  ];
+
+  const state = { text: 'Aragakey·wxad.design', radius: 100, gap: 8, font: 'sans', fit: 'fixed', breakRing: false };
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  /* ---------- 测量 ---------- */
+
+  function useCanvasFont() {
+    ctx.font = `400 ${FONT_PX}px ${STACKS[state.font]}`;
+  }
+
+  function advanceOf(ch) {
+    useCanvasFont();
+    return Math.max(ctx.measureText(ch).width, 0.2);
+  }
+
+  function inkOf(ch) {
+    useCanvasFont();
+    const m = ctx.measureText(ch);
+    if (/\s/.test(ch)) return 0;
+    const ink = (m.actualBoundingBoxLeft || 0) + (m.actualBoundingBoxRight || 0);
+    return ink > 0.2 ? ink : m.width;
+  }
+
+  // 基线到字面中心（em 框中心）的距离，用来让每个字的基线正好落在圆上
+  function baselineOffset() {
+    useCanvasFont();
+    const m = ctx.measureText('Hg');
+    const asc = m.fontBoundingBoxAscent;
+    const desc = m.fontBoundingBoxDescent;
+    if (typeof asc === 'number' && typeof desc === 'number' && asc > desc) return (asc - desc) / 2;
+    return FONT_PX * 0.32;
+  }
+
+  function widthOf(ch, mode) {
+    return mode === 'ink' ? Math.max(inkOf(ch), 0.2) : advanceOf(ch);
+  }
+
+  /* ---------- 布局 ---------- */
+
+  function layout(mode) {
+    const R = state.radius;
+    const C = 2 * Math.PI * R;
+    const chars = [...state.text];
+    const n = chars.length || 1;
+    const widths = chars.map((ch) => widthOf(ch, mode));
+    const inks = chars.map(inkOf);
+    const sumW = widths.reduce((a, b) => a + b, 0);
+
+    let gap, spans;
+    if (mode === 'equal') {
+      gap = null;
+      spans = chars.map(() => C / n);
+    } else {
+      const solved = (C - sumW) / n;
+      gap = state.fit === 'fill' ? Math.max(0, solved) : state.gap;
+      spans = widths.map((w) => Math.max(0.001, w + gap));
+    }
+
+    const total = spans.reduce((a, b) => a + b, 0);
+    const pos = [];
+    const bounds = [];
+    let acc = 0;
+    spans.forEach((s) => {
+      pos.push(acc + s / 2);
+      acc += s;
+      bounds.push(acc);
+    });
+
+    // 每个字两侧剩下的弧长：槽宽减去墨迹宽
+    const visualGaps = [];
+    chars.forEach((ch, i) => {
+      if (/\s/.test(ch)) return;
+      visualGaps.push(spans[i] - inks[i]);
+    });
+
+    const minGap = visualGaps.length ? Math.min(...visualGaps) : 0;
+    const maxGap = visualGaps.length ? Math.max(...visualGaps) : 0;
+
+    return { mode, R, C, chars, widths, inks, sumW, gap, solved: (C - sumW) / n, spans, total, pos, bounds,
+      overflow: total - C, minGap, maxGap };
+  }
+
+  /* ---------- 绘制 ---------- */
+
+  function svgEl(name, attrs) {
+    const node = document.createElementNS(NS, name);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    return node;
+  }
+
+  function polar(cx, cy, r, deg) {
+    const rad = ((deg - 90) * Math.PI) / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  }
+
+  function paint(card, d, offset) {
+    const stage = $('.stage', card);
+    stage.textContent = '';
+
+    const cx = BOX / 2;
+    const cy = BOX / 2;
+    const svg = svgEl('svg', { viewBox: `0 0 ${BOX} ${BOX}`, 'aria-hidden': 'true' });
+
+    const usedDeg = d.total > 0 ? Math.min(360, (d.total / d.C) * 360) : 0;
+    if (usedDeg >= 359.99) {
+      svg.append(svgEl('circle', {
+        cx, cy, r: d.R, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2.5, opacity: 0.5
+      }));
+    } else if (usedDeg > 0.3) {
+      const [x1, y1] = polar(cx, cy, d.R, 0);
+      const [x2, y2] = polar(cx, cy, d.R, usedDeg);
+      svg.append(svgEl('path', {
+        d: `M ${x1} ${y1} A ${d.R} ${d.R} 0 ${usedDeg > 180 ? 1 : 0} 1 ${x2} ${y2}`,
+        fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2.5, opacity: 0.5
+      }));
+    }
+
+    d.bounds.forEach((b) => {
+      const deg = (b / d.C) * 360;
+      if (deg >= 359.9 || deg <= 0.1) return;
+      const [x1, y1] = polar(cx, cy, d.R - 8, deg);
+      const [x2, y2] = polar(cx, cy, d.R - 2, deg);
+      svg.append(svgEl('line', { x1, y1, x2, y2, stroke: 'var(--tick)', 'stroke-width': 1 }));
+    });
+
+    // 设计里的描边：可以被缺口合理地打断
+    const ringR = Math.max(20, d.R - 15);
+    const pct = Math.round((d.total / d.C) * 100);
+    const over = d.overflow > 0.5;
+    const seam = over ? 0 : Math.max(0, d.C - d.total);
+    const halfGapDeg = d.gap == null ? 0 : ((d.gap / 2) / d.C) * 360;
+    const canBreak = state.breakRing && d.gap != null && seam > 1 && usedDeg > halfGapDeg * 2 + 1;
+    if (canBreak) {
+      const a0 = halfGapDeg;
+      const a1 = usedDeg - halfGapDeg;
+      const [sx, sy] = polar(cx, cy, ringR, a0);
+      const [ex, ey] = polar(cx, cy, ringR, a1);
+      svg.append(svgEl('path', {
+        d: `M ${sx} ${sy} A ${ringR} ${ringR} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${ex} ${ey}`,
+        fill: 'none', stroke: 'var(--ring)', 'stroke-width': 1.5
+      }));
+    } else {
+      svg.append(svgEl('circle', {
+        cx, cy, r: ringR, fill: 'none', stroke: 'var(--ring)', 'stroke-width': 1.5
+      }));
+    }
+
+    stage.append(svg);
+
+    d.chars.forEach((ch, i) => {
+      const deg = (d.pos[i] / d.C) * 360;
+      const spoke = document.createElement('div');
+      spoke.className = 'spoke';
+      spoke.setAttribute('aria-hidden', 'true');
+      spoke.style.transform = `rotate(${deg}deg)`;
+      const span = document.createElement('span');
+      span.className = 'char';
+      span.textContent = ch;
+      span.style.transform = `translate(-50%,-50%) translateY(${-(d.R + offset)}px)`;
+      spoke.append(span);
+      stage.append(spoke);
+    });
+
+    const overlay = d.minGap < -1;
+    const em = d.gap == null ? 0 : d.gap / FONT_PX;
+    const gapText = d.mode === 'equal'
+      ? `${(360 / d.chars.length).toFixed(1)}°（等角）`
+      : `${d.gap.toFixed(1)}px · ${em.toFixed(2)}em${state.fit === 'fill' ? '（自动）' : ''}`;
+
+    const vgap = $('.vgap', card);
+    const fmt = (v) => (v < 0 ? '−' + Math.abs(Math.round(v)) : String(Math.round(v)));
+    vgap.textContent = `${fmt(d.minGap)}–${fmt(d.maxGap)}px`;
+    vgap.classList.toggle('warn', overlay);
+
+    const seamNode = $('.seam', card);
+    seamNode.textContent = over ? `超出 ${Math.round(d.overflow)}px` : `${Math.round(seam)}px`;
+    seamNode.classList.toggle('warn', over);
+
+    $('.gap', card).textContent = gapText;
+    $('.sub', card).textContent =
+      `周长 ${Math.round(d.C)}px · 字合计 ${Math.round(d.sumW)}px · 占用 ${pct}%`;
+    stage.setAttribute('role', 'img');
+    stage.setAttribute('aria-label',
+      `${MODES.find((m) => m.id === d.mode).name}：空隙 ${Math.round(d.minGap)} 到 ${Math.round(d.maxGap)} 像素，` +
+      (over ? `超出 ${Math.round(d.overflow)}px` : `缺口 ${Math.round(seam)}px`)
+    );
+  }
+
+  /* ---------- 画布与提示 ---------- */
+
+  const cards = MODES.map((m) => {
+    const card = document.createElement('article');
+    card.className = 'ring-card';
+    card.dataset.mode = m.id;
+    card.innerHTML =
+      `<h2>${m.name}<em>${m.note}</em></h2>` +
+      `<div class="stage"></div>` +
+      `<dl class="stats">` +
+        `<div><dt>空隙</dt><dd class="vgap">—</dd></div>` +
+        `<div><dt>缺口</dt><dd class="seam">—</dd></div>` +
+        `<div><dt>字距</dt><dd class="gap">—</dd></div>` +
+      `</dl>` +
+      `<p class="sub"></p>`;
+    $('#rings').append(card);
+    return card;
+  });
+
+  function render() {
+    document.body.style.setProperty('--ring-font', STACKS[state.font]);
+    $('#radius-out').textContent = state.radius;
+    const filling = state.fit === 'fill';
+    $('#gap').disabled = filling;
+    $('#gap-out').textContent = filling ? '自动' : `${state.gap}`;
+
+    const offset = baselineOffset();
+    const layouts = cards.map((card) => layout(card.dataset.mode));
+    cards.forEach((card, i) => paint(card, layouts[i], offset));
+
+    const names = (list) => list.map((d) => MODES.find((m) => m.id === d.mode).name).join('、');
+    const overlapped = layouts.filter((d) => d.minGap < -1);
+    const over = layouts.filter((d) => d.overflow > 0.5);
+    const hint = $('#hint');
+
+    if (overlapped.length) {
+      hint.innerHTML =
+        `<span class="warn">字挤在一起了</span>：${names(overlapped)} 那一栏的槽比字的墨迹还窄。` +
+        `半径调大、文字改短，或者回到「等角度」接受重叠。`;
+    } else if (over.length) {
+      hint.innerHTML =
+        `<span class="warn">排不下</span>：${names(over)} 已经超过整圆，最后几个字会叠回起点。` +
+        `半径调大、文字改短，或者不回成整圆。`;
+    } else if (filling) {
+      hint.innerHTML =
+        `撑满整圆时，字距不是自由选的：<b>字距 =（周长 − 字宽合计）÷ 字数</b>。字少就拉得开，字多就挤得紧。`;
+    } else {
+      hint.innerHTML =
+        `固定字距时，剩下的弧长就是缺口；等角度那一栏不需要这一步，它按角度分槽，天然闭合。`;
+    }
+  }
+
+  /* ---------- 交互 ---------- */
+
+  $('#text').addEventListener('input', (e) => {
+    state.text = e.target.value;
+    render();
+  });
+
+  $('#radius').addEventListener('input', (e) => {
+    state.radius = Number(e.target.value);
+    render();
+  });
+
+  $('#gap').addEventListener('input', (e) => {
+    state.gap = Number(e.target.value);
+    render();
+  });
+
+  $('#font').addEventListener('change', (e) => {
+    state.font = e.target.value;
+    render();
+  });
+
+  $('#break-ring').addEventListener('change', (e) => {
+    state.breakRing = e.target.checked;
+    render();
+  });
+
+  document.querySelectorAll('input[name=fit]').forEach((input) => {
+    input.addEventListener('change', (e) => {
+      if (!e.target.checked) return;
+      state.fit = e.target.value;
+      render();
+    });
+  });
+
+  document.querySelectorAll('[data-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.text = btn.dataset.preset;
+      $('#text').value = state.text;
+      if (btn.dataset.radius) {
+        state.radius = Number(btn.dataset.radius);
+        $('#radius').value = state.radius;
+      }
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

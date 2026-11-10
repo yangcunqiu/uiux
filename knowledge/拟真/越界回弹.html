@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>越界回弹：三种越界映射</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e6e8ec; --text:#1d2129; --muted:#6b7280;
+    --accent:#2f6feb; --warn:#c0392b; --ink:#111827;
+    --hard:#9aa1ac; --linear:#d97706; --ios:#2563eb;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;
+    font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  }
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px 12px}
+  header h1{font-size:16px;margin:0 0 4px;font-weight:600}
+  header p{margin:0;color:var(--muted);font-size:13px;max-width:900px}
+  main{flex:1;padding:14px 20px 10px;display:flex;flex-direction:column;gap:12px}
+  .bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .field{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);white-space:nowrap}
+  input[type=range]{width:200px;accent-color:var(--accent)}
+  output{font-variant-numeric:tabular-nums;color:var(--text);min-width:6ch;display:inline-block}
+  button{font:inherit;font-size:12px;padding:5px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text);cursor:pointer}
+  button:hover{border-color:#c8ccd4}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .rows{display:flex;flex-direction:column;gap:10px}
+  .row{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px 12px}
+  .head{display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .name{font-size:13px;font-weight:600}
+  .name i{font-style:normal;font-weight:400;color:var(--muted)}
+  .read{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
+  .read b{color:var(--text);font-weight:600}
+  .frame{
+    position:relative;height:132px;border-radius:10px;background:repeating-linear-gradient(135deg,#f7f8fa 0 8px,#f2f3f6 8px 16px);
+    overflow:hidden;border:1px solid var(--line-soft,#f0f1f4);touch-action:pan-y;cursor:grab;
+  }
+  .frame:active{cursor:grabbing}
+  .frame:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .track{display:flex;gap:10px;height:100%;will-change:transform}
+  .card{
+    flex:1 1 0;min-width:0;height:100%;border-radius:8px;display:grid;place-items:center;
+    font-size:22px;font-weight:600;color:#fff;user-select:none;
+  }
+  .n1{background:#3b6ea5}.n2{background:#4f7f6b}.n3{background:#8a6a3f}.n4{background:#6b5b8a}.n5{background:#9a5a63}
+  .edge{position:absolute;top:0;bottom:0;width:1px;background:#c8ccd4}
+  .edge.l{left:0}.edge.r{right:0}
+  .plot{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px 6px}
+  .plot h2{font-size:13px;margin:0 0 2px;font-weight:600}
+  .plot p{margin:0 0 4px;font-size:12px;color:var(--muted)}
+  svg{display:block;width:100%;height:auto;max-width:760px}
+  .axis{stroke:#d5d9e0;stroke-width:1}
+  .grid{stroke:#eef0f4;stroke-width:1}
+  .lbl{font-size:10px;fill:#8a909a}
+  footer{background:var(--panel);border-top:1px solid var(--line);padding:12px 20px 14px;font-size:12px;color:var(--muted)}
+  footer b{color:var(--text);font-weight:600}
+  footer ol{margin:4px 0 0;padding-left:18px}
+  footer li{margin:2px 0}
+  footer .tail{margin-top:8px;color:#8a909a}
+  @media (max-width:700px){.read{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+<header>
+  <h1>越界回弹：三种越界映射</h1>
+  <p>同一个拖动输入，三种处理。重点不是拉出多少，而是"拉出量还能不能继续按比例涨"。</p>
+</header>
+
+<main>
+  <section class="bar" aria-label="参数">
+    <label class="field">越界输入
+      <input type="range" id="input" min="0" max="1.5" step="0.01" value="0">
+      <output id="input-out" for="input">0.00d（0px）</output>
+    </label>
+    <label class="field">紧度 c
+      <input type="range" id="c" min="0.55" max="0.85" step="0.01" value="0.55">
+      <output id="c-out" for="c">0.55</output>
+    </label>
+    <button type="button" id="snap">松手回弹</button>
+  </section>
+
+  <section class="rows" id="rows" aria-label="三种越界处理"></section>
+
+  <section class="plot">
+    <h2>拉出量 y 与输入 x 的关系</h2>
+    <p>横轴和纵轴都以可视宽度 d 为单位；曲线的斜率就是跟手率，虚线是当前的输入位置。</p>
+    <svg id="chart" viewBox="0 0 760 240" role="img" aria-label="两条曲线：线性比例是一条直线，渐近公式是一条逐渐压平的曲线"></svg>
+  </section>
+</main>
+
+<footer>
+  <b>看什么</b>
+  <ol>
+    <li>拖动任意一栏的卡片：三栏收到同一个输入；硬停那一栏始终不动。</li>
+    <li>把"越界输入"推到 300 左右：渐近公式拉出的距离比线性<b>更多</b>——它在靠近边界时更软。</li>
+    <li>把滑块推到 1.00（一个 d）：两者的数值几乎重合；再往后，线性还在按比例涨，渐近公式已经压平。</li>
+    <li>看每一栏的"跟手率"读数（它就是曲线的斜率）：线性一直是 0.35；渐近公式从 0.55 掉到 0.08——起步比线性更跟手，越拉越拉不动。</li>
+  </ol>
+  <p class="tail">跟手率 = 每移动 1px 手指，内容移动多少；它和"阻力"反着走：跟手率越低，拉起来越费劲。d 取的是这一栏的可视宽度；c=0.55 是材料给的区间下限。读数都是这页按公式算出来的，不是测量值；页面没有自动循环动画，松手回弹可以关掉（系统开启"减少动态效果"时直接归位）。</p>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+
+  const state = { pull: 0, c: 0.55, width: 820 };
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const MODELS = [
+    { id: 'hard', name: '硬停', note: '到边就停', color: 'var(--hard)' },
+    { id: 'linear', name: '线性 ×0.35', note: '超出部分乘一个常数', color: 'var(--linear)' },
+    { id: 'ios', name: '渐近公式', note: '越拉越紧，有上限', color: 'var(--ios)' }
+  ];
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const fmt = (v) => (v < 0 ? '−' + Math.abs(Math.round(v)) : String(Math.round(v)));
+
+  function mapping(kind, x) {
+    const d = state.width;
+    if (kind === 'hard') return 0;
+    if (kind === 'linear') return 0.35 * x;
+    return (1 - 1 / ((x * state.c) / d + 1)) * d;
+  }
+
+  function slope(kind, x) {
+    const d = state.width;
+    if (kind === 'hard') return 0;
+    if (kind === 'linear') return 0.35;
+    const k = state.c / d;
+    return state.c / Math.pow(1 + k * x, 2);
+  }
+
+  /* ---------- 三行 ---------- */
+
+  const rows = MODELS.map((m) => {
+    const row = document.createElement('section');
+    row.className = 'row';
+    row.dataset.k = m.id;
+    row.innerHTML =
+      `<div class="head"><span class="name">${m.name}<i> · ${m.note}</i></span>` +
+      `<span class="read">拉出 <b class="out">0</b>px · 跟手率 <b class="slope">0.35</b></span></div>` +
+      `<div class="frame" tabindex="0" role="group" aria-label="${m.name}：可拖动，方向键也能推动">` +
+        `<div class="track">` +
+          [1, 2, 3, 4, 5].map((n) => `<div class="card n${n}">${n}</div>`).join('') +
+        `</div><span class="edge l"></span><span class="edge r"></span>` +
+      `</div>`;
+    $('#rows').append(row);
+    return row;
+  });
+
+  function render() {
+    const x = Math.abs(state.pull);
+    const sign = Math.sign(state.pull);
+    rows.forEach((row) => {
+      const kind = row.dataset.k;
+      const y = mapping(kind, x) * sign;
+      $('.track', row).style.transform = `translateX(${y}px)`;
+      $('.out', row).textContent = fmt(Math.abs(y));
+      $('.slope', row).textContent = slope(kind, x).toFixed(2);
+    });
+    const inD = x / state.width;
+    $('#input').value = Math.min(1.5, inD).toFixed(2);
+    $('#input-out').textContent = inD.toFixed(2) + 'd（' + Math.round(x) + 'px）';
+    $('#c-out').textContent = state.c.toFixed(2);
+    drawChart(x);
+  }
+
+  /* ---------- 曲线 ---------- */
+
+  const chart = $('#chart');
+  const W = 760, H = 240, PAD = 34;
+  const XMAX = 3; // 以 d 为单位
+
+  function sx(ux) { return PAD + (ux / XMAX) * (W - PAD * 2); }
+  function sy(uy) { return H - PAD - (uy / 1) * (H - PAD * 2); }
+
+  function drawChart(currentX) {
+    const d = state.width;
+    const xUnits = currentX / d;
+    let inner = '<defs><clipPath id="plotclip"><rect x="' + PAD + '" y="' + PAD + '" width="' + (W - PAD * 2) + '" height="' + (H - PAD * 2) + '"/></clipPath></defs>';
+    // 网格
+    [0, 0.25, 0.5, 0.75, 1].forEach((v) => {
+      inner += `<line class="grid" x1="${PAD}" y1="${sy(v)}" x2="${W - PAD}" y2="${sy(v)}"/>`;
+      inner += `<text class="lbl" x="${W - PAD + 4}" y="${sy(v) + 3}">${v}d</text>`;
+    });
+    [0, 1, 2, 3].forEach((v) => {
+      inner += `<text class="lbl" x="${sx(v) - 8}" y="${H - PAD + 14}">${v}d</text>`;
+    });
+    inner += `<line class="axis" x1="${PAD}" y1="${sy(0)}" x2="${W - PAD}" y2="${sy(0)}"/>`;
+    inner += `<line class="axis" x1="${PAD}" y1="${sy(0)}" x2="${PAD}" y2="${sy(1)}"/>`;
+
+    // 曲线
+    const path = (kind) => {
+      const pts = [];
+      for (let u = 0; u <= XMAX + 1e-9; u += 0.02) {
+        pts.push(`${sx(u).toFixed(1)},${sy(mapping(kind, u * d) / d).toFixed(1)}`);
+      }
+      return 'M ' + pts.join(' L ');
+    };
+    inner += `<g clip-path="url(#plotclip)"><path d="${path('linear')}" fill="none" stroke="var(--linear)" stroke-width="2"/>`;
+    inner += `<path d="${path('ios')}" fill="none" stroke="var(--ios)" stroke-width="2"/></g>`;
+
+    // 当前点 + 竖线
+    if (currentX > 0) {
+      const cx = sx(Math.min(XMAX, xUnits));
+      inner += `<line class="axis" x1="${cx}" y1="${sy(0)}" x2="${cx}" y2="${sy(1)}" stroke-dasharray="3 3"/>`;
+      ['linear', 'ios'].forEach((kind) => {
+        const u = Math.min(1, mapping(kind, currentX) / d);
+        inner += `<circle cx="${cx}" cy="${sy(u)}" r="3.5" fill="${kind === 'ios' ? 'var(--ios)' : 'var(--linear)'}"/>`;
+      });
+    }
+    inner += `<text class="lbl" x="${PAD + 6}" y="${sy(1) + 12}">拉出</text>`;
+    inner += `<text class="lbl" x="${W - PAD - 46}" y="${H - PAD - 4}">越界输入</text>`;
+    chart.innerHTML = inner;
+  }
+
+  /* ---------- 拖动 ---------- */
+
+  let drag = null;
+
+  function frameFrom(target) { return target.closest('.frame'); }
+
+  document.addEventListener('pointerdown', (e) => {
+    const frame = frameFrom(e.target);
+    if (!frame) return;
+    drag = { startX: e.clientX, startPull: state.pull, lastX: e.clientX, t: performance.now(), v: 0 };
+    frame.setPointerCapture?.(e.pointerId);
+    stopSpring();
+    e.preventDefault();
+  });
+
+  document.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const now = performance.now();
+    const dt = Math.max(1, now - drag.t);
+    drag.v = Math.max(-4000, Math.min(4000, ((e.clientX - drag.lastX) / dt) * 1000));
+    drag.lastX = e.clientX;
+    drag.t = now;
+    state.pull = Math.max(-1600, Math.min(1600, drag.startPull + (e.clientX - drag.startX)));
+    render();
+  });
+
+  function endDrag() {
+    if (!drag) return;
+    const v = drag.v;
+    drag = null;
+    springBack(v);
+  }
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
+
+  /* ---------- 回弹 ---------- */
+
+  let raf = 0, vel = 0, last = 0;
+
+  function stopSpring() {
+    cancelAnimationFrame(raf);
+    raf = 0;
+  }
+
+  function springBack(v0 = 0) {
+    if (reduced || state.pull === 0) {
+      state.pull = 0;
+      render();
+      return;
+    }
+    stopSpring();
+    vel = v0;
+    last = performance.now();
+    const k = 260, damp = 26;
+    const step = (now) => {
+      const dt = Math.min(0.032, (now - last) / 1000);
+      last = now;
+      vel += (-k * state.pull - damp * vel) * dt;
+      state.pull += vel * dt;
+      if (Math.abs(state.pull) < 0.5 && Math.abs(vel) < 4) {
+        state.pull = 0;
+        render();
+        raf = 0;
+        return;
+      }
+      render();
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+  }
+
+  /* ---------- 控件 ---------- */
+
+  $('#input').addEventListener('input', (e) => {
+    stopSpring();
+    state.pull = Number(e.target.value) * state.width;
+    render();
+  });
+
+  $('#c').addEventListener('input', (e) => {
+    state.c = Number(e.target.value);
+    render();
+  });
+
+  $('#snap').addEventListener('click', () => {
+    stopSpring();
+    springBack(0);
+  });
+
+  // 方向键：一次推 20px，松手后自动回弹
+  document.addEventListener('keydown', (e) => {
+    const frame = frameFrom(document.activeElement || document.body);
+    if (!frame) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    stopSpring();
+    const dir = e.key === 'ArrowRight' ? 1 : -1;
+    state.pull = Math.max(-1600, Math.min(1600, state.pull + dir * 20));
+    render();
+    clearTimeout(frame._t);
+    frame._t = setTimeout(() => springBack(0), 380);
+  });
+
+  state.width = $('.frame').clientWidth || 820;
+  window.addEventListener('resize', () => {
+    state.width = $('.frame').clientWidth || state.width;
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

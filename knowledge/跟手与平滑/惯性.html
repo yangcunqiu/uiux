@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>惯性：把速度差变成姿态</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --warn:#e5484d;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit}
+  .layout{height:100vh;height:100dvh;display:flex;flex-direction:column}
+  .topbar{flex:none;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px 12px}
+  .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .bar + .bar{margin-top:8px}
+  .title{font-size:14px;font-weight:600;white-space:nowrap}
+  .title span{font-weight:400;color:var(--text-3);margin-left:8px;font-size:12px}
+  .status{margin-left:auto;font:11px/1.5 var(--mono);color:var(--text-3)}
+  .hint{margin:0;font-size:11px;color:var(--text-3)}
+  .modes{display:inline-flex;border:1px solid #d6d9e0;border-radius:8px;overflow:hidden}
+  .modes button{height:28px;padding:0 11px;border:0;background:#fff;font-size:12px;color:var(--text-2);cursor:pointer}
+  .modes button + button{border-left:1px solid #d6d9e0}
+  .modes button:hover{background:#f7f8fa}
+  .modes button[aria-pressed="true"]{background:#eef3ff;color:var(--accent);font-weight:600}
+  .knob{display:inline-flex;align-items:center;gap:10px;font-size:12px;color:var(--text-2)}
+  .knob input{width:180px}
+  .knob b{font:12px/1 var(--mono);color:var(--text);min-width:54px}
+  .stage{flex:1;min-height:0;display:flex;flex-direction:column;padding:14px 18px 0}
+  .strip{
+    position:relative;flex:1;min-height:220px;border:1px solid var(--line);border-radius:12px;
+    background:#fff;background-image:linear-gradient(to right,var(--line-soft) 1px,transparent 1px);
+    background-size:40px 100%;overflow:hidden;cursor:ew-resize;touch-action:none
+  }
+  .strip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .rope{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .ghost{
+    position:absolute;left:0;top:0;width:44px;height:54px;border-radius:16px 16px 20px 20px;
+    background:var(--accent);opacity:0;pointer-events:none;will-change:transform,opacity
+  }
+  .handle{
+    position:absolute;left:0;top:0;width:18px;height:18px;border-radius:5px;
+    background:var(--text-2);box-shadow:0 1px 3px rgba(15,23,42,.22);will-change:transform
+  }
+  .balloon{
+    position:absolute;left:0;top:0;width:44px;height:54px;border-radius:16px 16px 20px 20px;
+    background:var(--accent);box-shadow:0 6px 16px rgba(43,108,255,.28);will-change:transform
+  }
+  .balloon i{position:absolute;left:13px;top:14px;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.6)}
+  .readout{
+    flex:none;display:flex;gap:18px;flex-wrap:wrap;padding:10px 2px 12px;
+    font:11px/1.5 var(--mono);color:var(--text-3)
+  }
+  .readout b{color:var(--text-2);font-weight:500}
+  .readout b.hot{color:var(--warn)}
+  .notes{
+    flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 18px 14px;font-size:12px;line-height:1.75;color:var(--text-2);
+    max-height:32vh;overflow-y:auto
+  }
+  .notes h2{font-size:12px;margin:0 0 4px;font-weight:600;color:var(--text)}
+  .notes ol{margin:0;padding-left:18px}
+  .notes li{margin:0 0 2px}
+  .notes .limit{margin:6px 0 0;color:var(--text-3);font-size:11px}
+  @media (max-width:640px){
+    .stage{padding:10px 12px 0}
+    .notes{padding:8px 14px 12px;max-height:30vh}
+    .status{margin-left:0}
+    .knob input{width:120px}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <header class="topbar">
+    <div class="bar">
+      <div class="title">惯性<span>同一个拖动，三种画法</span></div>
+      <div class="status" id="status"></div>
+    </div>
+    <div class="bar">
+      <div class="modes" role="group" aria-label="画法">
+        <button type="button" data-mode="rigid" aria-pressed="false">一体</button>
+        <button type="button" data-mode="tilt" aria-pressed="true">两端点 → 倾角</button>
+        <button type="button" data-mode="trail" aria-pressed="false">多点 → 拖尾</button>
+      </div>
+      <p class="hint">在下面左右移动鼠标（或按住拖动、点一下后按方向键）。</p>
+    </div>
+    <div class="bar">
+      <label class="knob" for="lag">
+        <span>第二点的跟随时间</span>
+        <input type="range" id="lag" min="60" max="600" step="10" value="260" />
+        <b id="lagOut">260ms</b>
+      </label>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="strip" id="strip" tabindex="0" role="slider"
+         aria-label="拖动区域：左右移动，或用左右方向键" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+      <svg class="rope" aria-hidden="true">
+        <line id="ropeLine" x1="0" y1="0" x2="0" y2="0" stroke="#b8c0cc" stroke-width="2" stroke-linecap="round" />
+      </svg>
+      <div class="ghost"></div>
+      <div class="ghost"></div>
+      <div class="ghost"></div>
+      <div class="ghost"></div>
+      <div class="ghost"></div>
+      <div class="handle" id="handle"></div>
+      <div class="balloon" id="balloon"><i></i></div>
+    </div>
+    <div class="readout" id="readout"></div>
+  </main>
+
+  <section class="notes">
+    <h2>看什么</h2>
+    <ol>
+      <li>先点「一体」，再点「两端点」。手柄的动作完全一样，只有气球变了。多出来的那一下后仰，来自内部结构，不是来自跟得更慢。</li>
+      <li>慢慢划过和快速划过。慢的时候内部差接近 0，快的时候才出现角度。角度跟着手速走，没有预设的关键帧。</li>
+      <li>停下来。气球会冲过头再荡回来一点，因为第二点的阻尼比小于 1。</li>
+      <li>鼠标刚进入这块区域时，气球会先对齐到你手的位置再开始跟。悬停卡片也一样：出现的那一刻位置是确定的，摆动只发生在移动过程中。</li>
+      <li>拉「第二点的跟随时间」。60ms 几乎看不出倾斜，600ms 像气球脱手了。中间有一段读起来像「有重量」。</li>
+      <li>切到「多点」。五个更慢的复制体排在后面，这就是 useTrail 名字的本意：一串逐渐变慢的跟随。</li>
+    </ol>
+    <p class="limit">读数的符号表示顶端落在底端的哪一侧。演示值：绳长 96px、手柄 70ms、第二点默认 260ms。本页没有自动播放的动画，所有运动都来自你的输入。</p>
+  </section>
+</div>
+
+<script>
+/* 只留这个演示用得到的部分：参数换算、一步积分、夹取 */
+var Motion = (function () {
+  'use strict';
+  function springParams(visualDuration, dampingRatio, mass) {
+    var m = mass > 0 ? mass : 1;
+    var period = Math.max(0.01, visualDuration || 0.12);
+    var omega = (2 * Math.PI) / period;
+    var stiffness = omega * omega * m;
+    var damping = 2 * dampingRatio * Math.sqrt(stiffness * m);
+    return { stiffness: stiffness, damping: damping, mass: m };
+  }
+  function createSpring(x) {
+    return { x: Number.isFinite(x) ? x : 0, v: 0 };
+  }
+  function advance(spring, target, p, dt) {
+    var step = 1 / 240;
+    var remain = Math.min(Math.max(dt || 0, 0), 0.1);
+    while (remain > 1e-6) {
+      var h = Math.min(step, remain);
+      var a = (-p.stiffness * (spring.x - target) - p.damping * spring.v) / p.mass;
+      spring.v += a * h;
+      spring.x += spring.v * h;
+      remain -= h;
+    }
+    if (!Number.isFinite(spring.x) || !Number.isFinite(spring.v)) {
+      spring.x = target;
+      spring.v = 0;
+    }
+    return spring;
+  }
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  return { springParams: springParams, createSpring: createSpring, advance: advance, clamp: clamp };
+})();
+</script>
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var stripEl = $('strip');
+  var ropeLine = $('ropeLine');
+  var handleEl = $('handle');
+  var balloonEl = $('balloon');
+  var readoutEl = $('readout');
+  var statusEl = $('status');
+  var lagEl = $('lag');
+  var lagOutEl = $('lagOut');
+  var ghostEls = Array.prototype.slice.call(document.querySelectorAll('.ghost'));
+  var modeEls = Array.prototype.slice.call(document.querySelectorAll('.modes button'));
+
+  var REST = 96;            /* 手柄到气球中心的参照长度，也当作倾角的分母 */
+  var FAST_PERIOD = 0.07;   /* 手柄：几乎跟手 */
+  var SLOW_RATIO = 0.72;    /* 第二点：略欠阻尼，停手后会荡一下 */
+  var N_GHOST = 5;
+
+  var MODE_HINT = {
+    rigid: '一体：整块用同一个位置，没有内部结构',
+    tilt: '两端点：手柄跟手，气球慢一步，绳子被拉斜',
+    trail: '多点：一串跟随时间递增的复制体，最前面最跟手'
+  };
+
+  var fast = Motion.createSpring(0);
+  var FAST_P = Motion.springParams(FAST_PERIOD, 1);
+
+  var lags = [];
+  var lagParams = [];
+  var i;
+  for (i = 0; i <= N_GHOST; i += 1) lags.push(Motion.createSpring(0));
+
+  var mode = 'tilt';
+  var lagMs = Number(lagEl.value) || 260;
+  var target = 0;
+  var W = 0;
+  var H = 0;
+  var yBase = 0;
+  var minX = 0;
+  var maxX = 1;
+  var ready = false;
+  var lastAria = -1;
+
+  function rebuildLag() {
+    var base = Math.max(0.04, lagMs / 1000);
+    lagParams = [];
+    for (var k = 0; k <= N_GHOST; k += 1) {
+      lagParams.push(Motion.springParams(base * (1 + k * 0.42), SLOW_RATIO));
+    }
+    lagOutEl.textContent = lagMs + 'ms';
+  }
+
+  function place(el, x, y, extra) {
+    el.style.transform = 'translate3d(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px,0)' + (extra || '');
+  }
+
+  function render() {
+    /* 一体模式：气球和手柄共用同一个位置，内部差恒为 0 */
+    var xf = fast.x;
+    var xs = mode === 'rigid' ? fast.x : lags[0].x;
+    var gap = xs - xf;
+    var angle = Math.atan2(gap, REST) * 180 / Math.PI;
+
+    var topY = yBase - REST;
+    var balloonTop = topY - 27;
+
+    place(handleEl, xf - 9, yBase - 9);
+    place(balloonEl, xs - 22, balloonTop, mode === 'rigid' ? '' : ' rotate(' + angle.toFixed(2) + 'deg)');
+
+    ropeLine.setAttribute('x1', xf.toFixed(2));
+    ropeLine.setAttribute('y1', yBase.toFixed(2));
+    ropeLine.setAttribute('x2', xs.toFixed(2));
+    ropeLine.setAttribute('y2', topY.toFixed(2));
+
+    var showGhost = mode === 'trail';
+    for (var g = 0; g < ghostEls.length; g += 1) {
+      var el = ghostEls[g];
+      if (!showGhost) {
+        if (el.style.opacity !== '0') el.style.opacity = '0';
+        continue;
+      }
+      var gx = lags[g + 1].x - 22;
+      var scale = 1 - ((g + 1) / (N_GHOST + 1)) * 0.22;
+      el.style.opacity = (0.34 * Math.pow(0.68, g)).toFixed(3);
+      el.style.transform =
+        'translate3d(' + gx.toFixed(2) + 'px,' + balloonTop.toFixed(2) + 'px,0) scale(' + scale.toFixed(3) + ')';
+    }
+
+    var hot = Math.abs(gap) > 16;
+    var cls = hot ? ' class="hot"' : '';
+    var gapText = mode === 'rigid' ? '0（一体）' : gap.toFixed(0) + 'px';
+    var angleText = mode === 'rigid' ? '0.0°' : angle.toFixed(1) + '°';
+
+    var html = '内部差 <b' + cls + '>' + gapText + '</b>' +
+      ' · 倾角 <b' + cls + '>' + angleText + '</b>';
+    if (mode === 'trail') {
+      html += ' · 拖尾跨度 <b>' + (lags[N_GHOST].x - lags[0].x).toFixed(0) + 'px</b>';
+    } else {
+      html += ' · 绳长 <b>' + Math.sqrt(gap * gap + REST * REST).toFixed(0) + 'px</b>';
+    }
+    readoutEl.innerHTML = html;
+
+    var pct = Math.round(((xf - minX) / Math.max(1, maxX - minX)) * 100);
+    pct = Motion.clamp(pct, 0, 100);
+    if (pct !== lastAria) {
+      lastAria = pct;
+      stripEl.setAttribute('aria-valuenow', String(pct));
+    }
+  }
+
+  function measure() {
+    var w = stripEl.clientWidth;
+    var h = stripEl.clientHeight;
+    if (!w || !h) return;
+    W = w;
+    H = h;
+    yBase = Math.max(REST + 42, H - 72);
+    minX = 44;
+    maxX = Math.max(minX + 2, W - 44);
+
+    if (!ready) {
+      ready = true;
+      target = (minX + maxX) / 2;
+      fast.x = target;
+      fast.v = 0;
+      for (var k = 0; k <= N_GHOST; k += 1) {
+        lags[k].x = target;
+        lags[k].v = 0;
+      }
+    } else {
+      target = Motion.clamp(target, minX, maxX);
+    }
+    render();
+  }
+
+  function pointTo(clientX) {
+    var rect = stripEl.getBoundingClientRect();
+    return Motion.clamp(clientX - rect.left, minX, maxX);
+  }
+
+  /*
+   * 刚进入区域或按下时先对齐，不要让第一个 pointermove 变成一次瞬移。
+   * 悬停卡片也是这样：出现的那一刻位置是确定的，摆动只发生在移动过程中。
+   */
+  function snapTo(x) {
+    target = Motion.clamp(x, minX, maxX);
+    fast.x = target;
+    fast.v = 0;
+    for (var k = 0; k <= N_GHOST; k += 1) {
+      lags[k].x = target;
+      lags[k].v = 0;
+    }
+  }
+
+  stripEl.addEventListener('pointerenter', function (event) {
+    if (!ready) return;
+    snapTo(pointTo(event.clientX));
+  });
+
+  stripEl.addEventListener('pointermove', function (event) {
+    if (!ready) return;
+    target = pointTo(event.clientX);
+  });
+
+  stripEl.addEventListener('pointerdown', function (event) {
+    if (!ready) return;
+    snapTo(pointTo(event.clientX));
+    if (stripEl.setPointerCapture) {
+      try { stripEl.setPointerCapture(event.pointerId); } catch (err) { /* 忽略 */ }
+    }
+  });
+
+  stripEl.addEventListener('keydown', function (event) {
+    if (!ready) return;
+    var step = event.shiftKey ? 80 : 24;
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      target = Motion.clamp(target + step, minX, maxX);
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      target = Motion.clamp(target - step, minX, maxX);
+    }
+  });
+
+  function setMode(next) {
+    mode = next;
+    modeEls.forEach(function (btn) {
+      var on = btn.getAttribute('data-mode') === next;
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    statusEl.textContent = MODE_HINT[next];
+  }
+
+  modeEls.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setMode(btn.getAttribute('data-mode'));
+    });
+  });
+
+  lagEl.addEventListener('input', function () {
+    lagMs = Number(lagEl.value) || 260;
+    rebuildLag();
+    statusEl.textContent = '第二点跟随时间 ' + lagMs + 'ms';
+  });
+
+  var lastT = 0;
+  function frame(now) {
+    var dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 1 / 60;
+    lastT = now;
+
+    if (ready) {
+      Motion.advance(fast, target, FAST_P, dt);
+      for (var k = 0; k <= N_GHOST; k += 1) {
+        Motion.advance(lags[k], target, lagParams[k], dt);
+      }
+      render();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  if (window.ResizeObserver) {
+    new ResizeObserver(measure).observe(stripEl);
+  } else {
+    window.addEventListener('resize', measure);
+  }
+
+  rebuildLag();
+  measure();
+  setMode('tilt');
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
