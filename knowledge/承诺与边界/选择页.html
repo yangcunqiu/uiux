@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>选择页 · 单选与多选</title>
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#fff; --line:#e3e1db; --fg:#1c1c1a; --mute:#6f6d66;
+    --accent:#2f5fd0; --bad:#b02a1e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:34px 24px 64px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+  header h1{font-size:24px;margin:0 0 9px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:76ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:22px}
+  .demo{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .demo-head{display:flex;align-items:baseline;gap:10px;width:100%;max-width:300px}
+  .demo-head h2{font-size:15px;margin:0;font-weight:650}
+  .demo-head .reset{
+    margin-left:auto;font:inherit;font-size:12.5px;color:var(--mute);
+    border:0;background:none;padding:2px 4px;cursor:pointer;border-radius:4px;
+  }
+  .demo-head .reset:hover{background:#eae8e1;color:var(--fg)}
+  .demo-head .reset:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  .commit-switch{
+    display:flex;align-items:center;gap:12px;font-size:12.5px;color:var(--mute);
+    width:100%;max-width:300px;justify-content:center;
+  }
+  .commit-switch label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+  .commit-switch input{accent-color:var(--accent);margin:0}
+
+  .phone{
+    width:300px;height:560px;position:relative;overflow:hidden;
+    border-radius:34px;border:1px solid #d7d4cc;background:#fff;
+    box-shadow:0 14px 34px rgba(0,0,0,.09);
+  }
+  .screen{position:absolute;inset:0}
+  .page{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    background:#f2f1ec;
+    transition:transform .24s ease, opacity .24s ease;
+  }
+  .page-settings{transform:translateX(0)}
+  .page-list{transform:translateX(102%);box-shadow:-10px 0 22px rgba(0,0,0,.07)}
+  .phone.open .page-settings{transform:translateX(-24%);opacity:.65}
+  .phone.open .page-list{transform:translateX(0)}
+
+  .status{
+    height:28px;flex:none;display:flex;align-items:center;justify-content:space-between;
+    padding:0 18px;font-size:11px;color:var(--mute);
+  }
+  .big-title{font-size:22px;font-weight:650;padding:4px 18px 12px}
+  .set-list{background:#fff;border-top:1px solid #e8e6e0;border-bottom:1px solid #e8e6e0}
+  .set-row{
+    display:flex;align-items:center;gap:8px;width:100%;min-height:48px;padding:0 16px;
+    background:#fff;border:0;border-bottom:1px solid #f0eeea;
+    font:inherit;font-size:14px;color:inherit;text-align:left;cursor:default;
+  }
+  .set-row:last-child{border-bottom:0}
+  .set-row.target{cursor:pointer}
+  .set-row.target:hover{background:#faf9f6}
+  .set-row .val{
+    margin-left:auto;color:var(--mute);font-size:13px;
+    max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .set-row .chev{margin-left:auto;color:#b8b5ac;font-size:16px}
+  .set-row .val + .chev{margin-left:6px}
+
+  .page-head{
+    display:flex;align-items:center;height:48px;padding:0 8px;flex:none;
+    background:#fff;border-bottom:1px solid #e8e6e0;
+  }
+  .back{
+    width:40px;height:40px;flex:none;border:0;background:none;padding:0;
+    font-size:22px;line-height:1;color:var(--accent);cursor:pointer;border-radius:8px;
+  }
+  .back:hover{background:#f1f0ea}
+  .back:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .page-title{flex:1;text-align:center;margin-right:40px;font-size:15px;font-weight:600}
+
+  .opt-list{flex:1;overflow:auto;background:#fff;border-top:1px solid #e8e6e0}
+  .opt-row{
+    position:relative;display:flex;align-items:center;min-height:48px;
+    padding:0 16px;border-bottom:1px solid #f0eeea;cursor:pointer;
+  }
+  .opt-row:focus-within{outline:2px solid var(--accent);outline-offset:-2px}
+  .opt-row input{position:absolute;width:1px;height:1px;opacity:0;margin:0;pointer-events:none}
+  .opt-name{font-size:14px}
+  .check{margin-left:auto;color:var(--accent);font-weight:700;font-size:15px;opacity:0}
+  .opt-row input:checked ~ .check{opacity:1}
+
+  .page-foot{flex:none;padding:12px 16px 18px;border-top:1px solid #e8e6e0;background:#f2f1ec}
+  .done{
+    width:100%;height:44px;border:0;border-radius:10px;
+    background:var(--accent);color:#fff;font:inherit;font-size:15px;font-weight:600;cursor:pointer;
+  }
+  .done:disabled{background:#c9c6bd;cursor:default}
+  .done:focus-visible{outline:2px solid #1c1c1a;outline-offset:2px}
+
+  .log{font-size:12.5px;color:var(--mute);min-height:2.6em;text-align:center;max-width:300px}
+  .log.bad{color:var(--bad)}
+
+  footer{margin-top:26px;border-top:1px solid var(--line);padding-top:18px}
+  footer h2{font-size:15px;margin:0 0 9px;font-weight:650}
+  footer ol{margin:0;padding-left:1.4em;max-width:82ch}
+  footer li{margin-bottom:6px;color:#3a3934}
+  footer li b{font-weight:600}
+
+  @media (max-width:720px){
+    .grid{grid-template-columns:1fr;gap:30px}
+    body{padding:24px 16px 52px}
+    header h1{font-size:21px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>选择页</h1>
+    <p><strong>同一个列表，左边单选、右边多选。右边还能切「立即」——多选不是必须有「完成」。</strong></p>
+    <p>点开设置里的那一行，选几个，再返回。</p>
+  </header>
+
+  <main class="grid">
+    <section class="demo">
+      <div class="demo-head"><h2>单选 · 主通知渠道</h2><button type="button" class="reset" id="resetSingle">重置</button></div>
+      <div class="phone" id="phoneSingle"></div>
+      <p class="log" id="logSingle" aria-live="polite">点开这一行试试。</p>
+    </section>
+
+    <section class="demo">
+      <div class="demo-head"><h2>多选 · 接收渠道</h2><button type="button" class="reset" id="resetMulti">重置</button></div>
+      <div class="commit-switch" role="group" aria-label="提交方式">
+        <span>提交方式</span>
+        <label><input type="radio" name="commit" value="done" checked><span>完成</span></label>
+        <label><input type="radio" name="commit" value="instant"><span>立即</span></label>
+      </div>
+      <div class="phone" id="phoneMulti"></div>
+      <p class="log" id="logMulti" aria-live="polite">点开这一行试试。</p>
+    </section>
+  </main>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li>单选：点一行，勾出现，页面立刻返回——点的那一下就是提交，没有「完成」。</li>
+      <li>多选（完成）：点几行，勾变了但还没提交；按「完成」才生效。</li>
+      <li>多选（立即）：切换右边的提交方式——同一排勾，每点一下都是真的，没有「完成」。</li>
+      <li>多选里按返回：完成模式下改动丢了；立即模式下没有可丢的。</li>
+      <li>两边都是「行 + 勾」，差别不在样式，在提交边界。</li>
+      <li>摘要行在门关上时只说「当前值 + 可改」：它写的是「主通知渠道 短信」，不是一列选项。</li>
+    </ol>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var OPTIONS = [
+    { v: 'mail', n: '邮件' },
+    { v: 'sms', n: '短信' },
+    { v: 'push', n: '推送' },
+    { v: 'inbox', n: '站内信' }
+  ];
+  var NAMES = {};
+  OPTIONS.forEach(function (o) { NAMES[o.v] = o.n; });
+
+  function build(cfg) {
+    var root = document.getElementById(cfg.root);
+    var logEl = document.getElementById(cfg.log);
+    var inputType = cfg.multi ? 'checkbox' : 'radio';
+    var group = 'grp-' + cfg.root;
+
+    root.innerHTML =
+      '<div class="screen">' +
+        '<div class="page page-settings">' +
+          '<div class="status"><span>9:41</span><span>100%</span></div>' +
+          '<div class="big-title">设置</div>' +
+          '<div class="set-list">' +
+            '<div class="set-row"><span>账号与安全</span><span class="chev">›</span></div>' +
+            '<div class="set-row"><span>通知</span><span class="chev">›</span></div>' +
+            '<button type="button" class="set-row target" data-open>' +
+              '<span>' + cfg.label + '</span>' +
+              '<span class="val" data-val></span>' +
+              '<span class="chev">›</span>' +
+            '</button>' +
+            '<div class="set-row"><span>关于</span><span class="chev">›</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="page page-list">' +
+          '<div class="status"><span>9:41</span><span>100%</span></div>' +
+          '<div class="page-head">' +
+            '<button type="button" class="back" data-back aria-label="返回">‹</button>' +
+            '<span class="page-title">' + cfg.label + '</span>' +
+          '</div>' +
+          '<div class="opt-list">' +
+            OPTIONS.map(function (o) {
+              return '<label class="opt-row">' +
+                '<input type="' + inputType + '" name="' + group + '" value="' + o.v + '" data-opt>' +
+                '<span class="opt-name">' + o.n + '</span>' +
+                '<span class="check" aria-hidden="true">✓</span>' +
+              '</label>';
+            }).join('') +
+          '</div>' +
+          (cfg.multi ? '<div class="page-foot"><button type="button" class="done" data-done disabled>完成</button></div>' : '') +
+        '</div>' +
+      '</div>';
+
+    var valEl = root.querySelector('[data-val]');
+    var openBtn = root.querySelector('[data-open]');
+    var backBtn = root.querySelector('[data-back]');
+    var inputs = Array.prototype.slice.call(root.querySelectorAll('[data-opt]'));
+    var doneBtn = root.querySelector('[data-done]');
+    var justChanged = false;
+
+    var committed = cfg.multi ? cfg.initial.slice() : cfg.initial;
+    var draft = cfg.multi ? committed.slice() : null;
+
+    function namesOf(vals) {
+      return vals.map(function (v) { return NAMES[v]; }).join('、');
+    }
+    function summary() {
+      if (!cfg.multi) return NAMES[committed];
+      return committed.length ? namesOf(committed) : '未选择';
+    }
+    function setChecks(vals) {
+      inputs.forEach(function (i) { i.checked = vals.indexOf(i.value) !== -1; });
+    }
+    function log(msg, bad) {
+      logEl.textContent = msg;
+      logEl.classList.toggle('bad', !!bad);
+    }
+    function sameSet(a, b) {
+      if (a.length !== b.length) return false;
+      var x = a.slice().sort().join('|');
+      var y = b.slice().sort().join('|');
+      return x === y;
+    }
+    function updateDone() {
+      if (doneBtn && !cfg.instant) doneBtn.disabled = sameSet(draft, committed);
+    }
+    function renderSummary() {
+      valEl.textContent = summary();
+    }
+    function open() {
+      if (cfg.multi) {
+        if (cfg.instant) {
+          setChecks(committed);
+          log('每勾一项都立即生效。');
+        } else {
+          draft = committed.slice();
+          setChecks(draft);
+          updateDone();
+          log('勾几项，再点「完成」。');
+        }
+      } else {
+        setChecks([committed]);
+        log('点一行。');
+      }
+      root.classList.add('open');
+    }
+    function pop() {
+      root.classList.remove('open');
+    }
+
+    openBtn.addEventListener('click', open);
+    backBtn.addEventListener('click', function () {
+      if (cfg.multi) {
+        if (cfg.instant) {
+          log('返回：每次勾选已经生效。');
+        } else {
+          draft = committed.slice();
+          updateDone();
+          log('返回 → 草稿丢了。', true);
+        }
+      } else {
+        log('返回，没改动。');
+      }
+      pop();
+    });
+
+    inputs.forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        justChanged = true;
+        setTimeout(function () { justChanged = false; }, 0);
+
+        if (cfg.multi) {
+          if (cfg.instant) {
+            if (inp.checked) committed.push(inp.value);
+            else committed = committed.filter(function (v) { return v !== inp.value; });
+            renderSummary();
+            log('已生效：' + (committed.length ? namesOf(committed) : '未选择') + '（不用完成）');
+            return;
+          }
+          if (inp.checked) draft.push(inp.value);
+          else draft = draft.filter(function (v) { return v !== inp.value; });
+          updateDone();
+          log('勾选变了：草稿 ' + draft.length + ' 项，还没提交。');
+          return;
+        }
+
+        if (!inp.checked) return;
+        committed = inp.value;
+        renderSummary();
+        log('点「' + NAMES[inp.value] + '」→ 已提交，返回。');
+        setTimeout(pop, 140);
+      });
+
+      if (!cfg.multi) {
+        var row = inp.closest('label');
+        row.addEventListener('click', function (e) {
+          if (e.target === inp) return;
+          if (justChanged) return;
+          if (inp.checked && inp.value === committed) {
+            log('点「' + NAMES[inp.value] + '」→ 没变，返回。');
+            setTimeout(pop, 60);
+          }
+        });
+      }
+    });
+
+    if (doneBtn) {
+      doneBtn.addEventListener('click', function () {
+        if (cfg.instant) return;
+        committed = draft.slice();
+        renderSummary();
+        log('完成 → 已提交，返回。');
+        pop();
+      });
+    }
+
+    document.getElementById(cfg.reset).addEventListener('click', function () {
+      committed = cfg.multi ? cfg.initial.slice() : cfg.initial;
+      draft = cfg.multi ? committed.slice() : null;
+      renderSummary();
+      pop();
+      log('已重置。');
+    });
+
+    renderSummary();
+  }
+
+  build({
+    root: 'phoneSingle', log: 'logSingle', reset: 'resetSingle',
+    label: '主通知渠道', multi: false, initial: 'sms'
+  });
+
+  var multiCfg = {
+    root: 'phoneMulti', log: 'logMulti', reset: 'resetMulti',
+    label: '接收渠道', multi: true, initial: ['mail'], instant: false
+  };
+  build(multiCfg);
+
+  document.querySelectorAll('input[name="commit"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (!r.checked) return;
+      multiCfg.instant = r.value === 'instant';
+      var root = document.getElementById('phoneMulti');
+      var foot = root.querySelector('.page-foot');
+      if (foot) foot.hidden = multiCfg.instant;
+      root.classList.remove('open');
+      var lg = document.getElementById('logMulti');
+      lg.classList.remove('bad');
+      lg.textContent = multiCfg.instant
+        ? '切到立即生效：每勾一项都是一个提交。'
+        : '切到完成：改动先存草稿，按完成才提交。';
+    });
+  });
+})();
+</script>
+</body>
+</html>
