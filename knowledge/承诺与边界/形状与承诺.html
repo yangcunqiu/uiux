@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>形状承诺了什么 · 选择控件与提交边界</title>
+<style>
+  :root{
+    --bg:#f4f3ef;
+    --card:#ffffff;
+    --line:#e3e1db;
+    --fg:#1c1c1a;
+    --mute:#6f6d66;
+    --accent:#2f5fd0;
+    --ok:#177245;
+    --bad:#b02a1e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:36px 24px 72px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+  header h1{font-size:25px;margin:0 0 10px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:78ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:26px 0 10px}
+  .card{
+    display:flex;flex-direction:column;gap:12px;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px;position:relative;
+  }
+  .card h2{font-size:15px;margin:0 0 3px;font-weight:650}
+  .card .desc{margin:0;font-size:13px;line-height:1.55;color:var(--mute)}
+  .control{min-height:72px;display:flex;flex-direction:column;justify-content:center}
+
+  /* 单选 */
+  .radios{border:0;margin:0;padding:0;display:grid;gap:1px}
+  .radios legend{padding:0;margin:0 0 2px;font-size:13px;color:var(--mute)}
+  .opt{display:flex;align-items:center;gap:9px;padding:3px 6px;border-radius:6px;cursor:pointer;width:fit-content}
+  .opt:hover{background:#f2f1ec}
+  .opt input{
+    appearance:none;-webkit-appearance:none;margin:0;flex:none;
+    width:18px;height:18px;border:1.5px solid #b8b5ac;border-radius:50%;
+    display:grid;place-content:center;cursor:pointer;
+    transition:border-color .12s ease;
+  }
+  .opt input:checked{border-color:var(--accent)}
+  .opt input:checked::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent)}
+  .opt input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* 开关 */
+  .switch{
+    appearance:none;border:0;background:none;padding:3px 6px 3px 0;margin:0;
+    display:inline-flex;align-items:center;gap:10px;width:fit-content;
+    font:inherit;color:inherit;cursor:pointer;border-radius:6px;
+  }
+  .switch:hover{background:#f2f1ec}
+  .switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .switch .track{
+    width:40px;height:24px;border-radius:999px;background:#c8c5bd;position:relative;flex:none;
+    transition:background .16s ease;
+  }
+  .switch .thumb{
+    position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);
+    transition:transform .16s ease;
+  }
+  .switch[aria-checked="true"] .track{background:var(--accent)}
+  .switch[aria-checked="true"] .thumb{transform:translateX(16px)}
+
+  /* 预览 */
+  .preview{
+    position:relative;height:104px;border-radius:8px;overflow:hidden;
+    border:1px solid var(--line);padding:9px 12px;
+    transition:background .18s ease,color .18s ease,border-color .18s ease;
+  }
+  .preview[data-theme="light"]{background:#fff;color:#1c1c1a;--pv-mute:#807d76;--pv-line:#edebe6;--pv-dot:#dcd8d0;border-color:#e8e6e0}
+  .preview[data-theme="dark"]{background:#16171b;color:#e9e6e1;--pv-mute:#9d9a93;--pv-line:#2b2c31;--pv-dot:#3b3c42;border-color:#2b2c31}
+  .pv-top{font-size:12px;font-weight:600;color:var(--pv-mute);margin-bottom:7px}
+  .pv-row{display:flex;align-items:center;gap:9px;padding:6px 0;border-top:1px solid var(--pv-line)}
+  .pv-dot{width:16px;height:16px;border-radius:50%;background:var(--pv-dot);flex:none}
+  .pv-txt{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:1;min-width:0}
+  .pv-txt b{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pv-txt i{font-style:normal;font-size:11px;color:var(--pv-mute);white-space:nowrap}
+  .pv-off{
+    position:absolute;inset:0;display:grid;place-items:center;z-index:2;
+    background:#ecebe6;color:var(--mute);font-size:13px;
+  }
+  .pv-off[hidden]{display:none}
+  .pv-away{
+    position:absolute;inset:0;display:none;place-items:center;z-index:1;
+    padding:0 14px;text-align:center;font-size:12.5px;line-height:1.5;
+    color:var(--mute);background:#f1f0eb;
+  }
+  .away .pv-away{display:grid}
+  .away .preview .pv-inner{visibility:hidden}
+  .away .preview{border-color:var(--line)}
+  .away .preview[data-theme="dark"]{border-color:var(--line)}
+  .away .truth{visibility:hidden}
+
+  /* 显示位置 */
+  .toolbar{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    margin-top:20px;padding:10px 14px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+  }
+  .tb-label{font-size:13px;color:var(--mute)}
+  .tb-opt{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+  .tb-opt input{accent-color:var(--accent);margin:0}
+  .tb-hint{font-size:12.5px;color:var(--mute);margin-left:auto}
+
+  /* 读数 */
+  .truth{
+    margin:0;padding-top:9px;border-top:1px dashed #dbd8d1;
+    font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--mute);
+  }
+  .truth b{font-weight:600;color:var(--fg)}
+  .badge{margin-left:4px;padding:0 5px;border-radius:4px;font-size:11px}
+  .badge.ok{color:var(--ok);background:#e7f2ea}
+  .badge.bad{color:var(--bad);background:#f9e8e6}
+
+  /* 动作 */
+  .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .btn{
+    font:inherit;font-size:13px;padding:5px 11px;border-radius:7px;
+    border:1px solid var(--line);background:#fff;color:inherit;cursor:pointer;
+    transition:background .12s ease;
+  }
+  .btn:hover{background:#f5f4ef}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn.primary{border-color:var(--accent);background:var(--accent);color:#fff}
+  .btn.primary:hover{background:#2a55bb}
+  .btn:disabled{opacity:.4;cursor:default;background:#fff}
+  .btn.primary:disabled{background:var(--accent)}
+  .btn.leave{margin-left:auto}
+  .note{margin:0;min-height:1.55em;font-size:12.5px;color:var(--mute)}
+
+  .card.leaving .control,.card.leaving .preview{opacity:.55}
+  .card.leaving{pointer-events:none}
+  .card{transition:background .2s ease}
+
+  footer{margin-top:26px;border-top:1px solid var(--line);padding-top:20px}
+  footer h2{font-size:15px;margin:0 0 10px;font-weight:650}
+  footer ol{margin:0 0 16px;padding-left:1.4em;max-width:80ch}
+  footer li{margin-bottom:7px;color:#3a3934}
+  footer li b{font-weight:600}
+  .foot-note{font-size:12.5px;color:var(--mute);margin-left:8px}
+
+  @media (max-width:760px){
+    .grid{grid-template-columns:1fr}
+    body{padding:24px 16px 56px}
+    header h1{font-size:21px}
+    .tb-hint{margin-left:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>形状承诺了什么</h1>
+    <p>同一个设置——深色模式——四种做法。变的只有两件事：<strong>形状</strong>，和<strong>它什么时候生效</strong>。</p>
+    <p>先别看底部那行灰色小字。点几下，再「离开这个页面」，看哪一张的说法站得住。</p>
+  </header>
+
+  <div class="toolbar" role="group" aria-label="效果显示位置">
+    <span class="tb-label">深色模式的效果显示在</span>
+    <label class="tb-opt"><input type="radio" name="sight" value="here" checked><span>本页预览</span></label>
+    <label class="tb-opt"><input type="radio" name="sight" value="away"><span>另一个页面（本页看不到）</span></label>
+    <span class="tb-hint">选后者时，演示读数一起藏起来，模拟真实界面。</span>
+  </div>
+
+  <main class="grid" id="grid"></main>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li>A 和 C 里，控制区和预览区永远同步：点完，两边说的是同一件事。</li>
+      <li>B 和 D 里有一个时间差：控制区先变，预览不变。这个时间差本身不稀奇——B 的保存按钮在明说「还没提交」。</li>
+      <li>D 的开关说的是「它现在开着」，而它没开。看得见预览时，你会说「这功能很怪」；把效果挪到另一个页面，你就只剩开关这一个说法——不在场的证据，才是「我以为已经开了」的来源。</li>
+      <li>A 和 C 用「撤销」换掉「保存」：少一步确认，欠一个反悔窗口；撤销过期之后，没有第二次机会。</li>
+      <li>顺便看措辞：单选的标签是选项值（浅色 / 深色），开关的标签是功能名（深色模式）。前者在说「选哪个」，后者在说「这个开着」。</li>
+    </ol>
+    <p><button type="button" class="btn" id="resetAll">全部重置</button><span class="foot-note">底部灰字是演示读数，真实界面里不会有。</span></p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var LABEL = { light: '浅色', dark: '深色' };
+
+  var CARDS = [
+    { id: 'A', shape: 'radio',  immediate: true,  title: '单选 + 立即生效', desc: '点一下就已经生效，页面上没有保存按钮。' },
+    { id: 'B', shape: 'radio',  immediate: false, title: '单选 + 需保存',   desc: '点一下只是选中，要按「保存」才生效。' },
+    { id: 'C', shape: 'switch', immediate: true,  title: '开关 + 立即生效', desc: '扳一下就已经生效，页面上没有保存按钮。' },
+    { id: 'D', shape: 'switch', immediate: false, title: '开关 + 需保存',   desc: '扳一下只是看起来打开了，要按「保存」才生效。' }
+  ];
+
+  var state = [];
+
+  var PREVIEW =
+    '<div class="pv-inner">' +
+      '<div class="pv-top">消息</div>' +
+      '<div class="pv-row"><span class="pv-dot"></span><span class="pv-txt"><b>系统通知</b><i>今天 09:20</i></span></div>' +
+      '<div class="pv-row"><span class="pv-dot"></span><span class="pv-txt"><b>项目更新</b><i>昨天</i></span></div>' +
+    '</div>' +
+    '<div class="pv-away">深色模式的效果在「外观」页，这一页看不到</div>' +
+    '<div class="pv-off" hidden>页面已关闭，重新进入……</div>';
+
+  function markup(cfg) {
+    var control;
+    if (cfg.shape === 'radio') {
+      control =
+        '<fieldset class="radios"><legend>外观</legend>' +
+          '<label class="opt"><input type="radio" name="theme-' + cfg.id + '" value="light"><span>浅色</span></label>' +
+          '<label class="opt"><input type="radio" name="theme-' + cfg.id + '" value="dark"><span>深色</span></label>' +
+        '</fieldset>';
+    } else {
+      control =
+        '<button type="button" class="switch" role="switch" aria-checked="false" aria-label="深色模式">' +
+          '<span class="track"><span class="thumb"></span></span>' +
+          '<span class="sw-label">深色模式</span>' +
+        '</button>';
+    }
+    var actions = cfg.immediate
+      ? '<button type="button" class="btn undo" hidden>撤销</button>'
+      : '<button type="button" class="btn primary save" disabled>保存</button>';
+
+    return '<div class="head"><h2>' + cfg.id + ' · ' + cfg.title + '</h2><p class="desc">' + cfg.desc + '</p></div>' +
+      '<div class="control">' + control + '</div>' +
+      '<div class="preview" data-theme="light">' + PREVIEW + '</div>' +
+      '<p class="truth"></p>' +
+      '<div class="actions">' + actions +
+        '<button type="button" class="btn leave">离开这个页面</button>' +
+      '</div>' +
+      '<p class="note" aria-live="polite"></p>';
+  }
+
+  function render(st) {
+    var el = st.el;
+    var cfg = st.cfg;
+    var shown = st.draft !== null ? st.draft : st.committed;
+
+    el.classList.toggle('leaving', st.leaving);
+
+    var radios = el.querySelectorAll('input[type="radio"]');
+    for (var i = 0; i < radios.length; i++) {
+      radios[i].checked = radios[i].value === shown;
+    }
+
+    var sw = el.querySelector('.switch');
+    if (sw) sw.setAttribute('aria-checked', shown === 'dark' ? 'true' : 'false');
+
+    var pv = el.querySelector('.preview');
+    pv.setAttribute('data-theme', st.committed);
+    pv.querySelector('.pv-off').hidden = !st.leaving;
+
+    var same = shown === st.committed;
+    el.querySelector('.truth').innerHTML =
+      '演示读数：界面显示 <b>' + LABEL[shown] + '</b> · 实际生效 <b>' + LABEL[st.committed] +
+      '</b><span class="badge ' + (same ? 'ok' : 'bad') + '">' + (same ? '一致' : '不一致') + '</span>';
+
+    var save = el.querySelector('.save');
+    if (save) save.disabled = st.draft === null;
+
+    var undo = el.querySelector('.undo');
+    if (undo) undo.hidden = st.undoFrom === null;
+
+    el.querySelector('.note').textContent = st.note;
+    void cfg;
+  }
+
+  function armUndo(st, prev) {
+    st.undoFrom = prev;
+    clearTimeout(st.undoTimer);
+    st.undoTimer = setTimeout(function () {
+      st.undoFrom = null;
+      render(st);
+    }, 4000);
+  }
+
+  function choose(st, value) {
+    var shown = st.draft !== null ? st.draft : st.committed;
+    if (value === shown) return;
+
+    if (st.cfg.immediate) {
+      var prev = st.committed;
+      st.committed = value;
+      st.draft = null;
+      st.note = '已生效，不需要保存。';
+      armUndo(st, prev);
+    } else {
+      st.draft = value === st.committed ? null : value;
+      st.note = '';
+    }
+    render(st);
+  }
+
+  function save(st) {
+    if (st.draft === null) return;
+    st.committed = st.draft;
+    st.draft = null;
+    st.note = '已保存。';
+    render(st);
+  }
+
+  function undo(st) {
+    if (st.undoFrom === null) return;
+    st.committed = st.undoFrom;
+    st.undoFrom = null;
+    clearTimeout(st.undoTimer);
+    st.note = '已撤销。';
+    render(st);
+  }
+
+  function leave(st) {
+    var lost = st.draft !== null;
+    st.draft = null;
+    st.undoFrom = null;
+    clearTimeout(st.undoTimer);
+    st.leaving = true;
+    st.note = '';
+    render(st);
+
+    setTimeout(function () {
+      st.leaving = false;
+      st.note = lost
+        ? '回来时还是离开前的样子：刚才的改动丢了。'
+        : '回来时和离开前一样。';
+      render(st);
+    }, 750);
+  }
+
+  function wire(st) {
+    var el = st.el;
+
+    el.querySelectorAll('input[type="radio"]').forEach(function (r) {
+      r.addEventListener('change', function () {
+        if (r.checked) choose(st, r.value);
+      });
+    });
+
+    var sw = el.querySelector('.switch');
+    if (sw) {
+      sw.addEventListener('click', function () {
+        var shown = st.draft !== null ? st.draft : st.committed;
+        choose(st, shown === 'dark' ? 'light' : 'dark');
+      });
+    }
+
+    var saveBtn = el.querySelector('.save');
+    if (saveBtn) saveBtn.addEventListener('click', function () { save(st); });
+
+    var undoBtn = el.querySelector('.undo');
+    if (undoBtn) undoBtn.addEventListener('click', function () { undo(st); });
+
+    el.querySelector('.leave').addEventListener('click', function () { leave(st); });
+  }
+
+  function build() {
+    var grid = document.getElementById('grid');
+    CARDS.forEach(function (cfg) {
+      var el = document.createElement('section');
+      el.className = 'card';
+      el.setAttribute('data-id', cfg.id);
+      el.innerHTML = markup(cfg);
+      grid.appendChild(el);
+
+      var st = {
+        cfg: cfg, el: el,
+        committed: 'light', draft: null,
+        undoFrom: null, undoTimer: null,
+        leaving: false, note: ''
+      };
+      state.push(st);
+      wire(st);
+      render(st);
+    });
+  }
+
+  document.getElementById('resetAll').addEventListener('click', function () {
+    state.forEach(function (st) {
+      clearTimeout(st.undoTimer);
+      st.committed = 'light';
+      st.draft = null;
+      st.undoFrom = null;
+      st.leaving = false;
+      st.note = '';
+      render(st);
+    });
+  });
+
+  document.querySelectorAll('input[name="sight"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (r.checked) document.body.classList.toggle('away', r.value === 'away');
+    });
+  });
+
+  build();
+})();
+</script>
+</body>
+</html>

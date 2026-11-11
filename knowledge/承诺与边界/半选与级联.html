@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>半选与级联 · 父框是什么</title>
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#fff; --line:#e3e1db; --fg:#1c1c1a; --mute:#6f6d66;
+    --accent:#2f5fd0; --ok:#177245; --bad:#b02a1e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:34px 24px 64px;
+  }
+  .wrap{max-width:1060px;margin:0 auto}
+  header h1{font-size:24px;margin:0 0 9px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:80ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .toolbar{
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    margin-top:20px;padding:10px 14px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+  }
+  .seg{border:0;margin:0;padding:0;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .seg legend{float:left;padding:0;margin-right:2px;font-size:13px;color:var(--mute)}
+  .seg label{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+  .seg input{accent-color:var(--accent);margin:0}
+  .split{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+  .split input{accent-color:var(--accent);margin:0}
+  .split[hidden]{display:none}
+  .hint{font-size:12.5px;color:var(--mute);margin-left:auto}
+
+  .grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;margin-top:16px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .panel-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+  .panel-head h2{font-size:15px;margin:0;font-weight:650}
+  .panel-head .muted{font-size:12.5px;color:var(--mute)}
+
+  .tree{display:flex;flex-direction:column;gap:1px}
+  .row{
+    display:flex;align-items:center;gap:10px;min-height:34px;
+    padding:3px 6px 3px calc(6px + var(--depth) * 22px);
+    border-radius:7px;
+  }
+  .row:hover{background:#f6f5f1}
+  .row.parent .name{font-weight:600}
+  .cb{display:flex;align-items:center;gap:9px;cursor:pointer;min-height:24px}
+  .cb.grow{flex:1;min-width:0}
+  .cb input{width:18px;height:18px;margin:0;flex:none;cursor:pointer;accent-color:var(--accent)}
+  .cb input:disabled{cursor:default;opacity:.5}
+  .cb.inherited .name{color:var(--mute);font-weight:400}
+  .cb .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tag{flex:none;font-size:12px;color:var(--mute);min-width:2.6em;text-align:right}
+  .tag.inh{
+    min-width:0;padding:0 5px;border:1px solid var(--line);border-radius:4px;
+    font-size:11px;color:var(--mute);background:#faf9f6;
+  }
+  .act{
+    flex:none;font:inherit;font-size:12.5px;padding:2px 9px;border-radius:6px;
+    border:1px solid transparent;background:none;color:var(--accent);cursor:pointer;
+  }
+  .act:hover{background:#eef2fb;border-color:#dbe3f7}
+  .act:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  .row-actions{display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .btn{
+    font:inherit;font-size:13px;padding:5px 11px;border-radius:7px;
+    border:1px solid var(--line);background:#fff;color:inherit;cursor:pointer;
+  }
+  .btn:hover{background:#f5f4ef}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .lab{font-size:12px;color:var(--mute);margin:14px 0 5px;letter-spacing:.04em}
+  .lab:first-of-type{margin-top:2px}
+  #visual{font-size:13px;line-height:1.9}
+  #data, #eff{
+    margin:0;padding:9px 11px;border:1px solid var(--line);border-radius:7px;
+    background:#faf9f6;font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;
+    white-space:pre-wrap;word-break:break-all;min-height:2.6em;
+  }
+  #effWrap[hidden]{display:none}
+  #selfs{margin:0;font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--fg)}
+  .cap{font-size:12px;color:var(--mute);margin:6px 0 0}
+  .explain{
+    margin:14px 0 0;padding-top:10px;border-top:1px dashed #dbd8d1;
+    font-size:12.5px;color:var(--mute);min-height:2.8em;
+  }
+  .explain b{color:var(--fg);font-weight:600}
+
+  footer{margin-top:24px;border-top:1px solid var(--line);padding-top:18px}
+  footer h2{font-size:15px;margin:0 0 9px;font-weight:650}
+  footer ol{margin:0;padding-left:1.4em;max-width:82ch}
+  footer li{margin-bottom:6px;color:#3a3934}
+  footer li b{font-weight:600}
+
+  @media (max-width:860px){
+    .grid{grid-template-columns:1fr}
+    body{padding:24px 16px 52px}
+    header h1{font-size:21px}
+    .hint{margin-left:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>半选与级联</h1>
+    <p><strong>父框那一行是个槽位：放进去的东西，要兑现「我管下面」这句话。</strong></p>
+    <p>三种父节点模型：只是分组、自己有值、继承。来回切，看同一棵树的三份数据。</p>
+  </header>
+
+  <div class="toolbar">
+    <fieldset class="seg" aria-label="父节点的模型">
+      <legend>父节点</legend>
+      <label><input type="radio" name="mode" value="container" checked><span>只是分组</span></label>
+      <label><input type="radio" name="mode" value="own"><span>自己有值</span></label>
+      <label><input type="radio" name="mode" value="inherit"><span>继承</span></label>
+    </fieldset>
+    <label class="split" id="actionWrap" hidden><input type="checkbox" id="actionMode"> 父行改用「全选」动作</label>
+    <span class="hint" id="hint"></span>
+  </div>
+
+  <main class="grid">
+    <section class="panel">
+      <div class="panel-head"><h2>通知设置</h2><span class="muted">权限树 / 级联勾选</span></div>
+      <div class="tree" id="tree"></div>
+      <div class="row-actions">
+        <button type="button" class="btn" id="scenario">先选 3 项</button>
+        <button type="button" class="btn" id="reset">重置</button>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="panel-head"><h2>如果现在提交</h2></div>
+      <p class="lab">画面</p>
+      <div id="visual"></div>
+      <p class="lab">提交的数据（显式授权）</p>
+      <pre id="data"></pre>
+      <p class="cap">半选只是画面：它没有出现在上面这份数据里。</p>
+      <div id="effWrap" hidden>
+        <p class="lab">有效权限（含继承）</p>
+        <pre id="eff"></pre>
+      </div>
+      <p class="lab">父节点自身</p>
+      <p id="selfs"></p>
+      <p class="explain" id="explain" aria-live="polite"></p>
+    </aside>
+  </main>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li><b>只是分组</b>：父框是纯动作，三态只表示「全选 / 部分 / 没有」，提交叶子集合。点了父框，子树跟着变，没有别的东西。</li>
+      <li><b>自己有值</b>：点父框连它自己也一起改。再单独取消一个子项——父框变半选，它自己的那个值被藏起来了，界面上没地方看也没地方改。</li>
+      <li><b>自己有值 +「全选」动作</b>：字段和动作分开。父框只改自己，旁边的文字动作只改子项，两边互不冒充。</li>
+      <li><b>继承</b>：父框勾上，子项变灰、标「继承」，不能单独改；取消父框，子项回到自己原来的授权。提交的是显式授权，有效权限更大。</li>
+      <li>同一张半选画面，可能对应两份数据。不要用画面去反推数据。</li>
+    </ol>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TREE = [
+    { id: 'p1', name: '项目动态', self: false, children: [
+      { id: 'l1', name: '任务指派', checked: false },
+      { id: 'l2', name: '评论回复', checked: false },
+      { id: 'g1', name: '其他动态', self: false, children: [
+        { id: 'l3', name: '附件更新', checked: false },
+        { id: 'l4', name: '里程碑', checked: false }
+      ] }
+    ] },
+    { id: 'p2', name: '审批提醒', self: false, children: [
+      { id: 'l5', name: '待我审批', checked: false },
+      { id: 'l6', name: '抄送给我', checked: false },
+      { id: 'l7', name: '审批结果', checked: false }
+    ] },
+    { id: 'p3', name: '系统消息', self: false, children: [
+      { id: 'l8', name: '维护通知', checked: false },
+      { id: 'l9', name: '安全提醒', checked: false }
+    ] }
+  ];
+
+  var treeEl = document.getElementById('tree');
+  var visualEl = document.getElementById('visual');
+  var dataEl = document.getElementById('data');
+  var effEl = document.getElementById('eff');
+  var effWrap = document.getElementById('effWrap');
+  var selfsEl = document.getElementById('selfs');
+  var explainEl = document.getElementById('explain');
+  var hintEl = document.getElementById('hint');
+  var actionWrap = document.getElementById('actionWrap');
+  var actionInput = document.getElementById('actionMode');
+
+  var mode = 'container';
+  var actionMode = false;
+  var lastAction = '还没有操作。';
+
+  var HINTS = {
+    container: '父框只代表子项，提交的是叶子集合。',
+    own: '父框同时代表它自己和子项；点一下会写整棵子树。',
+    ownAction: '父框只改自己，全选由旁边的文字动作完成。',
+    inherit: '父框只代表它自己；勾上后子项变成「继承」，不能单独改。'
+  };
+
+  function walk(nodes, fn, depth) {
+    depth = depth || 0;
+    nodes.forEach(function (n) {
+      fn(n, depth);
+      if (n.children) walk(n.children, fn, depth + 1);
+    });
+  }
+
+  function find(id) {
+    var found = null;
+    walk(TREE, function (n) { if (n.id === id) found = n; });
+    return found;
+  }
+
+  function aggOf(node) {
+    if (!node.children) return node.checked ? 'all' : 'none';
+    var states = node.children.map(aggOf);
+    if (states.every(function (s) { return s === 'all'; })) return 'all';
+    if (states.every(function (s) { return s === 'none'; })) return 'none';
+    return 'mixed';
+  }
+
+  function summaryOf(node) {
+    if (mode !== 'own' || actionMode) return aggOf(node);
+    var a = aggOf(node);
+    if (a === 'all' && node.self) return 'all';
+    if (a === 'none' && !node.self) return 'none';
+    return 'mixed';
+  }
+
+  function tagText(state) {
+    return state === 'all' ? '全选' : state === 'mixed' ? '半选' : '未选';
+  }
+
+  function setSubtree(node, value, withSelf) {
+    walk([node], function (n) {
+      if (!n.children) n.checked = value;
+      else if (withSelf) n.self = value;
+    });
+  }
+
+  function leaves() {
+    var out = [];
+    walk(TREE, function (n) { if (!n.children) out.push(n); });
+    return out;
+  }
+
+  function parents() {
+    var out = [];
+    walk(TREE, function (n) { if (n.children) out.push(n); });
+    return out;
+  }
+
+  function effMap() {
+    var map = {};
+    (function go(nodes, inherited) {
+      nodes.forEach(function (n) {
+        var own = n.children ? n.self : n.checked;
+        var on = inherited || own;
+        map[n.id] = { on: on, inherited: inherited, own: own };
+        if (n.children) go(n.children, on);
+      });
+    })(TREE, false);
+    return map;
+  }
+
+  function countLeaves(node) {
+    if (!node.children) return 1;
+    return node.children.reduce(function (sum, c) { return sum + countLeaves(c); }, 0);
+  }
+
+  function countOn(node) {
+    if (!node.children) return node.checked ? 1 : 0;
+    return node.children.reduce(function (sum, c) { return sum + countOn(c); }, 0);
+  }
+
+  function countInherited(node) {
+    var n = 0;
+    if (node.children) node.children.forEach(function (c) {
+      if (eff[c.id] && eff[c.id].inherited) n += 1;
+      n += countInherited(c);
+    });
+    return n;
+  }
+
+  var eff = null;
+
+  function renderTree() {
+    var html = '';
+
+    function node(n, depth) {
+      var indent = ' style="--depth:' + depth + '"';
+
+      if (!n.children) {
+        var checked = mode === 'inherit' ? eff[n.id].on : n.checked;
+        var inherited = mode === 'inherit' && eff[n.id].inherited;
+        html += '<div class="row"' + indent + '>' +
+          '<label class="cb grow' + (inherited ? ' inherited' : '') + '">' +
+            '<input type="checkbox" data-id="' + n.id + '" data-kind="leaf"' +
+              (checked ? ' checked' : '') + (inherited ? ' disabled' : '') + '>' +
+            '<span class="name">' + n.name + '</span>' +
+          '</label>' +
+          (inherited && !n.checked ? '<span class="tag inh">继承</span>' : '') +
+        '</div>';
+        return;
+      }
+
+      var sum = summaryOf(n);
+
+      if (mode === 'inherit') {
+        var e = eff[n.id];
+        var inh = e.inherited;
+        html += '<div class="row parent"' + indent + '>' +
+          '<label class="cb grow' + (inh ? ' inherited' : '') + '">' +
+            '<input type="checkbox" data-id="' + n.id + '" data-kind="self"' +
+              (e.on ? ' checked' : '') + (inh ? ' disabled' : '') + '>' +
+            '<span class="name">' + n.name + '</span>' +
+          '</label>' +
+          (inh ? '<span class="tag inh">继承</span>' : '') +
+        '</div>';
+      } else if (mode === 'own' && actionMode) {
+        html += '<div class="row parent"' + indent + '>' +
+          '<label class="cb grow">' +
+            '<input type="checkbox" data-id="' + n.id + '" data-kind="self"' +
+              (n.self ? ' checked' : '') + '>' +
+            '<span class="name">' + n.name + '</span>' +
+          '</label>' +
+          '<button type="button" class="act" data-act="toggle" data-id="' + n.id + '">' +
+            (aggOf(n) === 'all' ? '清空' : '全选') +
+          '</button>' +
+        '</div>';
+      } else {
+        html += '<div class="row parent"' + indent + '>' +
+          '<label class="cb grow">' +
+            '<input type="checkbox" data-id="' + n.id + '" data-kind="summary"' +
+              (sum === 'all' ? ' checked' : '') + '>' +
+            '<span class="name">' + n.name + '</span>' +
+          '</label>' +
+          '<span class="tag">' + tagText(sum) + '</span>' +
+        '</div>';
+      }
+
+      n.children.forEach(function (c) { node(c, depth + 1); });
+    }
+
+    TREE.forEach(function (n) { node(n, 0); });
+    treeEl.innerHTML = html;
+
+    parents().forEach(function (n) {
+      var el;
+      if (mode === 'inherit' || (mode === 'own' && actionMode)) return;
+      el = treeEl.querySelector('input[data-kind="summary"][data-id="' + n.id + '"]');
+      if (el) el.indeterminate = summaryOf(n) === 'mixed';
+    });
+  }
+
+  function renderReadout() {
+    var visual, names = [], effNames = [];
+
+    if (mode === 'inherit') {
+      visual = TREE.map(function (n) {
+        var count = countInherited(n);
+        return n.name + '：自身' + (n.self ? '✓' : '—') + (count ? ' · 继承 ' + count + ' 项' : '');
+      }).join('　');
+    } else if (mode === 'own' && actionMode) {
+      visual = TREE.map(function (n) {
+        return n.name + '：自身' + (n.self ? '✓' : '—') + ' · 子项 ' + countOn(n) + '/' + countLeaves(n);
+      }).join('　');
+    } else {
+      visual = TREE.map(function (n) {
+        return n.name + '：' + tagText(summaryOf(n));
+      }).join('　');
+    }
+
+    leaves().forEach(function (n) { if (n.checked) names.push(n.name); });
+    if (mode !== 'container') {
+      parents().forEach(function (n) { if (n.self) names.push(n.name); });
+    }
+
+    if (mode === 'inherit') {
+      walk(TREE, function (n) { if (eff[n.id] && eff[n.id].on) effNames.push(n.name); });
+      effWrap.hidden = false;
+      effEl.textContent = '共 ' + effNames.length + ' 项：' + effNames.join('、');
+    } else {
+      effWrap.hidden = true;
+    }
+
+    visualEl.textContent = visual;
+    dataEl.textContent = names.length ? '共 ' + names.length + ' 项：' + names.join('、') : '（空）';
+
+    if (mode === 'container') {
+      selfsEl.textContent = '（只是分组，父节点不提交）';
+    } else {
+      var selfs = parents().filter(function (n) { return n.self; }).map(function (n) { return n.name; });
+      selfsEl.textContent = selfs.length ? selfs.join('、') : '（无）';
+    }
+
+    explainEl.textContent = lastAction;
+  }
+
+  function renderAll() {
+    eff = mode === 'inherit' ? effMap() : null;
+    hintEl.textContent = mode === 'own' && actionMode ? HINTS.ownAction : HINTS[mode];
+    actionWrap.hidden = mode !== 'own';
+    renderTree();
+    renderReadout();
+  }
+
+  treeEl.addEventListener('change', function (e) {
+    var input = e.target;
+    if (!input || input.tagName !== 'INPUT') return;
+
+    var id = input.getAttribute('data-id');
+    var kind = input.getAttribute('data-kind');
+    var node = find(id);
+    if (!node) return;
+
+    if (kind === 'leaf') {
+      node.checked = input.checked;
+      lastAction = '「' + node.name + '」' + (input.checked ? '选中' : '取消') + '。';
+    } else if (kind === 'self') {
+      node.self = input.checked;
+      if (mode === 'inherit') {
+        lastAction = '「' + node.name + '」自身' + (input.checked ? '已授权' : '已取消') +
+          '；子项跟着' + (input.checked ? '变成继承' : '回到各自的授权') + '。';
+      } else {
+        lastAction = '只改了「' + node.name + '」自身：' + (input.checked ? '已授权' : '已取消') + '，子项没动。';
+      }
+    } else {
+      var before = summaryOf(node);
+      var to = before !== 'all';
+      setSubtree(node, to, mode === 'own');
+      lastAction = '点了「' + node.name + '」：子项' + (to ? '全选' : '全部取消') +
+        (mode === 'own' ? '，父节点自身也' + (to ? '一起授权了' : '一起取消了') + '。' : '。');
+    }
+
+    renderAll();
+  });
+
+  treeEl.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('button[data-act]') : null;
+    if (!btn) return;
+    var node = find(btn.getAttribute('data-id'));
+    if (!node) return;
+    var target = aggOf(node) !== 'all';
+    setSubtree(node, target, false);
+    lastAction = '「全选」动作：' + node.name + ' 的子项' + (target ? '全部选中' : '全部清空') + '，父节点自身没动。';
+    renderAll();
+  });
+
+  document.querySelectorAll('input[name="mode"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (!r.checked) return;
+      mode = r.value;
+      if (mode !== 'own') {
+        actionMode = false;
+        actionInput.checked = false;
+      }
+      lastAction = mode === 'container'
+        ? '切到「只是分组」：父框只代表子项。'
+        : mode === 'own'
+          ? '切到「自己有值」：父框同时代表它自己和子项。'
+          : '切到「继承」：父框只代表它自己，子项的有效值跟着它。';
+      renderAll();
+    });
+  });
+
+  actionInput.addEventListener('change', function () {
+    actionMode = actionInput.checked;
+    lastAction = actionMode
+      ? '父行改用「全选」动作：字段和动作分开了。'
+      : '父行合回一个框：字段和动作又叠在一起。';
+    renderAll();
+  });
+
+  document.getElementById('scenario').addEventListener('click', function () {
+    walk(TREE, function (n) { if (n.children) n.self = false; else n.checked = false; });
+    ['l1', 'l2', 'l5'].forEach(function (id) { find(id).checked = true; });
+    lastAction = '先选了 3 项。现在试这一行的三种模型。';
+    renderAll();
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    walk(TREE, function (n) { if (n.children) n.self = false; else n.checked = false; });
+    lastAction = '已重置。';
+    renderAll();
+  });
+
+  renderAll();
+})();
+</script>
+</body>
+</html>
