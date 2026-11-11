@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>二选一 · 五种画法</title>
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#fff; --line:#e3e1db; --fg:#1c1c1a; --mute:#6f6d66;
+    --accent:#2f5fd0; --bad:#b02a1e; --ok:#177245;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:34px 24px 64px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+  header h1{font-size:24px;margin:0 0 9px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:78ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:22px}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px;display:flex;flex-direction:column;gap:12px;
+  }
+  .card h2{font-size:15px;margin:0 0 3px;font-weight:650}
+  .card .claim{margin:0;font-size:13px;line-height:1.55;color:var(--mute)}
+  .control{display:flex;flex-direction:column;gap:6px;min-height:64px;justify-content:center}
+
+  .opt{display:flex;align-items:center;gap:9px;padding:3px 6px;border-radius:6px;cursor:pointer;width:fit-content}
+  .opt:hover{background:#f5f4ef}
+  .opt input{width:18px;height:18px;margin:0;flex:none;cursor:pointer;accent-color:var(--accent)}
+  .opt input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .switch{
+    appearance:none;border:0;background:none;padding:3px 6px 3px 0;margin:0;
+    display:inline-flex;align-items:center;gap:10px;width:fit-content;
+    font:inherit;color:inherit;cursor:pointer;border-radius:6px;
+  }
+  .switch:hover{background:#f5f4ef}
+  .switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .switch .track{width:40px;height:24px;border-radius:999px;background:#c8c5bd;position:relative;flex:none;transition:background .16s}
+  .switch .thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .16s}
+  .switch[aria-checked="true"] .track{background:var(--accent)}
+  .switch[aria-checked="true"] .thumb{transform:translateX(16px)}
+
+  .readout{
+    margin:0;padding:9px 11px;border:1px solid var(--line);border-radius:7px;
+    background:#faf9f6;font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;
+    min-height:3.2em;
+  }
+  .readout em{font-style:normal;color:var(--bad)}
+  .verdict{margin:0;font-size:12.5px;line-height:1.6;color:var(--mute)}
+  .verdict b{color:var(--fg);font-weight:600}
+  .sys{margin:0;font-size:12.5px;color:var(--mute)}
+  .sys b{color:var(--ok);font-weight:600}
+
+  footer{margin-top:24px;border-top:1px solid var(--line);padding-top:18px}
+  footer h2{font-size:15px;margin:0 0 9px;font-weight:650}
+  footer ol{margin:0;padding-left:1.4em;max-width:82ch}
+  footer li{margin-bottom:6px;color:#3a3934}
+  footer li b{font-weight:600}
+
+  @media (max-width:820px){
+    .grid{grid-template-columns:1fr}
+    body{padding:24px 16px 52px}
+    header h1{font-size:21px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>二选一</h1>
+    <p><strong>同一个问题，五种画法。看每种画法允许哪些状态。</strong></p>
+    <p>问题：接收产品更新通知。点几下，注意每种画法里「没回答」和「矛盾」各长什么样。</p>
+  </header>
+
+  <main class="grid">
+    <section class="card">
+      <div><h2>A · 两个复选</h2><p class="claim">「接收」和「不接收」各给一个框。</p></div>
+      <div class="control">
+        <label class="opt"><input type="checkbox" id="a1"><span>接收</span></label>
+        <label class="opt"><input type="checkbox" id="a2"><span>不接收</span></label>
+      </div>
+      <p class="readout" id="aOut" aria-live="polite"></p>
+      <p class="verdict">只适合<b>两个都能同时成立</b>的集合（邮件 / 短信）。对面那个是「都选」时，这个画法允许<b>矛盾</b>状态。</p>
+    </section>
+
+    <section class="card">
+      <div><h2>B · 一对单选</h2><p class="claim">「接收 / 不接收」，只能选一个。</p></div>
+      <div class="control">
+        <label class="opt"><input type="radio" name="b" value="yes"><span>接收</span></label>
+        <label class="opt"><input type="radio" name="b" value="no"><span>不接收</span></label>
+      </div>
+      <p class="readout" id="bOut" aria-live="polite"></p>
+      <p class="verdict">适合<b>必须显式回答</b>的对立二选一。代价是初始「未选」，提交前要做校验。</p>
+    </section>
+
+    <section class="card">
+      <div><h2>C · 单个复选</h2><p class="claim">只写「接收」，不勾就是不接收。</p></div>
+      <div class="control">
+        <label class="opt"><input type="checkbox" id="c1"><span>接收产品更新通知</span></label>
+      </div>
+      <p class="readout" id="cOut" aria-live="polite"></p>
+      <p class="verdict">适合<b>允许默认否</b>的单一确认。它表达不了「明确不接收」和「还没回答」的区别。</p>
+    </section>
+
+    <section class="card">
+      <div><h2>D · 开关</h2><p class="claim">位置就是当前状态，点了立即生效。</p></div>
+      <div class="control">
+        <button type="button" class="switch" role="switch" aria-checked="false" id="dSw">
+          <span class="track"><span class="thumb"></span></span>
+          <span>产品更新通知</span>
+        </button>
+      </div>
+      <p class="readout" id="dOut" aria-live="polite"></p>
+      <p class="sys">系统里：<b id="dSys">关</b></p>
+      <p class="verdict">适合<b>立即生效</b>的二元状态。放进需要保存的表单，它会先显示成「已开」——假状态。</p>
+    </section>
+
+    <section class="card">
+      <div><h2>E · 单个 radio</h2><p class="claim">只有一个圆点，没有别的选项。</p></div>
+      <div class="control">
+        <label class="opt"><input type="radio" name="e" value="yes" id="e1"><span>接收产品更新通知</span></label>
+      </div>
+      <p class="readout" id="eOut" aria-live="polite"></p>
+      <p class="verdict">只在<b>组存在、其他项暂时收起</b>时成立（比如已选项的摘要行）。否则它是一个没有组的圆点：<b>点一次选中，再点一次取消不了</b>。</p>
+    </section>
+  </main>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li>A：把两个都勾上——「既接收又不接收」。这个状态不该存在，但两个复选框允许它。</li>
+      <li>B：什么都不选——「未回答」是一个真实状态，提交时才需要校验。</li>
+      <li>C：不勾就是「不接收」，但用户分不出这是他明确选的，还是他根本没读。</li>
+      <li>D：扳一下，右边系统状态立刻跟着变。这就是「位置就是当前状态」的意思。</li>
+      <li>E：点一次选中，再点一次没反应——单个 radio 没有「取消」这个动作。</li>
+    </ol>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var a1 = document.getElementById('a1');
+  var a2 = document.getElementById('a2');
+  var c1 = document.getElementById('c1');
+  var dSw = document.getElementById('dSw');
+  var e1 = document.getElementById('e1');
+
+  function aRead() {
+    var x = a1.checked, y = a2.checked;
+    var out = document.getElementById('aOut');
+    if (!x && !y) out.textContent = '都没选：没回答。';
+    else if (x && y) out.innerHTML = '两个都选：<em>既接收又不接收。矛盾。</em>';
+    else out.textContent = x ? '接收。' : '不接收。';
+  }
+
+  function bRead() {
+    var v = document.querySelector('input[name="b"]:checked');
+    document.getElementById('bOut').textContent = v
+      ? (v.value === 'yes' ? '接收。' : '不接收。')
+      : '未选：提交前必须选一个。';
+  }
+
+  function cRead() {
+    document.getElementById('cOut').textContent = c1.checked
+      ? '接收。'
+      : '不接收。但这个「不接收」也可能是「还没回答」。';
+  }
+
+  function dRead() {
+    var on = dSw.getAttribute('aria-checked') === 'true';
+    document.getElementById('dOut').textContent = on ? '开。立即生效，没有保存这一步。' : '关。';
+    document.getElementById('dSys').textContent = on ? '开' : '关';
+  }
+
+  function eRead() {
+    document.getElementById('eOut').textContent = e1.checked
+      ? '已选。再点一次不会取消——单个 radio 没有取消这个动作。'
+      : '未选。组里只有它一个。';
+  }
+
+  a1.addEventListener('change', aRead);
+  a2.addEventListener('change', aRead);
+  c1.addEventListener('change', cRead);
+  document.querySelectorAll('input[name="b"]').forEach(function (r) { r.addEventListener('change', bRead); });
+  e1.addEventListener('change', eRead);
+  dSw.addEventListener('click', function () {
+    dSw.setAttribute('aria-checked', dSw.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+    dRead();
+  });
+
+  aRead(); bRead(); cRead(); dRead(); eRead();
+})();
+</script>
+</body>
+</html>
