@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>选中的表达 · 颜色与动效</title>
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#fff; --line:#e3e1db; --fg:#1c1c1a; --mute:#6f6d66;
+    --accent:#2f5fd0; --bad:#b02a1e; --ok:#177245;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:34px 24px 64px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+  header h1{font-size:24px;margin:0 0 9px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:78ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .toolbar{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    margin-top:18px;padding:10px 14px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+  }
+  .toolbar label{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+  .toolbar input{accent-color:var(--accent);margin:0}
+  .hint{font-size:12.5px;color:var(--mute);margin-left:auto}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}
+  .panel h2{font-size:15px;margin:0 0 12px;font-weight:650}
+
+  .pairs{display:flex;flex-wrap:wrap;gap:22px}
+  .pair{display:flex;flex-direction:column;gap:8px}
+  .pair-title{margin:0;font-size:12.5px;color:var(--mute)}
+  .pair-row{display:flex;gap:8px}
+
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:6px 14px;border-radius:999px;border:1px solid #d9d6ce;
+    background:#fff;color:var(--fg);font-size:13px;
+  }
+  .chip .tick{font-weight:700}
+  .chip.coloronly.on{background:#e4ecfd;border-color:#e4ecfd}
+  .chip.withcheck.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip.outline.on{background:#fff;border-color:var(--accent);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+  .pairs.nocolor .chip{
+    background:#fff !important;border-color:#c9c6bd !important;color:var(--fg) !important;
+    box-shadow:none !important;
+  }
+  .pairs.nocolor .chip .tick{color:var(--fg) !important}
+
+  .note{margin:12px 0 0;font-size:12.5px;color:var(--mute)}
+
+  .motion{--dur:150ms}
+  .motion-row{display:flex;align-items:center;gap:28px;flex-wrap:wrap;margin-bottom:14px}
+
+  .switch{
+    appearance:none;border:0;background:none;padding:3px 6px 3px 0;margin:0;
+    display:inline-flex;align-items:center;gap:10px;width:fit-content;
+    font:inherit;color:inherit;cursor:pointer;border-radius:6px;
+  }
+  .switch:hover{background:#f5f4ef}
+  .switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .switch .track{
+    width:40px;height:24px;border-radius:999px;background:#c8c5bd;position:relative;flex:none;
+    transition:background var(--dur) ease;
+  }
+  .switch .thumb{
+    position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);
+    transition:transform var(--dur) ease;
+  }
+  .switch[aria-checked="true"] .track{background:var(--accent)}
+  .switch[aria-checked="true"] .thumb{transform:translateX(16px)}
+
+  .mcheck{display:inline-flex;align-items:center;gap:9px;cursor:pointer;font-size:14px;position:relative}
+  .mcheck input{position:absolute;width:1px;height:1px;opacity:0;margin:0}
+  .mcheck .box{
+    width:22px;height:22px;border:1.5px solid #b8b5ac;border-radius:6px;
+    display:grid;place-items:center;background:#fff;
+    transition:background var(--dur) ease,border-color var(--dur) ease;
+  }
+  .mcheck .tick{
+    color:#fff;font-size:14px;font-weight:700;line-height:1;
+    opacity:0;transform:scale(.6);
+    transition:opacity var(--dur) ease,transform var(--dur) ease;
+  }
+  .mcheck input:checked + .box{background:var(--accent);border-color:var(--accent)}
+  .mcheck input:checked + .box .tick{opacity:1;transform:scale(1)}
+  .mcheck input:focus-visible + .box{outline:2px solid var(--accent);outline-offset:2px}
+
+  .controls{display:flex;align-items:center;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--mute)}
+  .controls label{display:inline-flex;align-items:center;gap:8px}
+  .controls input[type="range"]{width:180px;accent-color:var(--accent)}
+  .controls output{min-width:3.6em;font-variant-numeric:tabular-nums}
+  .btn{
+    font:inherit;font-size:13px;padding:5px 11px;border-radius:7px;
+    border:1px solid var(--line);background:#fff;color:inherit;cursor:pointer;
+  }
+  .btn:hover{background:#f5f4ef}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .readout{
+    margin:14px 0 0;padding-top:10px;border-top:1px dashed #dbd8d1;
+    font:12.5px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--mute);
+  }
+  .readout b{color:var(--fg);font-weight:600}
+  .readout b.moving{color:#a05a00}
+
+  footer{margin-top:24px;border-top:1px solid var(--line);padding-top:18px}
+  footer h2{font-size:15px;margin:0 0 9px;font-weight:650}
+  footer ol{margin:0;padding-left:1.4em;max-width:82ch}
+  footer li{margin-bottom:6px;color:#3a3934}
+  footer li b{font-weight:600}
+
+  @media (max-width:700px){
+    body{padding:24px 16px 52px}
+    header h1{font-size:21px}
+    .hint{margin-left:0}
+    .controls input[type="range"]{width:120px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>选中的表达</h1>
+    <p><strong>颜色只是加强，选中得有自己的形状。</strong></p>
+    <p>去掉颜色，看哪一组还分得出选中；再把动效拉长，看状态和视觉什么时候分家。</p>
+  </header>
+
+  <div class="toolbar">
+    <label><input type="checkbox" id="gray"> 去掉颜色，只留形状</label>
+    <span class="hint">这不是色盲模拟，是把颜色这一层拿掉，看还剩什么。</span>
+  </div>
+
+  <section class="panel">
+    <h2>颜色与形状</h2>
+    <div class="pairs" id="pairs">
+      <div class="pair">
+        <p class="pair-title">A · 只靠颜色</p>
+        <div class="pair-row">
+          <span class="chip coloronly on">已选</span>
+          <span class="chip">未选</span>
+        </div>
+      </div>
+      <div class="pair">
+        <p class="pair-title">B · 颜色 + 勾</p>
+        <div class="pair-row">
+          <span class="chip withcheck on"><span class="tick">✓</span>已选</span>
+          <span class="chip">未选</span>
+        </div>
+      </div>
+      <div class="pair">
+        <p class="pair-title">C · 描边 + 勾</p>
+        <div class="pair-row">
+          <span class="chip outline on"><span class="tick">✓</span>已选</span>
+          <span class="chip">未选</span>
+        </div>
+      </div>
+    </div>
+    <p class="note">去掉颜色之后，A 的两个胶囊一模一样；B、C 还靠勾分得开。</p>
+  </section>
+
+  <section class="panel motion" id="motion">
+    <h2>状态动效</h2>
+    <div class="motion-row">
+      <button type="button" class="switch" role="switch" aria-checked="false" id="sw">
+        <span class="track"><span class="thumb"></span></span>
+        <span>深色模式</span>
+      </button>
+      <label class="mcheck">
+        <input type="checkbox" id="cb">
+        <span class="box" aria-hidden="true"><span class="tick">✓</span></span>
+        <span>接收通知</span>
+      </label>
+    </div>
+
+    <div class="controls">
+      <label>时长
+        <input type="range" id="dur" min="0" max="800" step="10" value="150">
+        <output id="durOut">150ms</output>
+      </label>
+      <label><input type="checkbox" id="reduce"> 模拟减少动态效果</label>
+      <button type="button" class="btn" id="burst">快速切换 9 次</button>
+    </div>
+
+    <p class="readout">状态：<b id="stateOut">关</b> · 视觉：<b id="visualOut">到位</b></p>
+  </section>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li>去掉颜色后，A 的两个胶囊变成一样；B、C 还靠勾分得开。颜色只是加强，选中必须有形状或符号层。</li>
+      <li>时长 0ms：状态和视觉同时到位；150ms：顺，仍然跟手；600ms：状态已经变了，视觉还在路上。</li>
+      <li>快速切换 9 次：时长越长，「还在动」持续得越久。状态每次都变了，视觉一直在后面追。</li>
+      <li>勾选「模拟减少动态效果」：状态照样清楚——动效不是信息，拿掉不影响判断。</li>
+      <li>勾和滑块都是「加强 + 反馈」，不是唯一线索；静态截图里也得看得出选中。</li>
+    </ol>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var pairs = document.getElementById('pairs');
+  var gray = document.getElementById('gray');
+  var motion = document.getElementById('motion');
+  var dur = document.getElementById('dur');
+  var durOut = document.getElementById('durOut');
+  var reduce = document.getElementById('reduce');
+  var sw = document.getElementById('sw');
+  var stateOut = document.getElementById('stateOut');
+  var visualOut = document.getElementById('visualOut');
+  var burst = document.getElementById('burst');
+
+  var currentDur = 150;
+  var visTimer = null;
+
+  function setDur(v) {
+    currentDur = v;
+    motion.style.setProperty('--dur', v + 'ms');
+    durOut.textContent = v + 'ms';
+  }
+
+  function markVisual() {
+    clearTimeout(visTimer);
+    if (currentDur === 0) {
+      visualOut.textContent = '到位';
+      visualOut.classList.remove('moving');
+      return;
+    }
+    visualOut.textContent = '还在动';
+    visualOut.classList.add('moving');
+    visTimer = setTimeout(function () {
+      visualOut.textContent = '到位';
+      visualOut.classList.remove('moving');
+    }, currentDur + 40);
+  }
+
+  gray.addEventListener('change', function () {
+    pairs.classList.toggle('nocolor', gray.checked);
+  });
+
+  dur.addEventListener('input', function () {
+    if (reduce.checked) return;
+    setDur(Number(dur.value));
+  });
+
+  function applyReduce() {
+    if (reduce.checked) {
+      dur.disabled = true;
+      setDur(0);
+      visualOut.textContent = '到位';
+      visualOut.classList.remove('moving');
+      clearTimeout(visTimer);
+    } else {
+      dur.disabled = false;
+      setDur(Number(dur.value));
+    }
+  }
+  reduce.addEventListener('change', applyReduce);
+
+  sw.addEventListener('click', function () {
+    var on = sw.getAttribute('aria-checked') === 'true';
+    sw.setAttribute('aria-checked', String(!on));
+    stateOut.textContent = !on ? '开' : '关';
+    markVisual();
+  });
+
+  burst.addEventListener('click', function () {
+    var n = 0;
+    (function step() {
+      if (n >= 9) return;
+      n += 1;
+      sw.click();
+      setTimeout(step, 90);
+    })();
+  });
+
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    reduce.checked = true;
+    applyReduce();
+  }
+})();
+</script>
+</body>
+</html>
