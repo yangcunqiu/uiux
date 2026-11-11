@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>选项行 · 对齐与第二个目标</title>
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#fff; --line:#e3e1db; --fg:#1c1c1a; --mute:#6f6d66;
+    --accent:#2f5fd0; --bad:#b02a1e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:34px 24px 64px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+  header h1{font-size:24px;margin:0 0 9px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:76ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .toolbar{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    margin-top:18px;padding:10px 14px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+  }
+  .toolbar span.lab{font-size:13px;color:var(--mute)}
+  .toolbar label{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+  .toolbar input{accent-color:var(--accent);margin:0}
+  .hint{font-size:12.5px;color:var(--mute);margin-left:auto}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 14px;margin-top:16px}
+  .panel h2{font-size:15px;margin:12px 0 2px;font-weight:650}
+
+  .row{
+    display:flex;align-items:center;gap:10px;
+    padding:12px 4px;cursor:pointer;border-radius:6px;
+  }
+  .row:not(:last-child){border-bottom:1px solid #f0eeea}
+  .row:hover{background:#faf9f6}
+  .row > input{
+    width:18px;height:18px;margin:0;flex:none;cursor:pointer;
+    accent-color:var(--accent);
+  }
+  .body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+  .name{font-weight:600}
+  .desc{font-size:13px;line-height:1.55;color:var(--mute);max-width:52ch}
+  .avatar{
+    width:40px;height:40px;border-radius:50%;flex:none;
+    background:#dde6f8;color:#2f5fd0;font-weight:600;
+    display:grid;place-items:center;
+  }
+
+  /* 文本行：首行 / 整行居中；图像行固定对图像 */
+  .list[data-mode="start"] .row[data-anchor="text"]{align-items:flex-start}
+  .list[data-mode="start"] .row[data-anchor="text"] > input{margin-top:3px}
+  .list[data-mode="center"] .row[data-anchor="text"]{align-items:center}
+  .row[data-anchor="image"]{align-items:center}
+
+  .icon-list{padding-bottom:8px}
+  .icon-wrap{position:relative}
+  .icon-row{
+    position:relative;display:flex;align-items:flex-start;
+    padding:12px 40px 12px 4px;border-radius:6px;cursor:pointer;
+  }
+  .icon-row:hover{background:#faf9f6}
+  .icon-label{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;cursor:pointer}
+  .icon-row > input, .icon-label > input{
+    width:18px;height:18px;margin:3px 0 0 0;flex:none;
+    cursor:pointer;accent-color:var(--accent);
+  }
+  .info{
+    position:absolute;right:4px;top:12px;
+    width:24px;height:24px;padding:0;margin:0;
+    display:grid;place-items:center;border-radius:50%;
+    border:1px solid var(--line);background:#fff;color:var(--mute);
+    font:inherit;font-size:13px;cursor:pointer;
+  }
+  .info:hover{background:#f1f0ea;color:var(--fg)}
+  .info:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .pop{
+    position:absolute;right:4px;top:46px;z-index:2;
+    max-width:260px;padding:8px 10px;border-radius:8px;
+    background:#1c1c1a;color:#f4f3ef;font-size:12.5px;line-height:1.55;
+    box-shadow:0 6px 18px rgba(0,0,0,.18);
+  }
+  .pop[hidden]{display:none}
+  .status{margin:4px 0 14px;font-size:12.5px;color:var(--mute);min-height:1.6em}
+  .status.bad{color:var(--bad)}
+
+  footer{margin-top:22px;border-top:1px solid var(--line);padding-top:18px}
+  footer h2{font-size:15px;margin:0 0 9px;font-weight:650}
+  footer ol{margin:0;padding-left:1.4em}
+  footer li{margin-bottom:6px;color:#3a3934}
+  footer li b{font-weight:600}
+
+  @media (max-width:640px){
+    body{padding:24px 16px 52px}
+    .hint{margin-left:0}
+    .desc{max-width:none}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>选项行</h1>
+    <p><strong>勾选框对齐的不是「整行」，是它标记的那个东西。</strong></p>
+    <p>切换文本行的对齐方式，看哪些行开始漂。头像行不跟着切换——它的锚点是图像。</p>
+  </header>
+
+  <div class="toolbar">
+    <span class="lab">文本行对齐</span>
+    <label><input type="radio" name="align" value="start" checked> 首行</label>
+    <label><input type="radio" name="align" value="center"> 整行垂直居中</label>
+    <span class="hint">单行行两种都看不出来；差别在带描述的行。</span>
+  </div>
+
+  <section class="panel">
+    <div class="list" id="list" data-mode="start">
+      <label class="row" data-anchor="text">
+        <input type="checkbox">
+        <span class="body"><span class="name">任务指派</span></span>
+      </label>
+      <label class="row" data-anchor="text">
+        <input type="checkbox">
+        <span class="body">
+          <span class="name">评论回复</span>
+          <span class="desc">有人回复我的评论时，发一条站内信。</span>
+        </span>
+      </label>
+      <label class="row" data-anchor="text">
+        <input type="checkbox">
+        <span class="body">
+          <span class="name">附件更新</span>
+          <span class="desc">项目里的附件被替换或删除时提醒我。这类提醒只在最近 30 天内有访问记录的项目里触发，超过 30 天没有访问的项目不会推送。</span>
+        </span>
+      </label>
+      <label class="row" data-anchor="image">
+        <input type="checkbox">
+        <span class="avatar" aria-hidden="true">张</span>
+        <span class="body">
+          <span class="name">张三</span>
+          <span class="desc">产品设计 · 在线</span>
+        </span>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel icon-list">
+    <h2>行里的第二个目标</h2>
+    <p class="desc" style="margin:4px 0 10px">同一行里还有一个说明图标。点它，看看勾选会不会跟着变。</p>
+    <div class="toolbar" style="margin-top:0">
+      <label><input type="radio" name="iconmode" value="wrong" checked> 图标做成 span，放进 label</label>
+      <label><input type="radio" name="iconmode" value="right"> 图标做成 button，放在 label 外</label>
+    </div>
+    <div class="icon-wrap" id="iconHost"></div>
+    <p class="status" id="iconStatus" aria-live="polite">点一下图标试试。</p>
+  </section>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li>单行行两种对齐看不出差别；带描述的行，居中会让勾选框往下漂，描述越长漂得越多。</li>
+      <li>首行对齐时，勾选框在每一行里离行首的距离一样；居中时，这个距离随行高变化，勾选框不再是一条等距的列。</li>
+      <li>头像行不跟着切换：它对齐的是图像。两条全局规则各对一半，正确做法是按每行的锚点对齐。</li>
+      <li>图标做成 <b>span</b> 放进 label，点图标会顺手切换勾选；做成 <b>button</b> 放在 label 外，浏览器不会把点击转给勾选框，还能用键盘聚焦。</li>
+      <li>button 放进 label 里虽然也能跑，但 label 只允许一个 labelable 元素（勾选框），button 是第二个，校验器会报错；读屏拿到的名字也可能被图标搅进去。</li>
+      <li>描述跟文字列对齐，不跟勾选框列对齐；描述宽度也别超过文字列。</li>
+    </ol>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var list = document.getElementById('list');
+  var iconHost = document.getElementById('iconHost');
+  var iconStatus = document.getElementById('iconStatus');
+  var iconMode = 'wrong';
+  var popOpen = false;
+
+  document.querySelectorAll('input[name="align"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (r.checked) list.setAttribute('data-mode', r.value);
+    });
+  });
+
+  function iconRow() {
+    if (iconMode === 'wrong') {
+      // 错误：非交互元素，放在 label 里，点它会触发 label 的默认行为
+      iconHost.innerHTML =
+        '<label class="icon-row">' +
+          '<input type="checkbox" id="sec">' +
+          '<span class="body"><span class="name">安全提醒</span>' +
+            '<span class="desc">登录新设备时提醒我。</span></span>' +
+          '<span class="info" role="img" aria-label="说明">i</span>' +
+        '</label>';
+    } else {
+      // 正确：button 放在 label 外，是独立的交互元素
+      iconHost.innerHTML =
+        '<div class="icon-row">' +
+          '<label class="icon-label">' +
+            '<input type="checkbox" id="sec">' +
+            '<span class="body"><span class="name">安全提醒</span>' +
+              '<span class="desc">登录新设备时提醒我。</span></span>' +
+          '</label>' +
+          '<button type="button" class="info" id="infoBtn" aria-expanded="false" aria-label="说明">i</button>' +
+          '<div class="pop" id="pop" hidden>登录新设备时，会给你发一条站内提醒。</div>' +
+        '</div>';
+    }
+    iconStatus.textContent = '点一下图标试试。';
+    iconStatus.classList.remove('bad');
+    popOpen = false;
+  }
+
+  iconHost.addEventListener('click', function (e) {
+    var t = e.target;
+    var isInfo = t.classList && (t.classList.contains('info') || t.closest('.info'));
+    if (!isInfo) return;
+    var btn = t.classList.contains('info') ? t : t.closest('.info');
+    var cb = document.getElementById('sec');
+    var before = cb.checked;
+
+    if (iconMode === 'wrong') {
+      // label 的默认激活行为会切换勾选；click 之后读结果
+      setTimeout(function () {
+        var changed = cb.checked !== before;
+        iconStatus.textContent = changed
+          ? '刚才点图标：勾选被一起切换了。'
+          : '刚才点图标：勾选没变。';
+        iconStatus.classList.toggle('bad', changed);
+      }, 0);
+      return;
+    }
+
+    var pop = document.getElementById('pop');
+    popOpen = !popOpen;
+    pop.hidden = !popOpen;
+    btn.setAttribute('aria-expanded', String(popOpen));
+    setTimeout(function () {
+      var changed = cb.checked !== before;
+      iconStatus.textContent = changed
+        ? '刚才点图标：勾选被一起切换了。'
+        : '刚才点图标：勾选没变，只打开了说明。';
+      iconStatus.classList.toggle('bad', changed);
+    }, 0);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && popOpen) {
+      var pop = document.getElementById('pop');
+      if (pop) pop.hidden = true;
+      var btn = document.getElementById('infoBtn');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      popOpen = false;
+    }
+  });
+
+  document.querySelectorAll('input[name="iconmode"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      if (!r.checked) return;
+      iconMode = r.value;
+      iconRow();
+    });
+  });
+
+  iconRow();
+})();
+</script>
+</body>
+</html>
