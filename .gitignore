@@ -1,2 +1,5 @@
 # Temporary fetches and parsing output.
 /.tmp/
+
+# Local input materials; not committed.
+/inbox/
