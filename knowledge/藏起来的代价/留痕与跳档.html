@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>留痕与跳档</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --accent-soft:#eaf1ff; --accent-line:#bcd2ff;
+    --warn:#a15c00; --warn-bg:#fff7e8; --ok:#1a7f37; --ok-bg:#eef8f0;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--text);font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit}
+  .page{max-width:1000px;margin:0 auto;padding:28px 20px 64px}
+  .head h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .head p{margin:0;color:var(--text-2);font-size:13px;max-width:800px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px 14px;margin-top:16px;position:relative}
+  .card h2{font-size:15px;margin:0 0 4px;font-weight:600}
+  .card .lead{margin:0 0 12px;font-size:13px;color:var(--text-2)}
+  .term{border-bottom:1px dashed var(--text-3);cursor:help}
+
+  .stage{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fcfcfd;display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:relative;min-height:56px}
+  .btn{border:1px solid #d6d9e0;background:#fff;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;min-height:34px;white-space:nowrap}
+  .btn:hover{border-color:#b9bec8;background:#fafbfc}
+  .btn.primary{background:var(--accent-soft);border-color:var(--accent-line);color:#1a4fc4}
+  .btn .n{font-variant-numeric:tabular-nums;margin-left:5px;color:var(--text-3)}
+  .btn.primary .n{color:#3a63c9}
+  .btn .chev{font-size:10px;margin-left:6px;color:var(--text-3)}
+  .field{font-size:12px;color:var(--text-3);margin-right:4px}
+  .spacer{flex:1}
+
+  .pop{position:absolute;z-index:10;top:100%;left:12px;margin-top:6px;min-width:220px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 28px rgba(31,35,41,.16);padding:5px}
+  .pop-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;font-size:13px;cursor:pointer}
+  .pop-item:hover{background:#f2f4f7}
+  .pop-head{padding:6px 10px 4px;font-size:11px;color:var(--text-3)}
+
+  .chips{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--accent-line);background:var(--accent-soft);color:#1a4fc4;border-radius:999px;padding:4px 10px;font-size:12px;white-space:nowrap}
+  .chip .x{font-size:11px;opacity:.6}
+  .chip.more{border-color:#d6d9e0;background:#fff;color:var(--text-2)}
+  .trunc{display:inline-block;font-size:12px;color:var(--text-2);border:1px dashed #d6d9e0;border-radius:6px;padding:4px 8px;white-space:nowrap}
+
+  .qtable{margin:0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .qrow{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:0;border-bottom:1px solid var(--line-soft)}
+  .qrow:last-child{border-bottom:0}
+  .qrow .q{padding:10px 12px;font-size:13px;color:var(--text-2);background:#fafbfc}
+  .qrow .a{padding:10px 12px;font-size:13px}
+  .two{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:16px;align-items:start}
+  .two .stage{min-height:56px}
+  .q b{color:var(--text);font-weight:500}
+  .yes{color:var(--ok)}
+  .no{color:var(--warn)}
+  .a em{font-style:normal;color:var(--text-3);font-size:12px;margin-left:8px}
+
+  .switches{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+  .sw{border:1px solid #d6d9e0;background:#fff;border-radius:999px;padding:5px 12px;font-size:12px;color:var(--text-2);cursor:pointer}
+  .sw:hover{border-color:#b9bec8}
+  .sw[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent-line);color:#1a4fc4;font-weight:500}
+  .sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .screen{margin:12px 0 0;padding:10px 12px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--text-3)}
+  .screen .line{margin-top:4px;color:var(--text);font-size:13px;min-height:22px}
+  .screen .line .lit{background:#fff3cd;border-radius:3px;padding:1px 4px}
+  .screen .line .none{color:var(--text-3);font-style:italic}
+
+  .matrix{width:100%;border-collapse:collapse;margin:12px 0 0;font-size:13px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .matrix th{background:#fafbfc;color:var(--text-3);font-weight:500;font-size:11px;text-align:left;padding:7px 12px;border-bottom:1px solid var(--line-soft)}
+  .matrix td{padding:8px 12px;border-bottom:1px solid var(--line-soft)}
+  .matrix tr:last-child td{border-bottom:0}
+  .matrix td.state{width:44%;white-space:nowrap}
+  .mark{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:2px 8px;border-radius:999px}
+  .mark.ok{background:var(--ok-bg);color:var(--ok)}
+  .mark.no{background:var(--warn-bg);color:var(--warn)}
+  .mark.part{background:#f2f4f7;color:var(--text-2)}
+
+  .summary{margin:12px 0 0;font-size:13px;color:var(--text-2)}
+  .summary b{font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
+
+  .foot{max-width:820px;margin:26px 0 0}
+  .foot h2{font-size:15px;margin:0 0 10px;font-weight:600}
+  .foot ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  .foot li{margin:0 0 8px}
+  .foot .note{margin:14px 0 0;font-size:12px;color:var(--text-3);line-height:1.7}
+
+  @media (max-width:700px){
+    .page{padding:20px 14px 48px}
+    .card{padding:14px}
+    .two{grid-template-columns:1fr}
+    .qrow{grid-template-columns:1fr}
+    .qrow .q{padding-bottom:0;background:transparent}
+    .matrix td.state{width:auto;white-space:normal}
+  }
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <h1>留痕与跳档：关着的时候，屏幕上有什么</h1>
+    <p>两个小对照。第一个分清「集合」和「状态」；第二个看同一条筛选栏的六种「关着」写法，屏幕上分别留下了什么。</p>
+  </header>
+
+  <section class="card" aria-labelledby="c1">
+    <h2 id="c1">一、集合和状态，是两个问题</h2>
+    <p class="lead">一个「处理状态」下拉，关着的时候长这样。点开它，再回答下面两个问题。</p>
+
+    <div class="two">
+      <div class="stage">
+        <span class="field">处理状态</span>
+        <button type="button" class="btn" id="dd" aria-haspopup="true" aria-expanded="false">处理中<span class="chev">▾</span></button>
+        <div class="pop" id="dd-pop" hidden>
+          <div class="pop-head">可选的处理状态</div>
+          <label class="pop-item"><input type="radio" name="st" value="处理中" checked /> 处理中</label>
+          <label class="pop-item"><input type="radio" name="st" value="待审核" /> 待审核</label>
+          <label class="pop-item"><input type="radio" name="st" value="已通过" /> 已通过</label>
+          <label class="pop-item"><input type="radio" name="st" value="已驳回" /> 已驳回</label>
+        </div>
+      </div>
+
+      <div class="qtable">
+        <div class="qrow">
+          <div class="q">问题 A：现在选的是哪个？</div>
+          <div class="a" id="qa"><b class="yes">能答：处理中</b><em>触发器上写着</em></div>
+        </div>
+        <div class="qrow">
+          <div class="q">问题 B：一共还能选哪些？</div>
+          <div class="a" id="qb"><b class="no">答不了</b><em>要点开才看得到</em></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="summary">问题 A 问的是<b>状态</b>：现在是什么。问题 B 问的是<b>集合</b>：一共有哪些。同一个控件，A 有痕，B 无痕。</p>
+  </section>
+
+  <section class="card" aria-labelledby="c2">
+    <h2 id="c2">二、同一条筛选栏，六种关着的样子</h2>
+    <p class="lead">五个条件已经生效：待审核、已超时、我负责的、今日到期、高优先级。切换写法，看关着时屏幕上留下了什么、能说出哪几个。</p>
+
+    <div class="switches" role="group" aria-label="留痕的写法">
+      <button class="sw" data-variant="none" aria-pressed="true">什么都没有</button>
+      <button class="sw" data-variant="count" aria-pressed="false">只剩数字</button>
+      <button class="sw" data-variant="chips" aria-pressed="false">全部写出</button>
+      <button class="sw" data-variant="trunc" aria-pressed="false">截断一行</button>
+      <button class="sw" data-variant="plus2" aria-pressed="false">写 3 个 + 2</button>
+      <button class="sw" data-variant="quiet3" aria-pressed="false">写 3 个（不标）</button>
+    </div>
+
+    <div class="stage" id="filter-stage">
+      <div id="filter-entry"></div>
+      <span class="spacer"></span>
+      <span class="field">共 24 条结果</span>
+    </div>
+
+    <div class="screen">
+      <div>关着时，屏幕上关于这五个条件的字：</div>
+      <div class="line" id="screen-line"></div>
+    </div>
+
+    <table class="matrix">
+      <thead><tr><th>条件</th><th>关着时能说出它吗</th></tr></thead>
+      <tbody id="matrix-body"></tbody>
+    </table>
+
+    <p class="summary" id="summary"></p>
+  </section>
+
+  <section class="foot">
+    <h2>值得看的几处</h2>
+    <ol>
+      <li>第一组：点开下拉，问题 B 变成「能看到 4 个」；关掉又回到「答不了」。问题 A 从头到尾都是「能答：处理中」——状态一直有痕，集合一直要取。</li>
+      <li>「什么都没有」和「只剩数字」：前者连有几个都不知道；后者知道有 5 个，但一个名字都说不出。数量不是内容。</li>
+      <li>「全部写出」：五个条件都能说出来，代价是这一行被占满——窗口再窄一点，「共 24 条结果」就得换行。</li>
+      <li>「截断一行」：看起来像写出来了，其实只到「我负责的」，第四个只剩半截、第五个没有。</li>
+      <li>「写 3 个 + 2」：承认还有两个，但没说是哪两个。它和截断的差别不在信息量，在态度——+2 明说不全，截断只给了一个省略号。</li>
+      <li>「写 3 个（不标）」：三个 chip，按钮上没有数字，也没有省略号。它看上去就是完整的——这一版最危险，比「只剩数字」糟，因为「只剩数字」至少知道自己不知道。</li>
+      <li>看下面的表：六种写法里只有「全部写出」能五问五答；截断停在 3 个，+2 和不标也停在 3 个，数字版一个都说不出来。</li>
+    </ol>
+    <p class="note">这是一组结构对照，不是用户测试：没有记录你的反应时间，也不能证明哪种写法更好。它只说明「关着时屏幕上有什么」是可数的——数得出几个名字，就数得出它停在哪一级。</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  const CONDS = ['待审核','已超时','我负责的','今日到期','高优先级'];
+  const state = { variant:'none', ddOpen:false, value:'处理中' };
+
+  const el = (s,r=document)=>r.querySelector(s);
+  const els = (s,r=document)=>[...r.querySelectorAll(s)];
+
+  function entry(){
+    const v = state.variant;
+    const showCount = ['count','chips','trunc','plus2'].includes(v);
+    const label = showCount ? '筛选<span class="n">5</span>' : '筛选';
+    let html = '<button type="button" class="btn '+(showCount?'primary':'')+'" id="filter-btn" aria-haspopup="true" aria-expanded="false">'+label+'<span class="chev">▾</span></button>';
+    html += '<div class="pop" id="filter-pop" hidden><div class="pop-head">筛选条件（已生效）</div>'
+      + CONDS.map(c=>'<label class="pop-item"><input type="checkbox" checked /> '+c+'</label>').join('')
+      + '</div>';
+    if (v === 'chips'){
+      html += '<div class="chips" style="margin-left:8px">'
+        + CONDS.map(c=>'<span class="chip">'+c+'<span class="x" aria-hidden="true">×</span></span>').join('')
+        + '</div>';
+    } else if (v === 'trunc'){
+      html += '<span class="trunc" style="margin-left:8px">待审核、已超时、我负责的、今日到…</span>';
+    } else if (v === 'plus2'){
+      html += '<div class="chips" style="margin-left:8px">'
+        + CONDS.slice(0,3).map(c=>'<span class="chip">'+c+'<span class="x" aria-hidden="true">×</span></span>').join('')
+        + '<span class="chip more">+2</span></div>';
+    } else if (v === 'quiet3'){
+      html += '<div class="chips" style="margin-left:8px">'
+        + CONDS.slice(0,3).map(c=>'<span class="chip">'+c+'<span class="x" aria-hidden="true">×</span></span>').join('')
+        + '</div>';
+    }
+    return html;
+  }
+
+  function screenText(){
+    const v = state.variant;
+    if (v === 'none') return '<span class="none">（什么也没有）</span>';
+    if (v === 'count') return '<span class="lit">筛选 5</span>';
+    if (v === 'chips') return CONDS.map(c=>'<span class="lit">'+c+'</span>').join('、') + ' <span class="lit">筛选 5</span>';
+    if (v === 'trunc') return '<span class="lit">待审核、已超时、我负责的、今日到…</span> <span class="lit">筛选 5</span>';
+    if (v === 'plus2') return '<span class="lit">待审核、已超时、我负责的</span>、<span class="lit">+2</span> <span class="lit">筛选 5</span>';
+    if (v === 'quiet3') return '<span class="lit">待审核、已超时、我负责的</span> <span class="lit">筛选</span>';
+    return '';
+  }
+
+  /* 每个变体：五个条件各自的可见程度 ok / part / no */
+  const LEVELS = {
+    none:  ['no','no','no','no','no'],
+    count: ['no','no','no','no','no'],
+    chips: ['ok','ok','ok','ok','ok'],
+    trunc: ['ok','ok','ok','part','no'],
+    plus2: ['ok','ok','ok','no','no'],
+    quiet3: ['ok','ok','ok','no','no']
+  };
+
+  function renderMatrix(){
+    const lv = LEVELS[state.variant];
+    el('#matrix-body').innerHTML = CONDS.map((c,i)=>{
+      const s = lv[i];
+      const mark = s === 'ok' ? '<span class="mark ok">能说出</span>'
+        : s === 'part' ? '<span class="mark part">只露半截</span>'
+        : '<span class="mark no">看不见</span>';
+      return '<tr><td>'+c+'</td><td class="state">'+mark+'</td></tr>';
+    }).join('');
+
+    const ok = lv.filter(x=>x==='ok').length;
+    const part = lv.filter(x=>x==='part').length;
+    const knowCount = ['count','chips','trunc','plus2'].includes(state.variant);
+    let txt = '知道有几个：<b>'+(knowCount?'5 个':'不知道')+'</b>　能说出名字：<b>'+ok+' / 5</b>';
+    if (part) txt += '　另有一个只露半截';
+    if (state.variant === 'plus2') txt += '　另两个折在 +2 里';
+    if (state.variant === 'quiet3') txt += '　另两个没有任何标记，看上去就是 3 个';
+    el('#summary').innerHTML = txt;
+  }
+
+  function render(){
+    el('#filter-entry').innerHTML = entry();
+    el('#screen-line').innerHTML = screenText();
+    renderMatrix();
+    bindFilter();
+  }
+
+  function bindFilter(){
+    const b = el('#filter-btn');
+    if (b) b.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const pop = el('#filter-pop');
+      if (!pop) return;
+      pop.toggleAttribute('hidden');
+      b.setAttribute('aria-expanded', String(!pop.hasAttribute('hidden')));
+    });
+  }
+
+  /* 下拉 */
+  const dd = el('#dd');
+  dd.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    state.ddOpen = !state.ddOpen;
+    el('#dd-pop').hidden = !state.ddOpen;
+    dd.setAttribute('aria-expanded', String(state.ddOpen));
+    updateQuestions();
+  });
+  els('#dd-pop input').forEach(r => r.addEventListener('change', ()=>{
+    state.value = r.value;
+    dd.firstChild.textContent = state.value;
+    state.ddOpen = false;
+    el('#dd-pop').hidden = true;
+    dd.setAttribute('aria-expanded','false');
+    updateQuestions();
+  }));
+  document.addEventListener('click', (e)=>{
+    if (state.ddOpen && !el('#dd').parentElement.contains(e.target)){
+      state.ddOpen = false; el('#dd-pop').hidden = true; dd.setAttribute('aria-expanded','false'); updateQuestions();
+    }
+    const fentry = el('#filter-entry');
+    if (fentry && !fentry.contains(e.target)){
+      const fp = el('#filter-pop');
+      if (fp && !fp.hasAttribute('hidden')){ fp.setAttribute('hidden',''); const fb = el('#filter-btn'); if (fb) fb.setAttribute('aria-expanded','false'); }
+    }
+  });
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape' && state.ddOpen){
+      state.ddOpen = false; el('#dd-pop').hidden = true; dd.setAttribute('aria-expanded','false'); updateQuestions();
+    }
+  });
+
+  function updateQuestions(){
+    el('#qa').innerHTML = '<b class="yes">能答：'+state.value+'</b><em>触发器上写着</em>';
+    el('#qb').innerHTML = state.ddOpen
+      ? '<b class="yes">能答：4 个</b><em>打开了才看得到</em>'
+      : '<b class="no">答不了</b><em>要点开才看得到</em>';
+  }
+
+  els('.sw').forEach(btn => btn.addEventListener('click', ()=>{
+    state.variant = btn.dataset.variant;
+    els('.sw').forEach(b=>b.setAttribute('aria-pressed', String(b===btn)));
+    render();
+  }));
+
+  render();
+  updateQuestions();
+})();
+</script>
+</body>
+</html>

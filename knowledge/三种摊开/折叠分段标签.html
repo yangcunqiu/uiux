@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>折叠、分段、标签：三种摊开的样子</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --accent-soft:#eaf1ff; --accent-line:#bcd2ff;
+    --warn:#a15c00; --warn-bg:#fff7e8; --ok:#1a7f37; --ok-bg:#eef8f0;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--text);font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit}
+  .page{max-width:1000px;margin:0 auto;padding:28px 20px 64px}
+  .head h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .head p{margin:0;color:var(--text-2);font-size:13px;max-width:820px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px 14px;margin-top:16px}
+  .card h2{font-size:15px;margin:0 0 4px;font-weight:600}
+  .card .lead{margin:0 0 12px;font-size:13px;color:var(--text-2)}
+
+  .switches{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+  .sw{border:1px solid #d6d9e0;background:#fff;border-radius:999px;padding:5px 12px;font-size:12px;color:var(--text-2);cursor:pointer}
+  .sw:hover{border-color:#b9bec8}
+  .sw[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent-line);color:#1a4fc4;font-weight:500}
+  .sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .sw.chk{display:inline-flex;align-items:center;gap:6px}
+  .sw.chk input{margin:0;accent-color:var(--accent)}
+
+  .stage{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fcfcfd}
+  .stage.gray{filter:grayscale(1)}
+
+  /* 折叠 */
+  .acc{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+  .acc + .acc{margin-top:0}
+  .acc .sec + .sec{border-top:1px solid var(--line)}
+  .acc-h{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;background:#fafbfc;border:0;text-align:left;cursor:pointer;min-height:42px}
+  .acc-h:hover{background:#f4f5f7}
+  .acc-h:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .caret{font-size:10px;color:var(--text-3);width:12px;flex:none;transition:transform .18s ease}
+  .sec.open .caret{transform:rotate(90deg)}
+  .acc-h .t{font-size:13px}
+  .acc-h .badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--accent-soft);color:#1a4fc4;font-size:11px;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
+  .acc-h .badge.zero{background:#f2f3f5;color:var(--text-3)}
+  .acc-sum{padding:0 12px 9px 32px;font-size:12px;color:var(--text-3);margin:-2px 0 0}
+  .acc-sum b{font-weight:400;color:var(--text-2)}
+  .sec.open .acc-sum{display:none}
+  .acc-b{padding:4px 12px 10px 32px;display:grid;gap:2px}
+  .opt{display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;cursor:pointer}
+  .opt input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+  .push{margin-top:12px;border:1px dashed #d6d9e0;border-radius:8px;padding:10px 12px;background:#fff}
+  .push .ph{font-size:12px;color:var(--text-3);margin-bottom:6px}
+  .push .row{height:16px;border-radius:4px;background:#f2f3f5;margin-top:6px}
+  .push .row.w1{width:70%}.push .row.w2{width:85%}.push .row.w3{width:55%}
+
+  /* 分段 */
+  .segbar{display:flex;gap:5px;flex-wrap:nowrap;overflow:hidden;max-width:100%}
+  .segwrap{max-width:100%}
+  .segwrap.narrow{max-width:470px}
+  .seg{flex:none;cursor:pointer;position:relative}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px}
+  .seg span{display:block;padding:6px 12px;border:1px solid #d6d9e0;border-radius:999px;background:#fff;font-size:13px;white-space:nowrap;color:var(--text-2)}
+  .seg input:checked + span{background:var(--accent-soft);border-color:var(--accent-line);color:#1a4fc4;font-weight:500;box-shadow:0 1px 3px rgba(43,108,255,.18)}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+  .seg:hover span{border-color:#b9bec8}
+  .seg input:checked:hover + span{border-color:var(--accent-line)}
+
+  /* 标签 */
+  .tagbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:40px}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+  .tags.one{flex-wrap:nowrap;overflow:hidden;min-width:0}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--accent-line);background:var(--accent-soft);color:#1a4fc4;border-radius:999px;padding:4px 8px 4px 10px;font-size:12px;white-space:nowrap;flex:none}
+  .chip .x{border:0;background:transparent;color:#4a6fd4;font-size:13px;line-height:1;padding:0 2px;cursor:pointer;border-radius:50%}
+  .chip .x:hover{background:#d7e5ff}
+  .chip .x:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .chip.more{border-color:#d6d9e0;background:#fff;color:var(--text-2);cursor:pointer;padding:4px 10px}
+  .count{font-size:12px;color:var(--text-3);white-space:nowrap}
+
+  .identities{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  .iden{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fff}
+  .iden .h{font-size:12px;color:var(--text-3);margin:0 0 8px}
+  .iden .row{display:flex;gap:6px;flex-wrap:wrap}
+  .pick{display:inline-flex;align-items:center;gap:6px;border:1px solid #d6d9e0;background:#fff;color:var(--text-2);border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer}
+  .pick[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent-line);color:#1a4fc4}
+  .pick:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .readout{display:flex;flex-wrap:wrap;gap:4px 16px;margin:10px 0 0;padding-top:9px;border-top:1px dashed var(--line);font-size:12px;color:var(--text-3);font-variant-numeric:tabular-nums}
+  .readout b{font-weight:500;color:var(--text-2)}
+  .readout .warn{color:var(--warn)}
+
+  .foot{max-width:860px;margin:26px 0 0}
+  .foot h2{font-size:15px;margin:0 0 10px;font-weight:600}
+  .foot ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  .foot li{margin:0 0 8px}
+  .foot .note{margin:14px 0 0;font-size:12px;color:var(--text-3);line-height:1.7}
+
+  @media (max-width:700px){
+    .page{padding:20px 14px 48px}
+    .card{padding:14px}
+    .identities{grid-template-columns:1fr}
+    .segwrap.narrow{max-width:100%}
+  }
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <h1>折叠、分段、标签：三种摊开的样子</h1>
+    <p>三个小场景，每个切几种写法。它们都是把「值」摊在版面上，只是摊的位置和档位不同：分段是全露，折叠是一段一露，标签摊的是「已选」而不是「可选」。</p>
+  </header>
+
+  <section class="card" aria-labelledby="c1">
+    <h2 id="c1">一、折叠：能不能两组同时在场</h2>
+    <p class="lead">筛选面板里的三段。展开、勾选，注意下面「列表从这里开始」被推到了哪。</p>
+
+    <div class="switches" role="group" aria-label="折叠的写法">
+      <button class="sw" data-acc="single" aria-pressed="true">单开</button>
+      <button class="sw" data-acc="multi" aria-pressed="false">多开</button>
+      <button class="sw" data-acc="badge" aria-pressed="false">多开 + 徽标</button>
+      <button class="sw" data-acc="summary" aria-pressed="false">多开 + 摘要</button>
+    </div>
+
+    <div class="stage">
+      <div class="acc" id="acc"></div>
+      <div class="push">
+        <div class="ph">列表从这里开始</div>
+        <div class="row w1"></div>
+        <div class="row w2"></div>
+        <div class="row w3"></div>
+      </div>
+    </div>
+
+    <div class="readout">
+      <span>展开 <b id="acc-open">1</b> / 3 段</span>
+      <span>折叠区高 <b id="acc-h">0 px</b></span>
+      <span>勾选 <b id="acc-sel">3</b> 项</span>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="c2">
+    <h2 id="c2">二、分段：硬约束是一行放得下</h2>
+    <p class="lead">同一组时间范围，换个容器宽度就放不下了。放不下时它不会告诉你。</p>
+
+    <div class="switches" role="group" aria-label="分段的环境">
+      <button class="sw" data-seg="wide" aria-pressed="true">宽容器</button>
+      <button class="sw" data-seg="narrow" aria-pressed="false">窄容器</button>
+      <label class="sw chk"><input type="checkbox" id="gray" /> 去掉颜色</label>
+    </div>
+
+    <div class="stage" id="seg-stage">
+      <div class="segwrap" id="segwrap" role="radiogroup" aria-label="时间范围">
+        <div class="segbar" id="segbar"></div>
+      </div>
+    </div>
+
+    <div class="readout">
+      <span>可见 <b id="seg-visible">9 / 9</b></span>
+      <span id="seg-clipped" hidden class="warn"></span>
+      <span>整行 <b id="seg-h">0 px</b></span>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="c3">
+    <h2 id="c3">三、标签：摊的是已选，不是可选</h2>
+    <p class="lead">十二个筛选条件已经生效。切换写法，点 × 删掉一个，看剩下几个还读得出来。</p>
+
+    <div class="switches" role="group" aria-label="标签的写法">
+      <button class="sw" data-tag="wrap" aria-pressed="true">换行</button>
+      <button class="sw" data-tag="plus" aria-pressed="false">写 3 个 + 2</button>
+      <button class="sw" data-tag="clip" aria-pressed="false">只写 3 个（不标）</button>
+    </div>
+
+    <div class="stage">
+      <div class="tagbar">
+        <span class="count" id="tag-count">已选 5</span>
+        <div class="tags" id="taglist"></div>
+      </div>
+    </div>
+
+    <div class="readout">
+      <span>能读出 <b id="tag-read">5 / 5</b> 个名字</span>
+      <span id="tag-note"></span>
+    </div>
+
+    <div class="identities">
+      <div class="iden">
+        <p class="h">当回执用：点 × 删掉这个条件</p>
+        <div class="row" id="iden-receipt"></div>
+      </div>
+      <div class="iden">
+        <p class="h">当选项用：点一下选中/取消</p>
+        <div class="row" id="iden-option"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="foot">
+    <h2>值得看的几处</h2>
+    <ol>
+      <li>折叠切到「单开」再点开第二段：第一段自己关上，同一时间只有一组在场；切到「多开」，两组可以并排比较，代价是下面那行「列表从这里开始」被推得更远。</li>
+      <li>「徽标」只告诉你有几项；「摘要」把名字写出来。收起时它们是回执，展开后自动让位——内容已经在眼前。</li>
+      <li>分段把容器切窄：右边的选项被裁掉，没有任何提示，滚动条在触摸端也不出现。它不是「藏」，是「以为全露其实没露」。</li>
+      <li>去掉颜色再看分段：如果选中只靠颜色，灰度下就只剩一点深浅差；靠填充、边框和抬升才稳。</li>
+      <li>标签切到「只写 3 个（不标）」：看起来只有 3 个条件，其实有 12 个；切到「写 3 个 + 9」，它至少承认还有九个。</li>
+      <li>下面两个身份：回执的 chip 是「删掉这个条件」，选项的 chip 是「选/不选这个值」。同一个外观，两种行为，别混在一个 chip 上。</li>
+    </ol>
+    <p class="note">这是结构对照，不是用户测试：没有记录你的操作时间，也不能证明哪种写法更好。数值（高度、可见数）是这一页的实测值，换字号、换容器宽度都会变。灰度检查只是近似，不等于色觉模拟。</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  const el = (s,r=document)=>r.querySelector(s);
+  const els = (s,r=document)=>[...r.querySelectorAll(s)];
+
+  /* ---------- 一、折叠 ---------- */
+  const SECTIONS = [
+    { id:'st', title:'处理状态', items:[{t:'待审核',on:true},{t:'已通过',on:false},{t:'已驳回',on:false},{t:'已超时',on:true}] },
+    { id:'tm', title:'时间范围', items:[{t:'今天',on:true},{t:'近 7 天',on:false},{t:'近 30 天',on:false}] },
+    { id:'ow', title:'负责人', items:[{t:'我负责的',on:true},{t:'张三',on:false},{t:'未分配',on:false}] }
+  ];
+  const accState = { variant:'single', open:{st:true, tm:false, ow:false} };
+
+  function renderAcc(){
+    el('#acc').innerHTML = SECTIONS.map((sec, i) => {
+      const open = !!accState.open[sec.id];
+      const n = sec.items.filter(x=>x.on).length;
+      const names = sec.items.filter(x=>x.on).map(x=>x.t);
+      let sumHtml = '';
+      if (accState.variant === 'summary' && n > 0 && !open){
+        const shown = names.slice(0,2).join('、');
+        sumHtml = '<p class="acc-sum">已选 <b>'+shown+(names.length>2?' 等 '+names.length+' 项':'')+'</b></p>';
+      }
+      let badgeHtml = '';
+      if ((accState.variant === 'badge' || accState.variant === 'summary') && n > 0){
+        badgeHtml = '<span class="badge'+(n?'':' zero')+'">'+n+'</span>';
+      }
+      return '<div class="sec'+(open?' open':'')+'" data-sec="'+sec.id+'">'
+        + '<button type="button" class="acc-h" aria-expanded="'+open+'" data-toggle="'+sec.id+'">'
+        + '<span class="caret" aria-hidden="true">▶</span><span class="t">'+sec.title+'</span>'
+        + badgeHtml + '</button>'
+        + sumHtml
+        + '<div class="acc-b"'+(open?'':' hidden')+'>'
+        + sec.items.map((it, j) => '<label class="opt"><input type="checkbox" data-sec-item="'+sec.id+'" data-idx="'+j+'"'+(it.on?' checked':'')+' /> '+it.t+'</label>').join('')
+        + '</div></div>';
+    }).join('');
+
+    els('.acc-h').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.toggle;
+      if (accState.variant === 'single'){
+        const wasOpen = !!accState.open[id];
+        accState.open = { st:false, tm:false, ow:false };
+        accState.open[id] = !wasOpen;
+      } else {
+        accState.open[id] = !accState.open[id];
+      }
+      renderAcc();
+      updateAccMetrics();
+    }));
+    els('[data-sec-item]').forEach(inp => inp.addEventListener('change', () => {
+      const sec = SECTIONS.find(s => s.id === inp.dataset.secItem);
+      sec.items[Number(inp.dataset.idx)].on = inp.checked;
+      renderAcc();
+      updateAccMetrics();
+    }));
+  }
+
+  function updateAccMetrics(){
+    const open = Object.values(accState.open).filter(Boolean).length;
+    el('#acc-open').textContent = open;
+    el('#acc-h').textContent = Math.round(el('#acc').getBoundingClientRect().height) + ' px';
+    el('#acc-sel').textContent = SECTIONS.reduce((n,s)=>n+s.items.filter(x=>x.on).length,0);
+  }
+
+  els('[data-acc]').forEach(b => b.addEventListener('click', () => {
+    accState.variant = b.dataset.acc;
+    if (accState.variant === 'single'){
+      const firstOpen = Object.keys(accState.open).find(k=>accState.open[k]) || 'st';
+      accState.open = { st:false, tm:false, ow:false };
+      accState.open[firstOpen] = true;
+    }
+    els('[data-acc]').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+    renderAcc(); updateAccMetrics();
+  }));
+
+  /* ---------- 二、分段 ---------- */
+  const RANGES = ['今天','昨天','近 7 天','近 30 天','本月','上月','今年','去年','自定义'];
+  const segState = { value:'今天', narrow:false, gray:false };
+
+  function renderSeg(){
+    el('#segbar').innerHTML = RANGES.map(r =>
+      '<label class="seg"><input type="radio" name="range" value="'+r+'"'+(segState.value===r?' checked':'')+' />'
+      + '<span>'+r+'</span></label>'
+    ).join('');
+    el('#seg-stage').classList.toggle('gray', segState.gray);
+    el('#segwrap').classList.toggle('narrow', segState.narrow);
+    els('#segbar input').forEach(inp => inp.addEventListener('change', () => { segState.value = inp.value; }));
+    requestAnimationFrame(updateSegMetrics);
+    updateSegMetrics();
+  }
+
+  function updateSegMetrics(){
+    const bar = el('#segbar');
+    const barRect = bar.getBoundingClientRect();
+    const segs = els('.seg', bar);
+    let visible = 0;
+    segs.forEach(s => {
+      const r = s.getBoundingClientRect();
+      if (r.width && r.left >= barRect.left - 1 && r.right <= barRect.right + 1) visible++;
+    });
+    el('#seg-visible').textContent = visible + ' / ' + segs.length;
+    const clipped = segs.length - visible;
+    const cw = el('#seg-clipped');
+    if (clipped > 0){ cw.hidden = false; cw.innerHTML = '右侧被裁掉 <b>'+clipped+'</b> 个，没有提示'; }
+    else { cw.hidden = true; }
+    el('#seg-h').textContent = Math.round(barRect.height) + ' px';
+  }
+
+  els('[data-seg]').forEach(b => b.addEventListener('click', () => {
+    segState.narrow = b.dataset.seg === 'narrow';
+    els('[data-seg]').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+    renderSeg();
+  }));
+  el('#gray').addEventListener('change', (e) => { segState.gray = e.target.checked; renderSeg(); });
+
+  /* ---------- 三、标签 ---------- */
+  const ALL_TAGS = ['待审核','已超时','我负责的','今日到期','高优先级','含附件','未分配','已归档','来自官网','金额 > 1000','创建于本周','我参与的'];
+  const tagState = { variant:'wrap', list:[...ALL_TAGS], expanded:false };
+
+  function renderTags(){
+    const list = tagState.list;
+    let html = '';
+    if (tagState.variant === 'wrap' || tagState.expanded || list.length <= 3){
+      html = list.map((t,i)=>chipHtml(t,i)).join('');
+    } else if (tagState.variant === 'plus'){
+      html = list.slice(0,3).map((t,i)=>chipHtml(t,i)).join('')
+        + '<button type="button" class="chip more" id="tag-more">+'+ (list.length-3) +'</button>';
+    } else if (tagState.variant === 'clip'){
+      html = list.slice(0,3).map((t,i)=>chipHtml(t,i)).join('');
+    }
+    el('#taglist').innerHTML = html;
+    el('#tag-count').textContent = '已选 ' + list.length;
+    const wrapEl = el('#taglist');
+    wrapEl.classList.remove('one');
+
+    els('#taglist .x').forEach(b => b.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const i = Number(b.dataset.i);
+      tagState.list.splice(i,1);
+      if (tagState.list.length <= 3) tagState.expanded = false;
+      renderTags(); updateTagMetrics();
+    }));
+    const more = el('#tag-more');
+    if (more) more.addEventListener('click', () => { tagState.expanded = true; renderTags(); updateTagMetrics(); });
+
+    updateTagMetrics();
+  }
+
+  function chipHtml(t,i){
+    return '<span class="chip">'+t+'<button type="button" class="x" data-i="'+i+'" aria-label="移除 '+t+'">×</button></span>';
+  }
+
+  function updateTagMetrics(){
+    const read = els('#taglist .chip:not(.more)').filter(c => {
+      const r = c.getBoundingClientRect();
+      const bar = el('#taglist').getBoundingClientRect();
+      return r.width && r.left >= bar.left - 1 && r.right <= bar.right + 1;
+    }).length;
+    el('#tag-read').textContent = read + ' / ' + tagState.list.length;
+    const note = el('#tag-note');
+    if (tagState.variant === 'clip' && read < tagState.list.length){
+      note.textContent = '其余被裁掉，没有标记';
+      note.className = 'warn';
+    } else if (tagState.variant === 'plus' && !tagState.expanded){
+      note.textContent = '另外 ' + (tagState.list.length-3) + ' 个折在 + 里';
+      note.className = '';
+    } else {
+      note.textContent = '';
+      note.className = '';
+    }
+  }
+
+  els('[data-tag]').forEach(b => b.addEventListener('click', () => {
+    tagState.variant = b.dataset.tag;
+    tagState.expanded = false;
+    els('[data-tag]').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+    renderTags();
+  }));
+
+  /* 两种身份 */
+  const receiptTags = ['待审核','已超时'];
+  el('#iden-receipt').innerHTML = receiptTags.map(t =>
+    '<span class="chip">'+t+'<button type="button" class="x" aria-label="移除 '+t+'">×</button></span>'
+  ).join('');
+  const optionTags = ['加急','可开票','会员','新客'];
+  el('#iden-option').innerHTML = optionTags.map((t,i) =>
+    '<button type="button" class="pick" aria-pressed="'+(i===0?'true':'false')+'">'+t+'</button>'
+  ).join('');
+  els('#iden-option .pick').forEach(b => b.addEventListener('click', () => {
+    b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+  }));
+
+  /* 初始化 */
+  renderAcc(); updateAccMetrics();
+  renderSeg();
+  renderTags();
+  window.addEventListener('resize', () => { updateSegMetrics(); updateTagMetrics(); });
+})();
+</script>
+</body>
+</html>

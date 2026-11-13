@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>入口与回执</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e5e6eb; --line-soft:#f0f1f4;
+    --text:#1f2329; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b6cff; --accent-soft:#eaf1ff; --accent-line:#bcd2ff;
+    --warn:#a15c00; --ok:#1a7f37;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--text);font:14px/1.6 "PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit}
+  .page{max-width:1000px;margin:0 auto;padding:28px 20px 64px}
+  .head h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .head p{margin:0;color:var(--text-2);font-size:13px;max-width:780px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px 14px;margin-top:16px;position:relative}
+  .card h2{font-size:15px;margin:0 0 4px;font-weight:600}
+  .card .lead{margin:0 0 12px;font-size:13px;color:var(--text-2)}
+  .ask{margin:0 0 12px;padding:9px 12px;background:#fafbfc;border:1px dashed var(--line);border-radius:8px;font-size:13px;color:var(--text-2)}
+  .ask b{color:var(--text);font-weight:500}
+
+  .switches{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  .sw{border:1px solid #d6d9e0;background:#fff;border-radius:999px;padding:5px 12px;font-size:12px;color:var(--text-2);cursor:pointer}
+  .sw:hover{border-color:#b9bec8}
+  .sw[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent-line);color:#1a4fc4;font-weight:500}
+  .sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .stage{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fcfcfd;position:relative;min-height:64px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .btn{border:1px solid #d6d9e0;background:#fff;border-radius:7px;padding:6px 12px;font-size:13px;cursor:pointer;min-height:34px}
+  .btn:hover{border-color:#b9bec8;background:#fafbfc}
+  .btn.primary{background:var(--accent-soft);border-color:var(--accent-line);color:#1a4fc4}
+  .btn.icon{padding:6px 10px;font-size:15px;line-height:1;color:var(--text-2)}
+  .btn .n{font-variant-numeric:tabular-nums;color:var(--text-3);margin-left:4px}
+  .btn .chev{font-size:10px;color:var(--text-3);margin-left:6px}
+  .split{width:1px;height:22px;background:var(--line)}
+  .spacer{flex:1}
+
+  .pop{position:absolute;z-index:10;top:100%;left:12px;margin-top:6px;min-width:200px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 28px rgba(31,35,41,.16);padding:5px;overflow:hidden}
+  .pop-item{display:block;width:100%;text-align:left;border:0;background:transparent;padding:7px 10px;border-radius:6px;font-size:13px;cursor:pointer}
+  .pop-item:hover,.pop-item:focus-visible{background:#f2f4f7}
+  .pop-head{padding:6px 10px 4px;font-size:11px;color:var(--text-3)}
+
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--accent-line);background:var(--accent-soft);color:#1a4fc4;border-radius:999px;padding:4px 10px;font-size:12px}
+  .chip .x{font-size:11px;opacity:.65}
+  .condition{font-size:12px;color:var(--text-2)}
+
+  .readout{display:grid;grid-template-columns:1fr 1fr;gap:0;margin:14px 0 0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .ro-h{background:#fafbfc;font-size:11px;color:var(--text-3);padding:7px 12px;border-bottom:1px solid var(--line-soft)}
+  .ro-q{padding:9px 12px;border-bottom:1px solid var(--line-soft);font-size:13px;color:var(--text-2)}
+  .ro-a{padding:9px 12px;border-bottom:1px solid var(--line-soft);font-size:13px}
+  .ro-q:last-of-type,.ro-a:last-of-type{border-bottom:0}
+  .no{color:var(--warn)}
+  .yes{color:var(--ok)}
+  .ro-a em{font-style:normal;color:var(--text-3);font-size:12px;margin-left:8px}
+
+  .live{margin:12px 0 0;font-size:12px;color:var(--text-3)}
+  .live b{font-weight:500;color:var(--text-2);font-variant-numeric:tabular-nums}
+
+  .foot{max-width:820px;margin:26px 0 0}
+  .foot h2{font-size:15px;margin:0 0 10px;font-weight:600}
+  .foot ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  .foot li{margin:0 0 8px}
+  .foot .note{margin:14px 0 0;font-size:12px;color:var(--text-3);line-height:1.7}
+
+  @media (max-width:700px){
+    .page{padding:20px 14px 48px}
+    .card{padding:14px}
+    .readout{grid-template-columns:1fr}
+    .ro-h:nth-child(2){display:none}
+  }
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <h1>入口与回执：关着的时候，留下了什么</h1>
+    <p>两组对照，同一份内容，入口和状态各有几种写法。每组先看问题，再切换版本——问的是关着的时候能不能回答，不是点开之后。</p>
+  </header>
+
+  <section class="card" aria-labelledby="g1">
+    <h2 id="g1">一组动作，藏在入口后面</h2>
+    <p class="lead">同一份五个动作：导出 CSV、复制链接、打印、归档、删除。入口的写法不同。</p>
+    <p class="ask">关着的时候，回答两个问题：① <b>有几个动作？</b> ② <b>有哪几个？</b></p>
+
+    <div class="switches" role="group" aria-label="入口写法">
+      <button class="sw" data-variant="icon" aria-pressed="true">只有图标 ⋯</button>
+      <button class="sw" data-variant="label" aria-pressed="false">写类别</button>
+      <button class="sw" data-variant="count" aria-pressed="false">类别 + 数量</button>
+      <button class="sw" data-variant="inline" aria-pressed="false">全部摊开</button>
+    </div>
+
+    <div class="stage" id="stage-actions">
+      <button type="button" class="btn">编辑</button>
+      <span class="split" aria-hidden="true"></span>
+      <div id="entry-actions"></div>
+      <div class="spacer"></div>
+      <button type="button" class="btn">保存</button>
+    </div>
+
+    <div class="readout">
+      <div class="ro-h">问题</div><div class="ro-h">关着的时候</div>
+      <div class="ro-q">有几个动作</div><div class="ro-a" id="ro1-count"></div>
+      <div class="ro-q">有哪几个动作</div><div class="ro-a" id="ro1-content"></div>
+    </div>
+    <p class="live" id="live1"></p>
+  </section>
+
+  <section class="card" aria-labelledby="g2">
+    <h2 id="g2">一组筛选条件，藏在按钮后面</h2>
+    <p class="lead">同一份三个条件：待审核、已超时、我负责的。结果列表在关着的时候不变。</p>
+    <p class="ask">关着的时候，回答两个问题：① <b>筛了几个条件？</b> ② <b>是哪几个？</b></p>
+
+    <div class="switches" role="group" aria-label="筛选的写法">
+      <button class="sw" data-variant="none" aria-pressed="true">只写「筛选」</button>
+      <button class="sw" data-variant="count" aria-pressed="false">写数量</button>
+      <button class="sw" data-variant="both" aria-pressed="false">数量 + 条件</button>
+    </div>
+
+    <div class="stage" id="stage-filter">
+      <div id="entry-filter"></div>
+      <div class="spacer"></div>
+      <span class="condition" id="result-note">共 24 条结果</span>
+    </div>
+
+    <div class="readout">
+      <div class="ro-h">问题</div><div class="ro-h">关着的时候</div>
+      <div class="ro-q">筛了几个条件</div><div class="ro-a" id="ro2-count"></div>
+      <div class="ro-q">是哪几个条件</div><div class="ro-a" id="ro2-content"></div>
+    </div>
+    <p class="live" id="live2"></p>
+  </section>
+
+  <section class="foot">
+    <h2>值得看的几处</h2>
+    <ol>
+      <li>「只有图标」那一版：连“这里有几个动作”都答不出。不是答错，是没有可答的信息。</li>
+      <li>「写类别」进了一步：知道有东西，仍不知道几个、哪些。</li>
+      <li>「类别 + 数量」能答“几个”，仍答不了“哪些”。数量不是内容。</li>
+      <li>「全部摊开」两问都能答，代价是占掉整行——切回去看，入口那版只占一个图标的位置。</li>
+      <li>第二组同理：写「筛选」时两问都答不了；写数量能答第一个；只有把条件写出来（或摊开），第二个才成立。</li>
+      <li>每组底部的「此刻屏幕上能看到几个」是实测：点开浮层会变多，关掉又归零。它说明这些信息不是不存在，只是要再取一次。</li>
+    </ol>
+    <p class="note">这是一组结构对照，不是用户测试：没有记录你的反应时间，也不能证明哪种入口更好。它只说明「关着的时候能回答什么」由留下的痕决定——没有痕、只有数量、有内容，是三种不同的状态。</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  const ACTIONS = ['导出 CSV','复制链接','打印','归档','删除'];
+  const CONDITIONS = ['待审核','已超时','我负责的'];
+
+  const state = { g1:'icon', g2:'none', open1:false, open2:false };
+
+  const el = (s,r=document)=>r.querySelector(s);
+  const els = (s,r=document)=>[...r.querySelectorAll(s)];
+
+  function entryActions(){
+    if (state.g1 === 'inline'){
+      return ACTIONS.map(a=>'<button type="button" class="btn" data-act="'+a+'">'+a+'</button>').join('');
+    }
+    const label = state.g1 === 'icon' ? '<span aria-hidden="true">⋯</span>'
+      : state.g1 === 'label' ? '更多操作'
+      : '更多操作<span class="n">'+ACTIONS.length+'</span>';
+    return '<button type="button" class="btn '+(state.g1==='icon'?'icon':'')+'" id="entry-btn" aria-haspopup="true" aria-expanded="'+state.open1+'" aria-label="更多操作">'
+      + label + (state.g1==='icon'?'':'<span class="chev" aria-hidden="true">▾</span>') + '</button>'
+      + '<div class="pop" id="pop-actions"'+(state.open1?'':' hidden')+'>'
+      + '<div class="pop-head">5 个动作</div>'
+      + ACTIONS.map(a=>'<button type="button" class="pop-item">'+a+'</button>').join('')
+      + '</div>';
+  }
+
+  function entryFilter(){
+    const n = CONDITIONS.length;
+    let html = '';
+    if (state.g2 === 'none'){
+      html = '<button type="button" class="btn" id="entry-filter-btn" aria-haspopup="true" aria-expanded="'+state.open2+'">筛选<span class="chev">▾</span></button>';
+    } else if (state.g2 === 'count'){
+      html = '<button type="button" class="btn primary" id="entry-filter-btn" aria-haspopup="true" aria-expanded="'+state.open2+'">筛选<span class="n">'+n+'</span><span class="chev">▾</span></button>';
+    } else {
+      html = '<button type="button" class="btn primary" id="entry-filter-btn" aria-haspopup="true" aria-expanded="'+state.open2+'">筛选<span class="n">'+n+'</span><span class="chev">▾</span></button>'
+        + '<div class="chips" style="margin-left:8px">'
+        + CONDITIONS.map(c=>'<span class="chip">'+c+'<span class="x" aria-hidden="true">×</span></span>').join('')
+        + '</div>';
+    }
+    html += '<div class="pop" id="pop-filter"'+(state.open2?'':' hidden')+'>'
+      + '<div class="pop-head">筛选条件</div>'
+      + CONDITIONS.map(c=>'<label class="pop-item" style="display:flex;gap:8px;align-items:center"><input type="checkbox" checked /> '+c+'</label>').join('')
+      + '</div>';
+    return html;
+  }
+
+  function answer(which){
+    const cfg = {
+      icon:{count:false, content:false}, label:{count:false, content:false},
+      count:{count:true, content:false}, inline:{count:true, content:true},
+      none:{count:false, content:false}, both:{count:true, content:true}
+    }[which];
+    return cfg;
+  }
+
+  function cell(ok, txtOk, txtNo){
+    return ok ? '<span class="yes">'+txtOk+'</span>' : '<span class="no">'+txtNo+'</span><em>要点 1 次</em>';
+  }
+
+  function render(){
+    el('#entry-actions').innerHTML = entryActions();
+    el('#entry-filter').innerHTML = entryFilter();
+
+    const a1 = answer(state.g1);
+    el('#ro1-count').innerHTML = a1.count ? '<span class="yes">能答：5 个</span>' : '<span class="no">答不了</span><em>要点 1 次</em>';
+    el('#ro1-content').innerHTML = a1.content ? '<span class="yes">能答：5 个都在</span>' : '<span class="no">答不了</span><em>要点 1 次</em>';
+
+    const a2 = answer(state.g2);
+    el('#ro2-count').innerHTML = a2.count ? '<span class="yes">能答：3 个</span>' : '<span class="no">答不了</span><em>要点 1 次</em>';
+    el('#ro2-content').innerHTML = a2.content ? '<span class="yes">能答：3 个都在</span>' : '<span class="no">答不了</span><em>要点 1 次</em>';
+
+    updateLive();
+    bind();
+  }
+
+  function visibleIn(node, clip){
+    if (!node.getClientRects().length) return false;
+    const r = node.getBoundingClientRect();
+    if (!r.width || !r.height) return false;
+    const c = (clip || document.querySelector('.page')).getBoundingClientRect();
+    return r.top >= c.top-1 && r.bottom <= c.bottom+1 && r.left >= c.left-1 && r.right <= c.right+1;
+  }
+
+  function updateLive(){
+    const g1 = el('#stage-actions');
+    const g2 = el('#stage-filter');
+    let n1 = 0;
+    if (state.g1 === 'inline'){
+      n1 = els('[data-act]', g1).filter(n=>visibleIn(n, g1)).length;
+    } else if (state.open1){
+      const p = el('#pop-actions');
+      n1 = p ? els('.pop-item', p).filter(n=>visibleIn(n, p)).length : 0;
+    }
+    let n2 = 0;
+    if (state.g2 === 'both'){
+      n2 = els('.chip', g2).filter(n=>visibleIn(n, g2)).length;
+    } else if (state.open2){
+      const p = el('#pop-filter');
+      n2 = p ? els('label', p).filter(n=>visibleIn(n, p)).length : 0;
+    }
+    el('#live1').innerHTML = '此刻屏幕上能看到的动作：<b>'+n1+' / 5</b>'+(state.open1?'（浮层开着）':'（关着）');
+    el('#live2').innerHTML = '此刻屏幕上能看到的条件：<b>'+n2+' / 3</b>'+(state.open2?'（浮层开着）':'（关着）');
+  }
+
+  function closeAll(except){
+    if (except !== 1 && state.open1){ state.open1 = false; el('#pop-actions').hidden = true; const b=el('#entry-btn'); if (b) b.setAttribute('aria-expanded','false'); }
+    if (except !== 2 && state.open2){ state.open2 = false; el('#pop-filter').hidden = true; const b=el('#entry-filter-btn'); if (b) b.setAttribute('aria-expanded','false'); }
+    updateLive();
+  }
+
+  function bind(){
+    const b1 = el('#entry-btn');
+    if (b1){
+      b1.addEventListener('click', () => {
+        state.open1 = !state.open1;
+        el('#pop-actions').hidden = !state.open1;
+        b1.setAttribute('aria-expanded', String(state.open1));
+        updateLive();
+      });
+    }
+    const b2 = el('#entry-filter-btn');
+    if (b2){
+      b2.addEventListener('click', () => {
+        state.open2 = !state.open2;
+        el('#pop-filter').hidden = !state.open2;
+        b2.setAttribute('aria-expanded', String(state.open2));
+        updateLive();
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape'){ closeAll(0); }
+    }, { once:false });
+  }
+
+  let outsideBound = false;
+  if (!outsideBound){
+    outsideBound = true;
+    document.addEventListener('pointerdown', (e) => {
+      const s1 = el('#stage-actions'), s2 = el('#stage-filter');
+      if (state.open1 && s1 && !s1.contains(e.target)) { state.open1 = false; const p = el('#pop-actions'); if (p) p.hidden = true; const b=el('#entry-btn'); if (b) b.setAttribute('aria-expanded','false'); updateLive(); }
+      if (state.open2 && s2 && !s2.contains(e.target)) { state.open2 = false; const p = el('#pop-filter'); if (p) p.hidden = true; const b=el('#entry-filter-btn'); if (b) b.setAttribute('aria-expanded','false'); updateLive(); }
+    });
+  }
+
+  els('.sw').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.parentElement.getAttribute('aria-label');
+      const v = btn.dataset.variant;
+      if (group === '入口写法'){ state.g1 = v; state.open1 = false; }
+      else { state.g2 = v; state.open2 = false; }
+      els('.sw', btn.parentElement).forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
