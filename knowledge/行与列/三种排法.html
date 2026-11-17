@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>表格、列表、卡片：三种排法</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e2e5ea; --line-soft:#edf0f3;
+    --text:#1c2028; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b62d9; --accent-soft:#eaf1ff; --accent-line:#bcd2ff;
+    --zebra:#f8fafc;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.65 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .page{max-width:1000px;margin:0 auto;padding:28px 20px 56px}
+  .head h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .head p{margin:0;color:var(--text-2);font-size:13px;max-width:820px}
+
+  .bar{display:flex;flex-wrap:wrap;gap:10px 24px;align-items:center;margin:16px 0 12px}
+  .ctl{display:flex;align-items:center;gap:8px;font-size:13px}
+  .ctl-label{color:var(--text-3)}
+  .seg{display:inline-flex;border:1px solid #d6d9e0;border-radius:7px;overflow:hidden;background:#fff}
+  .seg button{appearance:none;border:0;background:transparent;padding:5px 12px;font:inherit;font-size:13px;
+              color:var(--text-2);cursor:pointer;border-right:1px solid #e2e5ea}
+  .seg button:last-child{border-right:0}
+  .seg button:hover{background:#f2f5f9}
+  .seg button.on{background:var(--accent);color:#fff}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+  .stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .view.hidden{display:none}
+  .note{margin:10px 0 0;color:var(--text-2);font-size:13px;min-height:42px}
+  .note b{color:var(--text)}
+
+  .num{font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;padding:1px 8px;border-radius:4px;font-size:12px;background:#eef2f7;color:#414c5c;white-space:nowrap}
+  .tag.ok{background:#e6f4ea;color:#1e6b3a}
+  .tag.wait{background:#fdf3e2;color:#8a5a10}
+  .tag.off{background:#f2f3f5;color:#7c8493}
+  .op{color:var(--accent);text-decoration:none;font-size:13px}
+  .op:hover{text-decoration:underline}
+
+  /* 表格 */
+  .table-wrap{overflow-x:auto}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:720px;font-size:13px}
+  th,td{text-align:left;padding:0 10px;white-space:nowrap}
+  th{font-weight:600;color:var(--text-2);font-size:12.5px;background:#fafbfc;height:38px;
+     border-bottom:1px solid var(--line)}
+  td{height:44px;border-bottom:1px solid var(--line-soft)}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:var(--accent-soft)}
+  th.r,td.r{text-align:right}
+
+  /* 列表 */
+  .li-row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--line-soft)}
+  .li-row:last-child{border-bottom:0}
+  .li-row:hover{background:var(--accent-soft)}
+  .avatar{flex:none;width:34px;height:34px;border-radius:50%;background:#e7edf8;color:#3a4a66;
+          display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}
+  .li-main{flex:1;min-width:0}
+  .li-title{display:flex;align-items:baseline;gap:8px;font-weight:600;font-size:14px}
+  .li-sub{font-weight:400;color:var(--text-3);font-size:12.5px}
+  .li-line{display:flex;align-items:center;gap:8px;margin-top:1px;font-size:13px;color:var(--text-2);min-width:0}
+  .li-line > span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .li-meta{color:var(--text-3);font-size:12px;margin-top:1px}
+  .li-right{flex:none;text-align:right;min-width:98px}
+  .li-amt{font-weight:600;font-size:15px}
+
+  /* 卡片 */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .c{background:#fff;border:1px solid var(--line);border-radius:9px;padding:12px 14px}
+  .c:hover{border-color:#c9d6ee}
+  .c-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600}
+  .c-amt{display:inline-block;font-size:20px;font-weight:600;margin-top:6px}
+  .c-prod{color:var(--text-2);font-size:13px;margin-top:2px}
+  .c-meta{color:var(--text-3);font-size:12px;margin-top:6px}
+
+  /* 轨迹 */
+  .trace-amount [data-f="amount"],
+  .trace-status [data-f="status"],
+  .trace-product [data-f="product"],
+  .trace-customer [data-f="customer"]{
+    box-shadow:0 0 0 2px #d64545; border-radius:4px;
+  }
+  .trace-status [data-f="status"], .trace-product [data-f="product"]{box-shadow:0 0 0 2px #d64545,0 0 0 3px #fff}
+
+  .matrix{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .matrix h2{margin:0 0 8px;font-size:15px;font-weight:600}
+  .matrix table{font-size:13px;min-width:460px}
+  .matrix td{white-space:normal;height:auto;padding-top:9px;padding-bottom:9px;vertical-align:top}
+  .matrix th{height:34px}
+  .matrix td:first-child{color:var(--text-2);white-space:nowrap}
+
+  footer{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+  footer h2{font-size:15px;margin:0 0 6px;font-weight:600}
+  footer ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  footer li{margin:5px 0}
+  footer b{color:var(--text)}
+
+  @media (max-width:900px){ .cards{grid-template-columns:repeat(2,1fr)} }
+  @media (max-width:620px){
+    .cards{grid-template-columns:1fr}
+    .bar{gap:8px 14px}
+    .li-right{min-width:82px}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <h1>表格、列表、卡片：三种排法</h1>
+    <p>同一批 8 个订单。先切呈现方式，再把同一个字段标出来——看它在屏幕上留下什么形状。</p>
+  </header>
+
+  <div class="bar">
+    <div class="ctl"><span class="ctl-label">呈现</span>
+      <div class="seg" id="seg-view">
+        <button data-v="table" class="on">表格</button>
+        <button data-v="list">列表</button>
+        <button data-v="card">卡片</button>
+      </div>
+    </div>
+    <div class="ctl"><span class="ctl-label">标出</span>
+      <div class="seg" id="seg-trace">
+        <button data-v="" class="on">不标</button>
+        <button data-v="amount">金额</button>
+        <button data-v="status">状态</button>
+        <button data-v="product">商品</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="view" id="view-table"></div>
+    <div class="view hidden" id="view-list"></div>
+    <div class="view hidden" id="view-card"></div>
+  </div>
+  <p class="note" id="note"></p>
+
+  <section class="matrix">
+    <h2>同一份数据，三种排法各自把什么放在第一层</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th style="width:110px"></th><th>表格</th><th>列表</th><th>卡片</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>第一层</td><td>字段（列）</td><td>对象（行）</td><td>对象（块）</td></tr>
+          <tr><td>排得齐的</td><td>每一列</td><td>只有左右两条边（身份在左、金额在右）</td><td>无，块与块之间不承诺对齐</td></tr>
+          <tr><td>能扫的</td><td>顺着任意一列上下扫</td><td>顺着行往下找「哪一条」</td><td>只能一块一块看</td></tr>
+          <tr><td>装得下的</td><td>形状规整的值</td><td>形状不一的内容（头像、多行文本、标签）</td><td>要一眼认出来的内容</td></tr>
+          <tr><td>主要任务</td><td>比较、排序、筛选、批量</td><td>认出、读一条、点进去</td><td>挑选、浏览</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li>表格标<b>金额</b>：八个框连成一条竖线，上下扫一次就比完；左边那一列同时告诉你是谁。</li>
+      <li>列表标<b>金额</b>：金额在右端对齐，这是列表唯一保住的那一列；换成标<b>状态</b>，这条线就没了（下一条）。</li>
+      <li>列表标<b>状态</b>：框跟着商品名长短走，没有共享的线。想数「有几个待付款」只能一行一行看。</li>
+      <li>卡片标<b>金额</b>：每块一个，块内还压着标题和标签；比一轮要在块之间跳。</li>
+      <li>切回表格看第一列：客户名在每行同一位置，所以「最大金额是谁」不用换屏就能回答。</li>
+      <li>三块的唯一变量是排法，数据一条没变——差别的来源是「字段有没有被提到全局」，不是数据本身。</li>
+      <li>把窗口拉窄：表格只能横向滚动（它不能折行，这是列的结构决定的），列表和卡片会跟着变窄。</li>
+    </ol>
+  </footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(s){ return document.querySelector(s); };
+  var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+  var rows = [
+    {id:'A-2041', cust:'杭州云栖贸易', contact:'周敏', product:'工业级交换机 S5720 48口', amount:12800, qty:2, status:'已发货', cls:'ok', time:'2026-11-02 09:14', city:'杭州'},
+    {id:'A-2042', cust:'上海砺行科技', contact:'李维', product:'光电模块 10G 多模', amount:980, qty:20, status:'待付款', cls:'wait', time:'2026-11-02 10:02', city:'上海'},
+    {id:'A-2043', cust:'深圳前海数据', contact:'陈立', product:'服务器机柜 42U 含配件', amount:6450, qty:1, status:'已完成', cls:'', time:'2026-11-02 11:37', city:'深圳'},
+    {id:'A-2044', cust:'北京长风咨询', contact:'赵晴', product:'网络测试仪 便携式', amount:3200, qty:4, status:'已取消', cls:'off', time:'2026-11-03 08:55', city:'北京'},
+    {id:'A-2045', cust:'成都天府软件', contact:'王一鸣', product:'光纤跳线 LC-LC 3米', amount:45, qty:120, status:'已发货', cls:'ok', time:'2026-11-03 14:06', city:'成都'},
+    {id:'A-2046', cust:'广州珠江电子', contact:'黄蕾', product:'核心交换机 S12700E', amount:168000, qty:1, status:'待发货', cls:'wait', time:'2026-11-03 15:20', city:'广州'},
+    {id:'A-2047', cust:'南京紫金智能', contact:'徐凯', product:'POE 供电模块', amount:320, qty:15, status:'已完成', cls:'', time:'2026-11-04 09:08', city:'南京'},
+    {id:'A-2048', cust:'武汉长江存储', contact:'孙倩', product:'万兆网卡 双口', amount:1280, qty:6, status:'已发货', cls:'ok', time:'2026-11-04 13:41', city:'武汉'}
+  ];
+
+  function money(v){
+    var s = v.toFixed(2).split('.');
+    return s[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + s[1];
+  }
+  function tag(r){ return '<span class="tag ' + r.cls + '" data-f="status">' + r.status + '</span>'; }
+
+  /* 表格：字段在第一层 */
+  $('#view-table').innerHTML =
+    '<div class="table-wrap"><table><thead><tr>' +
+      '<th style="width:92px">订单号</th><th style="width:132px">客户</th><th>商品</th>' +
+      '<th class="r" style="width:110px">金额</th><th class="r" style="width:62px">数量</th>' +
+      '<th style="width:86px">状态</th><th style="width:146px">下单时间</th><th style="width:56px">操作</th>' +
+    '</tr></thead><tbody>' +
+    rows.map(function(r){
+      return '<tr>' +
+        '<td class="num">' + r.id + '</td>' +
+        '<td data-f="customer">' + r.cust + '</td>' +
+        '<td data-f="product">' + r.product + '</td>' +
+        '<td class="r num" data-f="amount">' + money(r.amount) + '</td>' +
+        '<td class="r num">' + r.qty + '</td>' +
+        '<td>' + tag(r) + '</td>' +
+        '<td class="num" style="color:#86909c">' + r.time + '</td>' +
+        '<td><a class="op" href="#">详情</a></td>' +
+      '</tr>';
+    }).join('') + '</tbody></table></div>';
+
+  /* 列表：对象在第一层 */
+  $('#view-list').innerHTML = rows.map(function(r){
+    return '<div class="li-row">' +
+      '<div class="avatar">' + r.cust.slice(0,1) + '</div>' +
+      '<div class="li-main">' +
+        '<div class="li-title"><span data-f="customer">' + r.cust + '</span><span class="li-sub">' + r.contact + '</span></div>' +
+        '<div class="li-line"><span data-f="product">' + r.product + '</span>' + tag(r) + '</div>' +
+        '<div class="li-meta">' + r.id + ' · ' + r.city + ' · ' + r.time + '</div>' +
+      '</div>' +
+      '<div class="li-right"><div class="li-amt num" data-f="amount">' + money(r.amount) + '</div><a class="op" href="#">详情</a></div>' +
+    '</div>';
+  }).join('');
+
+  /* 卡片：连行都拆了 */
+  $('#view-card').innerHTML = '<div class="cards">' + rows.map(function(r){
+    return '<div class="c">' +
+      '<div class="c-head"><span data-f="customer">' + r.cust + '</span>' + tag(r) + '</div>' +
+      '<div class="c-amt num" data-f="amount">' + money(r.amount) + '</div>' +
+      '<div class="c-prod" data-f="product">' + r.product + '</div>' +
+      '<div class="c-meta">' + r.id + ' · ' + r.qty + ' 件 · ' + r.city + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+
+  var state = { view:'table', trace:'' };
+
+  var notes = {
+    table: {
+      '':'列是独立的轴：同一列的值共享一个横向位置和一份宽度预算。所以能排序、能筛选、能顺着扫；代价是列的宽度要互相谈判——一列宽了，别的列就窄。',
+      amount:'一条竖线。上下扫一次就能把大小排出来，左边那一列同时告诉你这是谁——「比较」和「这是谁」两件事在同一屏里完成。',
+      status:'还是那条竖线。状态在表格里占一个固定的格子，所以可以一眼数出「有几个待付款」。',
+      product:'还是竖线，但这条列宽被最长的那条撑住：商品名一长，别的列就被挤。'
+    },
+    list: {
+      '':'每行是一个自己的容器：主标题、副文本、标签、右对齐的数值和操作。行内怎么排是自由的，行与行之间不承诺字段对齐——它保住的只有左右两条边。',
+      amount:'右端也是一条线。列表保得住右边界，所以放在最右的数值通常还比得了——这是列表里唯一保得住的那一列。但只有一条：想再比第二个字段，就得回到行内去读。',
+      status:'锯齿。标签跟在商品名后面，位置随名字长短变——想数「有几个待付款」只能一行一行看。',
+      product:'锯齿。商品名流式排在行内，每次都要重新定位。'
+    },
+    card: {
+      '':'每个对象是一块。块内可以自由排布，块与块之间没有对齐承诺——它换来的是一眼认出「这是什么」，代价是每看一块都要重新读一遍旁边的信息。',
+      amount:'八个各自独立的块。块内都有金额，但比一轮要在块之间跳；每跳一次，都会顺带读到旁边的标题和标签。',
+      status:'每张卡的状态都在自己标题的右边，跟着标题长度走。',
+      product:'每块一个，位置由块内排版决定。'
+    }
+  };
+
+  function apply(){
+    $$('.view').forEach(function(v){ v.classList.add('hidden'); });
+    $('#view-' + state.view).classList.remove('hidden');
+    var stage = $('#stage');
+    stage.className = 'stage' + (state.trace ? ' trace-' + state.trace : '');
+    $$('#seg-view button').forEach(function(b){ b.classList.toggle('on', b.dataset.v === state.view); });
+    $$('#seg-trace button').forEach(function(b){ b.classList.toggle('on', (b.dataset.v || '') === state.trace); });
+    $('#note').innerHTML = notes[state.view][state.trace];
+  }
+
+  $$('#seg-view button').forEach(function(b){
+    b.addEventListener('click', function(){ state.view = b.dataset.v; apply(); });
+  });
+  $$('#seg-trace button').forEach(function(b){
+    b.addEventListener('click', function(){ state.trace = b.dataset.v; apply(); });
+  });
+
+  /* 初始状态可由 URL 参数指定，便于截图 */
+  var p = new URLSearchParams(location.search);
+  if (p.get('view')) state.view = p.get('view');
+  if (p.get('trace')) state.trace = p.get('trace');
+  apply();
+})();
+</script>
+</body>
+</html>
