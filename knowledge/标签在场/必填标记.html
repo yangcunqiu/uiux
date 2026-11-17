@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>必填标记 · 星号宣布了什么</title>
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#fff; --line:#e3e1db; --fg:#1c1c1a; --mute:#6f6d66;
+    --accent:#2f5fd0; --bad:#b02a1e; --ok:#2f7a4f;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:32px 24px 56px;
+  }
+  .wrap{max-width:1200px;margin:0 auto}
+  header h1{font-size:23px;margin:0 0 8px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:84ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .toolbar{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    margin-top:16px;padding:10px 14px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+  }
+  .toolbar label{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer}
+  .toolbar input{accent-color:var(--accent);margin:0}
+  .badge{font-size:11.5px;color:var(--bad);border:1px solid #e6c9c4;background:#fdf4f2;border-radius:999px;padding:1px 8px}
+  .badge[hidden]{display:none}
+  .hint{font-size:12.5px;color:var(--mute);margin-left:auto}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px 14px;min-width:0;display:flex;flex-direction:column;
+  }
+  .card h2{font-size:14.5px;margin:0;font-weight:650}
+  .vnote{font-size:12px;color:var(--mute);margin:3px 0 9px;line-height:1.5;min-height:2.9em}
+  .form{position:relative;display:flex;flex-direction:column;flex:1}
+  .form-note{
+    font-size:12px;color:#3a3934;background:#f7f6f1;border:1px solid var(--line);
+    border-radius:6px;padding:6px 8px;margin:0 0 10px;line-height:1.5;
+  }
+  .field{min-width:0;margin-bottom:10px}
+  .lab{display:block;font-size:13px;color:#3a3934;line-height:1.45;margin-bottom:4px}
+  .req{color:var(--bad);font-weight:600}
+  .lab .req{margin:0 3px}
+  .control{display:flex;align-items:center;gap:5px;min-width:0}
+  input[type=text]{
+    width:100%;height:34px;padding:0 10px;flex:1;min-width:0;
+    border:1px solid #d8d5cd;border-radius:6px;background:#fff;
+    font:inherit;font-size:14px;color:var(--fg);
+  }
+  input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .field.invalid input{border-color:var(--bad);background:#fff8f7}
+  .err{font-size:11.5px;color:var(--bad);margin:3px 0 0;line-height:1.45}
+  .err[hidden]{display:none}
+  .status{font-size:12px;color:var(--mute);min-height:3em;margin:4px 0 6px;line-height:1.55}
+  .status.bad{color:var(--bad)}
+  .status.ok{color:var(--ok)}
+  .btn{
+    height:34px;margin-top:auto;border-radius:6px;cursor:pointer;
+    border:1px solid var(--accent);background:#fff;color:var(--accent);
+    font:inherit;font-size:13px;
+  }
+  .btn:hover{background:#eef2fc}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn:disabled{color:#a9a6a0;border-color:var(--line);background:#f4f3ef;cursor:not-allowed}
+
+  .marks{position:absolute;inset:0;pointer-events:none}
+  .dot{position:absolute;width:5px;height:5px;border-radius:50%;background:var(--accent);opacity:.7;transform:translate(-50%,-50%)}
+
+  footer{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  footer h2{font-size:14.5px;margin:0 0 8px;font-weight:650}
+  footer ol{margin:0;padding-left:1.4em}
+  footer li{margin-bottom:6px;color:#3a3934;font-size:13.5px}
+  footer li b{font-weight:600}
+  footer .note{font-size:12px;color:var(--mute);margin:10px 0 0}
+
+  @media (max-width:980px){
+    .grid{grid-template-columns:1fr}
+    .hint{margin-left:0}
+    .vnote{min-height:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>必填标记</h1>
+    <p><strong>星号不是装饰，它宣布的是一段校验：没填就不让过。</strong></p>
+    <p>同一个 4 字段表单，9 种标法。点每张卡的「提交」，看错误落在哪些字段；勾上「假必填」，看标记和校验脱节时会发生什么。</p>
+  </header>
+
+  <div class="toolbar">
+    <label><input type="checkbox" id="fake"> 假必填：星号在，校验关掉</label>
+    <span class="badge" id="fakeBadge" hidden>校验已关闭</span>
+    <label><input type="checkbox" id="dup"> 汇总里重复错误原文</label>
+    <span class="hint">标记、校验、错误文案、提交拦截，缺一项，标记就是谎话</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li><b>「必填」落在四个地方</b>：标记、校验、错误文案、提交拦截。勾上「假必填」，标记还在，后三样都没了——星号立刻变成谎话。</li>
+      <li><b>星号在前</b>：它把「必填」做成了一列，最显眼；代价是标签文字的起点不再统一——必填/选填混排时，没标的那几行会突出到左边。</li>
+      <li><b>星号在后</b>：起点整齐，星号在标签末尾，不打断扫读。</li>
+      <li><b>星号在框右侧</b>：标签干净，星号散在框尾，不在读标签的那条线上。</li>
+      <li><b>只标选填</b>：噪音最小，前提是用户知道「没标 = 必填」；短表单可以，长表单要先说清约定。</li>
+      <li><b>全必填不标</b>：最安静，但提交前不知道要填几项；表单越长，这个未知越贵。</li>
+      <li><b>⑤ 顶部一句话是反例</b>：把要求放进段落，用户得一边填一边记，滚动还会丢。它只在「全部必填」且一句话说得完时勉强可用，不能替字段上的标记。</li>
+      <li><b>⑦ 文字「（必填）」</b>：最不容易误解，不依赖符号约定；代价是每行多四个字，比星号吵。</li>
+      <li><b>⑧ 按钮报数</b>：把「还差几项」放到按钮上，能给工作量；但不能定位是哪几项，只能当补充，不能单独用。</li>
+      <li><b>⑨ 按钮置灰</b>：没填完就点不了。短表单、缺项都在眼前时还能忍；长表单或隐藏字段时，按钮不告诉你缺什么，也不能点来问——它把校验变成了一个沉默的状态。</li>
+    </ol>
+    <p class="note">「标少数派」是判断，不是标准：3/4 必填 → 标必填；1/4 必填 → 标选填；全部必填 → 一句「本页均为必填」通常比完全不标便宜。但跨表一致性比单表噪音更重要：同一个产品里，「没标」不能一张表是必填、另一张表是选填。做不到同向，就固定一个方向（通常标必填），别每张表各标少数派。星号也不等于「重要」——重要但可选的字段不要标。勾上「汇总里重复错误原文」，看汇总把字段下的「请填写姓名」再抄一遍是什么感觉。置灰不是更严格，是更沉默：它省掉一次错误提交，拿走了用户问「缺什么」的机会；原因要放在一个不禁用的载体上，或者保持可用、点了再解释。</p>
+  </footer>
+</div>
+
+<script>
+const FIELDS = [
+  { key: "name",  label: "姓名",     required: true  },
+  { key: "phone", label: "手机号",   required: true  },
+  { key: "dept",  label: "所属部门", required: true  },
+  { key: "note",  label: "备注",     required: false }
+];
+
+const VARIANTS = [
+  { id: "before",   name: "① 星号在前",     note: "起点参差，但「必填」最显眼。", req: "before" },
+  { id: "after",    name: "② 星号在后",     note: "起点整齐，星号不打断标签。",   req: "after" },
+  { id: "right",    name: "③ 星号在框右侧", note: "标签干净，星号散在框尾。",     req: "right" },
+  { id: "optional", name: "④ 只标选填",     note: "噪音最小，前提是知道「没标=必填」。", req: "optional" },
+  { id: "noteTop",  name: "⑤ 顶部一句话",   note: "把要求放进段落；用户要记住它，滚动就丢。", req: "note" },
+  { id: "none",     name: "⑥ 全必填、不标", note: "最安静，提交前不知道要填几项。", req: "none" },
+  { id: "text",     name: "⑦ 文字「（必填）」", note: "不用符号，直接写出来；最不容易误解，标签更长。", req: "text" },
+  { id: "count",    name: "⑧ 按钮报数",     note: "不在标签上标，把「还差几项」放到按钮上；知道数量，不知道是哪几项。", req: "count" },
+  { id: "gate",     name: "⑨ 按钮置灰",     note: "没填完就点不了；按钮只说「还不行」，不说缺什么。", req: "gate" }
+];
+
+function buildCard(v) {
+  const card = document.createElement("section");
+  card.className = "card";
+
+  const h = document.createElement("h2");
+  h.textContent = v.name;
+  const vn = document.createElement("p");
+  vn.className = "vnote";
+  vn.textContent = v.note;
+  card.append(h, vn);
+
+  const form = document.createElement("form");
+  form.className = "form";
+  form.noValidate = true;
+  form.dataset.variant = v.id;
+
+  if (v.req === "note") {
+    const n = document.createElement("p");
+    n.className = "form-note";
+    n.textContent = "本页除「备注」外均为必填。";
+    form.appendChild(n);
+  }
+
+  const reqMap = v.req === "none" ? [true, true, true, true] : [true, true, true, false];
+
+  FIELDS.forEach((f) => {
+    const required = reqMap[FIELDS.indexOf(f)];
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+
+    const lab = document.createElement("label");
+    lab.className = "lab";
+    const id = v.id + "-" + f.key;
+    lab.htmlFor = id;
+
+    const txt = document.createElement("span");
+    txt.className = "txt";
+    let labelText = f.label;
+    if (v.req === "optional" && !required) labelText += "（选填）";
+    if (v.req === "text" && required) labelText += "（必填）";
+    txt.textContent = labelText;
+
+    const needsStar = (v.req === "before" || v.req === "after") && required;
+    if (needsStar) {
+      const star = document.createElement("span");
+      star.className = "req";
+      star.textContent = "*";
+      if (v.req === "before") lab.append(star, txt);
+      else lab.append(txt, star);
+    } else {
+      lab.append(txt);
+    }
+
+    const control = document.createElement("div");
+    control.className = "control";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.id = id;
+    input.dataset.required = required ? "1" : "0";
+    input.dataset.label = f.label;
+    control.appendChild(input);
+
+    if (v.req === "right" && required) {
+      const star = document.createElement("span");
+      star.className = "req";
+      star.textContent = "*";
+      control.appendChild(star);
+    }
+
+    const err = document.createElement("p");
+    err.className = "err";
+    err.id = id + "-err";
+    err.hidden = true;
+
+    wrap.append(lab, control, err);
+    form.appendChild(wrap);
+  });
+
+  const status = document.createElement("p");
+  status.className = "status";
+  status.setAttribute("role", "status");
+
+  const btn = document.createElement("button");
+  btn.type = "submit";
+  btn.className = "btn";
+  btn.textContent = "提交";
+
+  form.append(status, btn);
+
+  const allInputs = [...form.querySelectorAll("input")];
+  function updateCount() {
+    if (v.req !== "count") return;
+    const n = allInputs.filter((i) => i.dataset.required === "1" && !i.value.trim()).length;
+    btn.textContent = n ? `提交（还差 ${n} 项）` : "提交";
+  }
+  updateCount();
+
+  function updateGate() {
+    if (v.req !== "gate") return;
+    const n = allInputs.filter((i) => i.dataset.required === "1" && !i.value.trim()).length;
+    btn.disabled = !document.getElementById("fake").checked && n > 0;
+  }
+  form.__updateGate = updateGate;
+  updateGate();
+
+  const marks = document.createElement("div");
+  marks.className = "marks";
+  marks.setAttribute("aria-hidden", "true");
+  form.appendChild(marks);
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const inputs = allInputs;
+    const missing = inputs.filter((i) => i.dataset.required === "1" && !i.value.trim());
+
+    if (document.getElementById("fake").checked) {
+      inputs.forEach(clearErr);
+      status.className = "status";
+      status.textContent = missing.length
+        ? `已提交：${missing.length} 个必填项是空的，系统也收下了。`
+        : "已提交（这次刚好填满了）。";
+      updateCount();
+      updateGate();
+      return;
+    }
+
+    inputs.forEach((i) => {
+      if (i.dataset.required === "1" && !i.value.trim()) showErr(i);
+      else clearErr(i);
+    });
+
+    if (missing.length) {
+      const where = document.getElementById("dup").checked
+        ? missing.map((i) => "请填写" + i.dataset.label).join("；")
+        : missing.map((i) => i.dataset.label).join("、");
+      status.className = "status bad";
+      status.textContent = `还有 ${missing.length} 项没填：${where}`;
+      missing[0].focus();
+    } else {
+      status.className = "status ok";
+      status.textContent = "已提交。";
+    }
+    updateCount();
+    updateGate();
+  });
+
+  form.querySelectorAll("input").forEach((i) => {
+    i.addEventListener("input", () => {
+      if (i.value.trim()) clearErr(i);
+      status.textContent = "";
+      status.className = "status";
+      updateCount();
+      updateGate();
+    });
+  });
+
+  card.appendChild(form);
+  return card;
+}
+
+function showErr(input) {
+  const field = input.closest(".field");
+  field.classList.add("invalid");
+  const err = document.getElementById(input.id + "-err");
+  err.textContent = "请填写" + input.dataset.label;
+  err.hidden = false;
+  input.setAttribute("aria-invalid", "true");
+  input.setAttribute("aria-describedby", err.id);
+}
+
+function clearErr(input) {
+  const field = input.closest(".field");
+  field.classList.remove("invalid");
+  const err = document.getElementById(input.id + "-err");
+  err.hidden = true;
+  err.textContent = "";
+  input.removeAttribute("aria-invalid");
+  input.removeAttribute("aria-describedby");
+}
+
+const grid = document.getElementById("grid");
+VARIANTS.forEach((v) => grid.appendChild(buildCard(v)));
+try { drawDots(); } catch (e) { document.body.dataset.dotError = e.message; }
+
+function textRect(el) {
+  const r = document.createRange();
+  r.selectNodeContents(el);
+  return r.getBoundingClientRect();
+}
+
+function drawDots() {
+  document.querySelectorAll(".form").forEach((form) => {
+    const box = form.getBoundingClientRect();
+    const marks = form.querySelector(".marks");
+    marks.innerHTML = "";
+    form.querySelectorAll(".field").forEach((field) => {
+      const lab = field.querySelector(".lab");
+      const first = lab.firstElementChild;
+      const glyph = first && first.classList.contains("req") ? first : lab.querySelector(".txt");
+      const r = textRect(glyph);
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.left = (r.left - box.left) + "px";
+      dot.style.top = (r.top + r.height / 2 - box.top) + "px";
+      marks.appendChild(dot);
+    });
+  });
+}
+
+document.getElementById("fake").addEventListener("change", (e) => {
+  document.getElementById("fakeBadge").hidden = !e.target.checked;
+  document.querySelectorAll(".status").forEach((s) => { s.textContent = ""; s.className = "status"; });
+  document.querySelectorAll(".field").forEach((f) => f.classList.remove("invalid"));
+  document.querySelectorAll(".err").forEach((e2) => { e2.hidden = true; e2.textContent = ""; });
+  document.querySelectorAll("input[aria-invalid]").forEach((i) => {
+    i.removeAttribute("aria-invalid");
+    i.removeAttribute("aria-describedby");
+  });
+  document.querySelectorAll('form[data-variant="gate"]').forEach((f) => { if (f.__updateGate) f.__updateGate(); });
+});
+
+let raf = 0;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(drawDots);
+});
+
+requestAnimationFrame(() => requestAnimationFrame(drawDots));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawDots);
+</script>
+</body>
+</html>

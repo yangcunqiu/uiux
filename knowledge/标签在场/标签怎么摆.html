@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>标签怎么摆 · 对齐的代价</title>
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#fff; --line:#e3e1db; --fg:#1c1c1a; --mute:#6f6d66;
+    --accent:#2f5fd0; --bad:#b02a1e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:32px 24px 56px;
+  }
+  .wrap{max-width:1200px;margin:0 auto}
+  header h1{font-size:23px;margin:0 0 8px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:82ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .toolbar{
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    margin-top:16px;padding:10px 14px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+  }
+  .toolbar span.lab{font-size:13px;color:var(--mute)}
+  .toolbar label{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+  .toolbar input{accent-color:var(--accent);margin:0}
+  .hint{font-size:12.5px;color:var(--mute);margin-left:auto}
+  .legend{font-size:12px;color:var(--mute);margin:8px 2px 0}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px 8px;min-width:0}
+  .card > h2{font-size:14.5px;margin:0;font-weight:650}
+  .readout{
+    font-size:12px;color:var(--mute);margin:3px 0 0;min-height:3em;line-height:1.55;
+    font-variant-numeric:tabular-nums;
+  }
+  .readout b{color:var(--fg);font-weight:600}
+
+  .form{position:relative;padding:12px 0 6px;transition:height .15s ease}
+  .field{min-width:0}
+  .lab{font-size:13.5px;color:#3a3934;line-height:1.42}
+  .lab .txt{white-space:normal}
+  .control{min-width:0}
+  input[type=text]{
+    width:100%;height:36px;padding:0 10px;
+    border:1px solid #d8d5cd;border-radius:6px;background:#fff;
+    font:inherit;font-size:14px;color:var(--fg);
+  }
+  input[type=text]:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .help{font-size:12px;line-height:1.5;color:var(--mute);margin:4px 0 0;max-width:38ch}
+  .form[data-helps="off"] .help{display:none}
+
+  /* 顶标签 */
+  .form[data-mode="top"] .field{margin-bottom:16px}
+  .form[data-mode="top"] .lab{display:block;margin-bottom:6px}
+
+  /* 左标签 */
+  .form[data-mode="side"] .field{
+    display:grid;grid-template-columns:120px minmax(0,1fr);column-gap:14px;
+    align-items:start;margin-bottom:14px;
+  }
+  .form[data-mode="side"] .lab{padding-top:8px}
+  .form[data-mode="side"] .help{grid-column:2}
+  .form[data-align="right"] .lab{text-align:right}
+  .form[data-align="left"] .lab{text-align:left}
+
+  .marks{position:absolute;inset:0;pointer-events:none;overflow:visible}
+  .mark-dot{
+    position:absolute;width:5px;height:5px;border-radius:50%;
+    background:var(--accent);opacity:.65;transform:translate(-50%,-50%);
+  }
+  .mark-line{
+    position:absolute;height:0;
+    border-top:1px dashed rgba(47,95,208,.55);
+    transform:translateY(-.5px);
+  }
+
+  .pair-wrap{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px 12px;margin-top:16px}
+  .pair-wrap > h2{font-size:14.5px;margin:0 0 4px;font-weight:650}
+  .pair-wrap > p{margin:0 0 12px;font-size:12.5px;color:var(--mute)}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .mini h3{font-size:12.5px;margin:0 0 8px;font-weight:600;color:#3a3934}
+  .mini input[type=text]{height:44px;font-size:14px}
+  .mini input[type=text]::placeholder{color:#9a978e}
+  .mini .cap{font-size:12px;color:var(--mute);margin:6px 0 0;line-height:1.55}
+
+  .float{position:relative;display:block;margin-bottom:10px}
+  .float input[type=text]{height:46px;padding:16px 10px 4px}
+  .float span{
+    position:absolute;left:11px;top:14px;font-size:14px;color:#8a877e;
+    pointer-events:none;transform-origin:left top;
+    transition:top .12s ease,font-size .12s ease,color .12s ease;
+  }
+  .float input:focus + span,
+  .float input:not(:placeholder-shown) + span{top:7px;font-size:11px;color:var(--accent)}
+
+  footer{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  footer h2{font-size:14.5px;margin:0 0 8px;font-weight:650}
+  footer ol{margin:0;padding-left:1.4em}
+  footer li{margin-bottom:6px;color:#3a3934;font-size:13.5px}
+  footer li b{font-weight:600}
+  footer .note{font-size:12px;color:var(--mute);margin:10px 0 0}
+
+  @media (max-width:980px){
+    .grid{grid-template-columns:1fr}
+    .pair{grid-template-columns:1fr}
+    .hint{margin-left:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>标签怎么摆</h1>
+    <p><strong>同一个表单，三种摆法。对齐不是「哪种更专业」，是「让哪一列保持整齐、把哪种跳动留给眼睛」。</strong></p>
+    <p>切换标签长度，看三个读数：表单一共多高、标签末字到输入框有多远、每行标签的起点差多少。</p>
+  </header>
+
+  <div class="toolbar">
+    <span class="lab">标签长度</span>
+    <label><input type="radio" name="len" value="short" checked> 短</label>
+    <label><input type="radio" name="len" value="long"> 长</label>
+    <span style="width:1px;height:18px;background:var(--line)"></span>
+    <label><input type="checkbox" id="helps"> 显示说明文字（只看高度）</label>
+    <span class="hint">点点连起来是锯齿，虚线是眼睛要跨的距离</span>
+  </div>
+  <p class="legend">横距：标签最后一个字到输入框左边。左缘参差：6 行标签起点之间的最大差。标签列宽固定 120px，只改对齐；数字由本页量出，换字号会变。</p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>顶标签</h2>
+      <p class="readout" id="ro-top"></p>
+      <form class="form" data-mode="top" data-helps="off" novalidate></form>
+    </section>
+    <section class="card">
+      <h2>左标签 · 右对齐</h2>
+      <p class="readout" id="ro-right"></p>
+      <form class="form" data-mode="side" data-align="right" data-helps="off" novalidate></form>
+    </section>
+    <section class="card">
+      <h2>左标签 · 左对齐</h2>
+      <p class="readout" id="ro-left"></p>
+      <form class="form" data-mode="side" data-align="left" data-helps="off" novalidate></form>
+    </section>
+  </div>
+
+  <section class="pair-wrap">
+    <h2>填的时候，问题还在不在</h2>
+    <p>行内标签把问题放进框里；浮动标签让问题缩小、留在框上。点进浮动标签的框，删掉号码再输入，看标签怎么回去。</p>
+    <div class="pair">
+      <div class="mini">
+        <h3>行内标签（placeholder 兼作标签）</h3>
+        <input type="text" placeholder="手机号" aria-label="手机号">
+        <input type="text" value="13800138000" aria-label="手机号">
+        <p class="cap">空着时，问题在框里；填上以后问题消失，屏幕上只剩一串号码——回看时不知道它是什么。</p>
+      </div>
+      <div class="mini">
+        <h3>浮动标签</h3>
+        <label class="float"><input type="text" placeholder=" " value="13800138000"><span>手机号</span></label>
+        <label class="float"><input type="text" placeholder=" "><span>手机号</span></label>
+        <p class="cap">标签缩小后留在框上，问题和值同时在。代价是多一套位置和字号，长标签缩小后容易截断。</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li><b>右对齐</b>：每行的横距一样（虚线等长），但每行标签的起点在跳，点点连起来是锯齿。它把「距离」定住，把「起点」放乱。</li>
+      <li><b>左对齐</b>：起点一条线，但短标签的横距能到一百多像素——眼睛每次都要跨过这段空白。它把「起点」定住，把「距离」放乱。</li>
+      <li><b>顶标签</b>：两个方向都不跳，代价是每组多占一行。切到长标签，左标签开始换行、行高不齐，侧布局的高度优势被吃掉一部分。</li>
+      <li><b>行内与浮动</b>：行内省掉一行标签，但填完以后问题不在屏幕上；浮动把标签留在上面，代价是两套位置和一次缩小。</li>
+    </ol>
+    <p class="note">页高、横距、参差都是本页实测；「500ms / 240ms / 50ms」是另一件事——那是眼动研究里标签到框的一次扫视，不是填完整个表单的时间。说明文字放哪（常驻 / 图标 / 占位 / 报错）是另一个对照，见 <a href="说明文字.html">说明文字</a>。</p>
+  </footer>
+</div>
+
+<script>
+const LABELS = {
+  short: ["姓名", "手机号", "所属部门", "报销金额", "期望日期", "备注"],
+  long: ["联系人姓名", "联系电话（手机或座机）", "所属部门与岗位", "报销金额（含税）", "期望完成日期", "补充说明（选填）"]
+};
+const VALUES = ["李雷", "", "品牌市场部", "", "", ""];
+const HELPS = [
+  "",
+  "用于审批结果通知，不会公开。",
+  "决定审批流走向，选错要重新发起。",
+  "含税；超过 5000 元需附发票。",
+  "",
+  ""
+];
+const MODES = [
+  { key: "top", form: document.querySelector('.form[data-mode="top"]'), ro: "ro-top" },
+  { key: "right", form: document.querySelector('.form[data-align="right"]'), ro: "ro-right" },
+  { key: "left", form: document.querySelector('.form[data-align="left"]'), ro: "ro-left" }
+];
+
+function buildForm(mode, form) {
+  form.innerHTML = "";
+  LABELS.short.forEach((_, i) => {
+    const field = document.createElement("div");
+    field.className = "field";
+    field.dataset.i = i;
+
+    const lab = document.createElement("label");
+    lab.className = "lab";
+    lab.htmlFor = mode + "-" + i;
+    const txt = document.createElement("span");
+    txt.className = "txt";
+    txt.textContent = LABELS.short[i];
+    lab.appendChild(txt);
+
+    const control = document.createElement("div");
+    control.className = "control";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.id = mode + "-" + i;
+    input.value = VALUES[i];
+    control.appendChild(input);
+
+    const help = document.createElement("p");
+    help.className = "help";
+    help.textContent = HELPS[i];
+
+    field.append(lab, control, help);
+    form.appendChild(field);
+  });
+
+  const marks = document.createElement("div");
+  marks.className = "marks";
+  marks.setAttribute("aria-hidden", "true");
+  form.appendChild(marks);
+
+  form.addEventListener("submit", (e) => e.preventDefault());
+}
+
+function applyLabels(len) {
+  document.querySelectorAll(".field").forEach((f) => {
+    const i = Number(f.dataset.i);
+    f.querySelector(".lab .txt").textContent = LABELS[len][i];
+  });
+}
+
+function textRect(el) {
+  const r = document.createRange();
+  r.selectNodeContents(el);
+  return r.getBoundingClientRect();
+}
+
+function fmt(n) { return Math.round(n); }
+
+function measure(mode) {
+  const form = mode.form;
+  const box = form.getBoundingClientRect();
+  const fields = [...form.querySelectorAll(".field")];
+  const texts = fields.map((f) => textRect(f.querySelector(".lab .txt")));
+  const inputs = fields.map((f) => f.querySelector("input").getBoundingClientRect());
+
+  const gaps = mode.key === "top"
+    ? inputs.map((ir, i) => ir.top - texts[i].bottom)
+    : inputs.map((ir, i) => ir.left - texts[i].right);
+  const lefts = texts.map((t) => t.left);
+  const rag = Math.max(...lefts) - Math.min(...lefts);
+  const gMin = Math.min(...gaps);
+  const gMax = Math.max(...gaps);
+
+  const ro = document.getElementById(mode.ro);
+  const gapText = (gMax - gMin < 1)
+    ? (mode.key === "top" ? `纵距 <b>${fmt(gMin)}px</b>` : `横距 <b>${fmt(gMin)}px</b>（6 行一样）`)
+    : `${mode.key === "top" ? "纵距" : "横距"} <b>${fmt(gMin)}–${fmt(gMax)}px</b>`;
+  ro.innerHTML = `高 <b>${fmt(box.height)}px</b> · ${gapText} · 左缘参差 <b>${fmt(rag)}px</b>`;
+
+  const marks = form.querySelector(".marks");
+  marks.innerHTML = "";
+  fields.forEach((f, i) => {
+    const dot = document.createElement("span");
+    dot.className = "mark-dot";
+    dot.style.left = (texts[i].left - box.left) + "px";
+    dot.style.top = (texts[i].top + texts[i].height / 2 - box.top) + "px";
+    marks.appendChild(dot);
+
+    if (mode.key !== "top") {
+      const line = document.createElement("span");
+      line.className = "mark-line";
+      line.style.left = (texts[i].right + 2 - box.left) + "px";
+      line.style.top = (inputs[i].top + inputs[i].height / 2 - box.top) + "px";
+      line.style.width = Math.max(0, gaps[i] - 4) + "px";
+      marks.appendChild(line);
+    }
+  });
+}
+
+function measureAll() {
+  MODES.forEach(measure);
+}
+
+MODES.forEach((m) => buildForm(m.key, m.form));
+document.querySelectorAll('input[name="len"]').forEach((r) => {
+  r.addEventListener("change", () => {
+    applyLabels(document.querySelector('input[name="len"]:checked').value);
+    requestAnimationFrame(measureAll);
+  });
+});
+document.getElementById("helps").addEventListener("change", (e) => {
+  const on = e.target.checked;
+  document.querySelectorAll(".form").forEach((f) => { f.dataset.helps = on ? "on" : "off"; });
+  requestAnimationFrame(measureAll);
+});
+let raf = 0;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(measureAll);
+});
+
+const params = new URLSearchParams(location.search);
+const lenParam = params.get("len") === "long" ? "long" : "short";
+document.querySelector('input[name="len"][value="' + lenParam + '"]').checked = true;
+applyLabels(lenParam);
+
+const helpOn = params.get("help") === "1";
+document.getElementById("helps").checked = helpOn;
+document.querySelectorAll(".form").forEach((f) => { f.dataset.helps = helpOn ? "on" : "off"; });
+
+requestAnimationFrame(() => requestAnimationFrame(measureAll));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(measureAll);
+</script>
+</body>
+</html>
