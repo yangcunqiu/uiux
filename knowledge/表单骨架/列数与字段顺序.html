@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>列数与字段顺序 · 高度、折返与依赖</title>
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#fff; --line:#e3e1db; --fg:#1c1c1a; --mute:#6f6d66;
+    --accent:#2f5fd0; --warn:#8a6a1f; --bad:#b02a1e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:32px 24px 56px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+  header h1{font-size:23px;margin:0 0 8px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:84ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .toolbar{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    margin-top:16px;padding:10px 14px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+  }
+  .toolbar span.lab{font-size:13px;color:var(--mute)}
+  .toolbar label{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+  .toolbar input{accent-color:var(--accent);margin:0}
+  .hint{font-size:12.5px;color:var(--mute);margin-left:auto}
+
+  .readout{
+    margin:10px 2px 0;font-size:12px;color:var(--mute);
+    font-variant-numeric:tabular-nums;line-height:1.6;
+  }
+  .readout b{color:var(--fg);font-weight:600}
+  .order-note{font-size:12px;color:var(--warn);margin:4px 2px 0;min-height:1.7em;line-height:1.55}
+
+  .form-card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:18px 18px 16px;margin-top:12px;
+  }
+  .form{position:relative;counter-reset:field;
+    display:grid;
+    grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));
+    gap:16px 22px;
+    max-width:840px;
+  }
+  .field{min-width:0;position:relative;counter-increment:field}
+  .field .lab{display:block;font-size:13px;color:#3a3934;line-height:1.45;margin-bottom:4px}
+  .field .lab::before{
+    content:counter(field);
+    display:inline-grid;place-items:center;
+    width:16px;height:16px;border-radius:50%;
+    background:#f1f0ea;color:var(--mute);
+    font-size:10.5px;font-weight:600;margin-right:6px;vertical-align:1px;
+  }
+  .pair-badge{
+    display:inline-block;margin-left:6px;padding:0 6px;
+    font-size:10px;line-height:1.6;color:var(--warn);
+    background:#fbf3df;border:1px solid #ecdcb8;border-radius:999px;
+    vertical-align:1px;
+  }
+  .field.paired .lab{padding-left:8px;border-left:3px solid #d9a441}
+  input[type=text], select{
+    width:100%;height:36px;padding:0 10px;
+    border:1px solid #d8d5cd;border-radius:6px;background:#fff;
+    font:inherit;font-size:14px;color:var(--fg);
+  }
+  select{appearance:auto}
+  input[type=text]:focus, select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .help,.err{font-size:12px;line-height:1.5;margin:4px 0 0;max-width:52ch}
+  .help{color:var(--mute);display:none}
+  .err{color:var(--bad);display:none}
+  .form.show-help .help{display:block}
+  .form.show-error .field[data-key="address"] .err{display:block}
+  .form.show-error .field[data-key="address"] input{border-color:var(--bad);background:#fff8f7}
+
+  .trace{
+    position:absolute;inset:0;width:100%;height:100%;
+    pointer-events:none;z-index:2;overflow:visible;
+  }
+  .trace[hidden]{display:none}
+
+  .actions{
+    grid-column:1 / -1;display:flex;align-items:center;gap:12px;
+    margin-top:2px;padding-top:14px;border-top:1px solid #f0eeea;
+  }
+  .submit{
+    height:36px;padding:0 16px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--accent);background:var(--accent);color:#fff;
+    font:inherit;font-size:13px;
+  }
+  .submit:hover{filter:brightness(1.06)}
+  .submit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .actions .note{font-size:12px;color:var(--mute)}
+
+  footer{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+  footer h2{font-size:14.5px;margin:0 0 8px;font-weight:650}
+  footer ol{margin:0;padding-left:1.4em}
+  footer li{margin-bottom:6px;color:#3a3934;font-size:13.5px}
+  footer li b{font-weight:600}
+  footer .note{font-size:12px;color:var(--mute);margin:10px 0 0}
+
+  @media (max-width:720px){
+    body{padding:24px 16px 48px}
+    .form{grid-template-columns:1fr}
+    .hint{margin-left:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>列数与字段顺序</h1>
+    <p><strong>多列省下的是高度，付出的是折返、成对字段被拆开，以及帮助/错误把整行撑高。字段顺序则决定条件字段会不会先于它的条件出现。</strong></p>
+    <p>同一个 11 字段表单：切 1 / 2 / 3 列；可开帮助、让「详细地址」报错；切「任务顺序 / 条件倒置」，看税号跑到发票类型前面。</p>
+  </header>
+
+  <div class="toolbar">
+    <span class="lab">列数</span>
+    <label><input type="radio" name="cols" value="1" checked> 1 列</label>
+    <label><input type="radio" name="cols" value="2"> 2 列</label>
+    <label><input type="radio" name="cols" value="3"> 3 列</label>
+    <span style="width:1px;height:18px;background:var(--line)"></span>
+    <label><input type="checkbox" id="help"> 显示帮助文字</label>
+    <label><input type="checkbox" id="error"> 让「详细地址」报错</label>
+    <label><input type="checkbox" id="trace" checked> 显示折返箭头</label>
+    <span style="width:1px;height:18px;background:var(--line)"></span>
+    <span class="lab">顺序</span>
+    <label><input type="radio" name="order" value="task" checked> 任务顺序</label>
+    <label><input type="radio" name="order" value="reverse"> 条件倒置（反例）</label>
+    <span class="hint">先看 1 列，再切 2 / 3 列</span>
+  </div>
+
+  <p class="readout" id="readout"></p>
+  <p class="order-note" id="orderNote" role="status"></p>
+
+  <section class="form-card">
+    <form class="form" id="form" novalidate>
+      <svg class="trace" id="traceSvg" aria-hidden="true"></svg>
+
+      <div class="field" data-key="name">
+        <label class="lab" for="f-name">姓名</label>
+        <input type="text" id="f-name" value="李雷">
+      </div>
+
+      <div class="field" data-key="phone">
+        <label class="lab" for="f-phone">手机号</label>
+        <input type="text" id="f-phone" value="13800138000">
+        <p class="help">用于接收审批通知，不会对外公开。</p>
+      </div>
+
+      <div class="field paired" data-key="province">
+        <label class="lab" for="f-province">省<span class="pair-badge">成对</span></label>
+        <input type="text" id="f-province" value="浙江省">
+      </div>
+
+      <div class="field paired" data-key="city">
+        <label class="lab" for="f-city">市<span class="pair-badge">成对</span></label>
+        <input type="text" id="f-city" value="杭州市">
+      </div>
+
+      <div class="field" data-key="address">
+        <label class="lab" for="f-address">详细地址</label>
+        <input type="text" id="f-address" value="文三路 90 号">
+        <p class="help">写到门牌号；园区请补楼栋和房间号。</p>
+        <p class="err">详细地址要写到门牌号；园区请补楼栋和房间号。</p>
+      </div>
+
+      <div class="field" data-key="invoice">
+        <label class="lab" for="f-invoice">发票类型</label>
+        <select id="f-invoice">
+          <option>增值税专用发票</option>
+          <option>增值税普通发票</option>
+        </select>
+        <p class="help">专用发票需要税号；普通发票不需要。</p>
+      </div>
+
+      <div class="field" data-key="tax">
+        <label class="lab" for="f-tax">税号</label>
+        <input type="text" id="f-tax" placeholder="91330100MA2XXXXXXX">
+        <p class="help">15–20 位字母或数字。</p>
+      </div>
+
+      <div class="field" data-key="amount">
+        <label class="lab" for="f-amount">金额</label>
+        <input type="text" id="f-amount" value="12000">
+      </div>
+
+      <div class="field" data-key="start">
+        <label class="lab" for="f-start">开始日期</label>
+        <input type="text" id="f-start" value="2026-11-01">
+      </div>
+
+      <div class="field" data-key="end">
+        <label class="lab" for="f-end">结束日期</label>
+        <input type="text" id="f-end" value="2026-11-30">
+      </div>
+
+      <div class="field" data-key="note">
+        <label class="lab" for="f-note">备注</label>
+        <input type="text" id="f-note" value="">
+      </div>
+
+      <div class="actions">
+        <button class="submit" type="button" id="submit">提交（演示）</button>
+        <span class="note">只做布局对照，不校验。</span>
+      </div>
+    </form>
+  </section>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li><b>1 列</b>：没有折返；眼睛一路向下，不用回到左边。代价是高度。</li>
+      <li><b>2 / 3 列</b>：高度降，换行时出现折返箭头。注意：列数越多，折返次数不一定越多（行少了），但单行更宽、字段更窄——不是线性的「列多更差」。</li>
+      <li><b>省 / 市</b>：2 列时同一行，3 列时被拆开。成对字段不能靠列数碰运气；要么包成一个单元（跨列或子网格），要么放回单列。</li>
+      <li><b>顺序</b>：条件必须先于被它控制的字段。切「条件倒置」，税号跑到发票类型前面；先填税号，再把类型改成普通发票，字段消失、值也不保留。数据库字段顺序不是理由——用户回答的顺序才是。</li>
+      <li><b>帮助 / 错误</b>：某个字段多一行，整行被撑高，旁边的字段下方留洞。多列把「一个字段的问题」变成「整行的节奏问题」。打开帮助、再打开「详细地址」报错，看行高怎么变。</li>
+      <li><b>窄屏</b>：列数在 720px 以下强制降为 1 列，省下的高度还回去。多列不是响应式的免费午餐；列数读数的「实际」会显示降级。</li>
+      <li><b>适用</b>：多列适合短、独立、成对的字段（省/市、开始/结束、金额/币种）；长标签、依赖、帮助多、错误多的表单，单列更稳。</li>
+    </ol>
+    <p class="note">高度、列宽、折返次数都是本页几何；箭头是示意，不是眼动测量。列数、字段数、宽度都是演示值。折返 = 多列时从行尾回到下一行行首的次数（= 行数 − 1）；单行最多 = 一行里最多几个字段。</p>
+  </footer>
+</div>
+
+<script>
+const form = document.getElementById("form");
+const readout = document.getElementById("readout");
+const traceSvg = document.getElementById("traceSvg");
+const helpToggle = document.getElementById("help");
+const errorToggle = document.getElementById("error");
+const traceToggle = document.getElementById("trace");
+const orderNote = document.getElementById("orderNote");
+const invoiceField = form.querySelector('[data-key="invoice"]');
+const taxField = form.querySelector('[data-key="tax"]');
+const invoiceSelect = document.getElementById("f-invoice");
+const taxInput = document.getElementById("f-tax");
+let lostTax = false;
+
+function applyOrder() {
+  const order = document.querySelector('input[name="order"]:checked').value;
+  if (order === "reverse") form.insertBefore(taxField, invoiceField);
+  else form.insertBefore(invoiceField, taxField);
+}
+
+function refreshNote() {
+  const normal = invoiceSelect.value === "增值税普通发票";
+  const reversed = document.querySelector('input[name="order"]:checked').value === "reverse";
+  if (normal) {
+    orderNote.textContent = "普通发票不需要税号：税号已隐藏" + (lostTax ? "，刚才填的值不保留。" : "。");
+  } else if (reversed) {
+    orderNote.textContent = "条件倒置：税号在「发票类型」前面；用户会先填一个可能马上消失的字段。";
+  } else {
+    orderNote.textContent = "";
+  }
+}
+
+function updateTax() {
+  const normal = invoiceSelect.value === "增值税普通发票";
+  if (normal) {
+    if (taxInput.value.trim()) lostTax = true;
+    taxInput.value = "";
+    taxField.style.display = "none";
+  } else {
+    taxField.style.display = "";
+    lostTax = false;
+  }
+  refreshNote();
+}
+
+function drawTrace() {
+  const box = form.getBoundingClientRect();
+  const fields = [...form.querySelectorAll(".field")].filter((f) => f.offsetParent !== null);
+  const rects = fields.map((f) => f.getBoundingClientRect());
+
+  const rows = [];
+  rects.forEach((r, i) => {
+    let row = rows.find((row) => Math.abs(row.top - r.top) <= 2);
+    if (!row) { row = { top: r.top, items: [] }; rows.push(row); }
+    row.items.push({ r, i });
+  });
+
+  const gridCols = getComputedStyle(form).gridTemplateColumns.split(" ").filter(Boolean).length;
+  const selected = Number(document.querySelector('input[name="cols"]:checked').value);
+  const colText = selected > gridCols ? gridCols + " 列（窄屏降级）" : gridCols + " 列";
+  const maxPerRow = Math.max(...rows.map((row) => row.items.length));
+  const folds = gridCols > 1 ? rows.length - 1 : 0;
+
+  const p = form.querySelector('[data-key="province"]').getBoundingClientRect();
+  const c = form.querySelector('[data-key="city"]').getBoundingClientRect();
+  const sameRow = Math.abs(p.top - c.top) < 2;
+
+  readout.innerHTML = `高 <b>${Math.round(box.height)}px</b> · 列宽 <b>${Math.round(rects[0].width)}px</b> · 实际 <b>${colText}</b> · 折返 <b>${folds}</b> 次 · 单行最多 <b>${maxPerRow}</b> 个 · 省/市 同一行：<b>${sameRow ? "是" : "否"}</b>`;
+
+  traceSvg.setAttribute("viewBox", `0 0 ${box.width} ${box.height}`);
+  traceSvg.innerHTML = "";
+  if (!traceToggle.checked || gridCols === 1) return;
+
+  const ns = "http://www.w3.org/2000/svg";
+  const defs = document.createElementNS(ns, "defs");
+  const marker = document.createElementNS(ns, "marker");
+  marker.setAttribute("id", "foldArrow");
+  marker.setAttribute("viewBox", "0 0 7 6");
+  marker.setAttribute("refX", "6");
+  marker.setAttribute("refY", "3");
+  marker.setAttribute("markerWidth", "7");
+  marker.setAttribute("markerHeight", "6");
+  marker.setAttribute("orient", "auto");
+  const head = document.createElementNS(ns, "path");
+  head.setAttribute("d", "M0,0 L7,3 L0,6 z");
+  head.setAttribute("fill", "#2f5fd0");
+  head.setAttribute("fill-opacity", "0.55");
+  marker.appendChild(head);
+  defs.appendChild(marker);
+  traceSvg.appendChild(defs);
+
+  for (let i = 0; i < rows.length - 1; i++) {
+    const last = rows[i].items[rows[i].items.length - 1].r;
+    const first = rows[i + 1].items[0].r;
+    const bottom = Math.max(...rows[i].items.map((it) => it.r.bottom));
+    const top = rows[i + 1].top;
+    const x1 = last.right - box.left - 4;
+    const y1 = bottom - box.top + 3;
+    const x2 = first.left - box.left + 8;
+    const y2 = top - box.top - 4;
+    const midY = (y1 + y2) / 2;
+    const path = document.createElementNS(ns, "path");
+    path.setAttribute("d", `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`);
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", "#2f5fd0");
+    path.setAttribute("stroke-opacity", "0.5");
+    path.setAttribute("stroke-width", "1.2");
+    path.setAttribute("stroke-dasharray", "3 3");
+    path.setAttribute("marker-end", "url(#foldArrow)");
+    traceSvg.appendChild(path);
+  }
+}
+
+function apply() {
+  const cols = document.querySelector('input[name="cols"]:checked').value;
+  form.style.setProperty("--cols", cols);
+  form.classList.toggle("show-help", helpToggle.checked);
+  form.classList.toggle("show-error", errorToggle.checked);
+  requestAnimationFrame(() => requestAnimationFrame(drawTrace));
+}
+
+document.querySelectorAll('input[name="cols"]').forEach((r) => r.addEventListener("change", apply));
+document.querySelectorAll('input[name="order"]').forEach((r) => r.addEventListener("change", () => {
+  applyOrder();
+  refreshNote();
+  apply();
+}));
+invoiceSelect.addEventListener("change", () => {
+  updateTax();
+  apply();
+});
+helpToggle.addEventListener("change", apply);
+errorToggle.addEventListener("change", apply);
+traceToggle.addEventListener("change", apply);
+
+let raf = 0;
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(drawTrace);
+});
+
+document.getElementById("submit").addEventListener("click", () => {});
+applyOrder();
+updateTax();
+apply();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawTrace);
+</script>
+</body>
+</html>

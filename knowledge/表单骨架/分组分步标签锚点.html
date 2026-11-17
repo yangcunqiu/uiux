@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分组、分步、标签页、锚点 · 藏了什么</title>
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#fff; --line:#e3e1db; --fg:#1c1c1a; --mute:#6f6d66;
+    --accent:#2f5fd0; --bad:#b02a1e; --warn:#8a5a00; --ok:#2f7a4f;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.65 "PingFang SC","Microsoft YaHei",system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:32px 24px 56px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+  header h1{font-size:23px;margin:0 0 8px;font-weight:650;letter-spacing:.01em}
+  header p{margin:0 0 6px;max-width:84ch;color:var(--mute)}
+  header p strong{color:var(--fg);font-weight:600}
+
+  .toolbar{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    margin-top:16px;padding:10px 14px;
+    background:#fff;border:1px solid var(--line);border-radius:10px;
+  }
+  .toolbar span.lab{font-size:13px;color:var(--mute)}
+  .toolbar label{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+  .toolbar input{accent-color:var(--accent);margin:0}
+  .toolbar button{
+    margin-left:auto;height:30px;padding:0 11px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:var(--fg);font:inherit;font-size:12.5px;
+  }
+  .toolbar button:hover{border-color:var(--accent);color:var(--accent)}
+
+  .readout{font-size:12px;color:var(--mute);margin:10px 2px 0;font-variant-numeric:tabular-nums;line-height:1.6}
+  .readout b{color:var(--fg);font-weight:600}
+  .summary{font-size:12.5px;line-height:1.6;margin:4px 2px 0;min-height:1.7em;color:var(--mute)}
+  .summary.bad{color:var(--bad)}
+  .summary.ok{color:var(--ok)}
+
+  .form-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px 18px;margin:12px auto 0;max-width:880px}
+  .form{display:block}
+  .flat{display:flex;flex-direction:column;gap:12px;max-width:520px}
+  .group{margin:0 0 16px;padding:0;border:0}
+  .group h3{font-size:14px;margin:0 0 8px;font-weight:650;color:#2c2b27}
+  .group.card{border:1px solid var(--line);border-radius:10px;padding:12px 14px 2px;background:#fcfbf8}
+  .group.card h3{font-size:13.5px}
+  .field{margin-bottom:10px;min-width:0}
+  .lab{display:block;font-size:13px;color:#3a3934;line-height:1.45;margin-bottom:4px}
+  .req{color:var(--bad);font-weight:600}
+  input[type=text], select{
+    width:100%;height:36px;padding:0 10px;
+    border:1px solid #d8d5cd;border-radius:6px;background:#fff;
+    font:inherit;font-size:14px;color:var(--fg);
+  }
+  input[type=text]:focus, select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .field.invalid input, .field.invalid select{border-color:var(--bad);background:#fff8f7}
+  .err{font-size:11.5px;color:var(--bad);line-height:1.45;margin:3px 0 0}
+  .err[hidden]{display:none}
+
+  /* 分步：编号 + 连接线 */
+  .stepper{display:flex;align-items:center;flex-wrap:wrap;margin:0 0 16px}
+  .step-item{
+    display:inline-flex;align-items:center;gap:7px;
+    border:0;background:none;padding:3px 0;margin:0;
+    font:inherit;font-size:12.5px;color:var(--mute);cursor:pointer;
+  }
+  .step-item .num{
+    width:22px;height:22px;border-radius:50%;flex:none;
+    display:grid;place-items:center;font-size:11px;
+    border:1px solid var(--line);background:#fff;color:var(--mute);
+  }
+  .step-item.active{color:var(--accent);font-weight:600}
+  .step-item.active .num{border-color:var(--accent);background:var(--accent);color:#fff}
+  .step-item.done .num{border-color:var(--accent);color:var(--accent)}
+  .step-line{flex:1;min-width:18px;height:1px;background:var(--line);margin:0 12px}
+  .step-body{min-height:120px;padding-bottom:2px}
+
+  /* 标签页：标签条 + 面板 */
+  .tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:0}
+  .tabs button{
+    display:inline-flex;align-items:center;gap:7px;
+    border:0;border-bottom:2px solid transparent;border-radius:0;
+    background:none;padding:9px 2px;margin:0;
+    font:inherit;font-size:13px;color:var(--mute);cursor:pointer;
+  }
+  .tabs button.active{color:var(--accent);font-weight:600;border-bottom-color:var(--accent)}
+  .tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .tabpanel{padding:14px 0 4px;min-height:140px}
+
+  .err-dot{width:6px;height:6px;border-radius:50%;background:var(--bad);flex:none}
+  .err-dot[hidden]{display:none}
+
+  .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid #f0eeea}
+  .submit,.next{
+    height:36px;padding:0 16px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-size:13px;
+  }
+  .submit:hover,.next:hover{filter:brightness(1.06)}
+  .submit:focus-visible,.next:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .ghost{
+    height:36px;padding:0 14px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--line);background:#fff;color:#3a3934;font:inherit;font-size:13px;
+  }
+  .ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .ghost:disabled{color:#b6b3ac;border-color:var(--line);background:#f7f6f1;cursor:not-allowed}
+  .actions .note{font-size:12px;color:var(--mute)}
+
+  .anchor-layout{display:grid;grid-template-columns:180px minmax(0,1fr);gap:20px;align-items:start}
+  .anchor-nav{position:sticky;top:16px;display:flex;flex-direction:column;gap:6px}
+  .anchor-nav a{
+    display:flex;align-items:center;gap:7px;
+    padding:6px 9px;border-radius:6px;color:#3a3934;text-decoration:none;
+    font-size:12.5px;border:1px solid transparent;
+  }
+  .anchor-nav a:hover{background:#f7f6f1;border-color:var(--line)}
+  .anchor-body .group{scroll-margin-top:16px}
+
+  footer{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  footer h2{font-size:14.5px;margin:0 0 8px;font-weight:650}
+  footer ol{margin:0;padding-left:1.4em}
+  footer li{margin-bottom:6px;color:#3a3934;font-size:13.5px}
+  footer li b{font-weight:600}
+  footer .note{font-size:12px;color:var(--mute);margin:10px 0 0}
+
+  @media (max-width:800px){
+    body{padding:24px 16px 48px}
+    .anchor-layout{grid-template-columns:1fr}
+    .anchor-nav{position:static;flex-direction:row;flex-wrap:wrap}
+    .toolbar button{margin-left:0}
+    .tabs{gap:16px;overflow-x:auto}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>分组、分步、标签页、锚点</h1>
+    <p><strong>四种结构，四种“藏法”。这一版把“下一步”和“提交”分开：分步只在最后一步提交，标签页只有一个提交，不在每个标签里。</strong></p>
+    <p>同一份 6 字段表单，切换结构，点「提交」留空：看错误藏在哪里、要看全还需要切换几次、提交边界在哪。</p>
+  </header>
+
+  <div class="toolbar">
+    <span class="lab">结构</span>
+    <label><input type="radio" name="mode" value="flat"> 平铺</label>
+    <label><input type="radio" name="mode" value="titles" checked> 标题分组</label>
+    <label><input type="radio" name="mode" value="cards"> 卡片分组</label>
+    <label><input type="radio" name="mode" value="mixed"> 标题 + 1 卡</label>
+    <label><input type="radio" name="mode" value="steps"> 分步</label>
+    <label><input type="radio" name="mode" value="tabs"> 标签页</label>
+    <label><input type="radio" name="mode" value="anchors"> 锚点</label>
+    <button type="button" id="reset">重置</button>
+  </div>
+
+  <p class="readout" id="readout"></p>
+  <p class="summary" id="summary" role="status"></p>
+
+  <section class="form-card">
+    <form class="form" id="app" novalidate></form>
+  </section>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li><b>平铺 / 标题 / 卡片</b>：都不藏内容，错误全在眼前。分组只加一层边界和名字；卡片比标题更重（边框、底色、内边距），也更占高度。卡片一多，页面就像一摞盒子——这就是“冗杂”。</li>
+      <li><b>标题 + 1 卡</b>：两种可以同时出现，但要有层级理由。比如其余段用标题，只有“发票信息”这种独立/可选的块用卡片；不是给每个段换一种包装。</li>
+      <li><b>分步</b>：第 1/2 步只有「上一步 / 下一步」，最后一步才有「提交」。下一步只校验当前步，不提交；提交才校验整张表。步骤上的红点是地图，提交会跳到第一个出错的步骤。</li>
+      <li><b>标签页</b>：标签条 + 面板，切换标签只换面板，不提交；整张表只有一个提交按钮，在面板下方。如果每个标签都有自己的提交，那是多个表单，不是同一个表单的分段。</li>
+      <li><b>锚点</b>：不藏内容，只加导航。所有段都在一页，错误仍然全在眼前；侧边导航只是位置感。代价是导航占宽、长页面滚动、移动端要换形态。</li>
+      <li><b>信号</b>：一起看 → 分组/锚点（不藏）；必须按顺序答 → 分步；彼此独立、可任意顺序 → 标签页；内容长但都要看 → 锚点。字段数不是理由，7 个还是 15 个只是症状。</li>
+    </ol>
+    <p class="note">这一版的分步是简化流程：没有最终复核页，步骤项可以点回去看。真实分步还可能有每步保存草稿；标签页也可能每页独立提交，但那是“多个表单并排”，提交边界跟着标签走，不是分段的标签页。</p>
+  </footer>
+</div>
+
+<script>
+const SECTIONS = [
+  { key: "basic", title: "基本信息", fields: [
+    { key: "name", label: "姓名", required: true },
+    { key: "phone", label: "手机号" }
+  ]},
+  { key: "invoice", title: "发票信息", fields: [
+    { key: "type", label: "发票类型", type: "select", options: ["增值税专用发票", "增值税普通发票"] },
+    { key: "tax", label: "税号", required: true }
+  ]},
+  { key: "approval", title: "审批信息", fields: [
+    { key: "approver", label: "审批人", required: true },
+    { key: "note", label: "备注" }
+  ]}
+];
+
+const ALL_FIELDS = SECTIONS.flatMap((s) => s.fields);
+const app = document.getElementById("app");
+const readout = document.getElementById("readout");
+const summary = document.getElementById("summary");
+
+const state = {
+  mode: "titles",
+  step: 0,
+  tab: 0,
+  values: { name: "", phone: "", type: "增值税专用发票", tax: "", approver: "", note: "" },
+  errors: {},
+  ok: false,
+  attempted: false
+};
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function fieldHTML(f) {
+  const val = state.values[f.key] || "";
+  const err = state.errors[f.key] || "";
+  const id = "f-" + f.key;
+  let control;
+  if (f.type === "select") {
+    control = `<select id="${id}" data-key="${f.key}">${f.options.map((o) => `<option${o === val ? " selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+  } else {
+    control = `<input type="text" id="${id}" data-key="${f.key}" value="${esc(val)}">`;
+  }
+  return `<div class="field${err ? " invalid" : ""}" data-field="${f.key}">
+    <label class="lab" for="${id}">${f.label}${f.required ? ' <span class="req">*</span>' : ""}</label>
+    ${control}
+    <p class="err" id="err-${f.key}"${err ? "" : " hidden"}>${esc(err)}</p>
+  </div>`;
+}
+
+function sectionHTML(s, card, withHeading) {
+  return `<section class="group${card ? " card" : ""}" id="sec-${s.key}">
+    ${withHeading ? `<h3>${s.title}</h3>` : ""}
+    ${s.fields.map(fieldHTML).join("")}
+  </section>`;
+}
+
+function submitHTML(noteText) {
+  return `<div class="actions"><button class="submit" type="submit">提交</button><span class="note">${noteText}</span></div>`;
+}
+
+function stepperHTML() {
+  return `<div class="stepper" aria-label="步骤">${SECTIONS.map((s, i) => `
+    <button type="button" class="step-item${i === state.step ? " active" : ""}${i < state.step ? " done" : ""}" data-action="step" data-step="${i}" aria-current="${i === state.step ? "step" : "false"}">
+      <span class="num">${i + 1}</span><span>${s.title}</span><span class="err-dot" data-section="${s.key}" hidden aria-hidden="true"></span>
+    </button>${i < SECTIONS.length - 1 ? '<span class="step-line" aria-hidden="true"></span>' : ""}`).join("")}</div>`;
+}
+
+function tabsHTML() {
+  return `<div class="tabs" role="tablist" aria-label="分组">${SECTIONS.map((s, i) => `
+    <button type="button" role="tab" id="tab-${s.key}" aria-selected="${i === state.tab}" aria-controls="tabpanel" data-action="tab" data-tab="${i}" class="${i === state.tab ? "active" : ""}">
+      ${s.title}<span class="err-dot" data-section="${s.key}" hidden aria-hidden="true"></span>
+    </button>`).join("")}</div>
+    <div class="tabpanel" id="tabpanel" role="tabpanel" aria-labelledby="tab-${SECTIONS[state.tab].key}">
+      ${SECTIONS[state.tab].fields.map(fieldHTML).join("")}
+    </div>`;
+}
+
+function navHTML() {
+  return `<nav class="anchor-nav" aria-label="页内导航">${SECTIONS.map((s) => `
+    <a href="#sec-${s.key}">${s.title}<span class="err-dot" data-section="${s.key}" hidden aria-hidden="true"></span></a>`).join("")}</nav>`;
+}
+
+function render() {
+  const mode = state.mode;
+  if (mode === "flat") {
+    app.innerHTML = `<div class="flat">${ALL_FIELDS.map(fieldHTML).join("")}</div>${submitHTML("整张表一起交")}`;
+  } else if (mode === "titles") {
+    app.innerHTML = SECTIONS.map((s) => sectionHTML(s, false, true)).join("") + submitHTML("整张表一起交");
+  } else if (mode === "cards") {
+    app.innerHTML = SECTIONS.map((s) => sectionHTML(s, true, true)).join("") + submitHTML("整张表一起交");
+  } else if (mode === "mixed") {
+    app.innerHTML = SECTIONS.map((s) => sectionHTML(s, s.key === "invoice", true)).join("") + submitHTML("整张表一起交");
+  } else if (mode === "steps") {
+    const last = state.step === SECTIONS.length - 1;
+    app.innerHTML = stepperHTML() +
+      `<div class="step-body">${SECTIONS[state.step].fields.map(fieldHTML).join("")}</div>` +
+      `<div class="actions">
+        <button type="button" class="ghost" data-action="prev"${state.step === 0 ? " disabled" : ""}>上一步</button>
+        ${last
+          ? `<button class="submit" type="submit">提交</button><span class="note">整张表一起交（第 ${SECTIONS.length} 步）</span>`
+          : `<button type="button" class="next" data-action="next">下一步</button><span class="note">下一步只校验当前步，不提交</span>`}
+      </div>`;
+  } else if (mode === "tabs") {
+    app.innerHTML = tabsHTML() + submitHTML("整张表一起交（切换标签不提交）");
+  } else if (mode === "anchors") {
+    app.innerHTML = `<div class="anchor-layout">${navHTML()}<div class="anchor-body">${SECTIONS.map((s) => sectionHTML(s, false, true)).join("")}${submitHTML("整张表一起交")}</div></div>`;
+  }
+  updateMeta();
+}
+
+function visibleSections() {
+  if (state.mode === "steps") return [SECTIONS[state.step]];
+  if (state.mode === "tabs") return [SECTIONS[state.tab]];
+  return SECTIONS;
+}
+
+function sectionHasError(s) {
+  return s.fields.some((f) => Boolean(state.errors[f.key]));
+}
+
+function validateSection(s) {
+  let count = 0;
+  s.fields.forEach((f) => {
+    if (f.required && !String(state.values[f.key] || "").trim()) {
+      state.errors[f.key] = "请填写" + f.label;
+      count++;
+    } else {
+      delete state.errors[f.key];
+    }
+  });
+  return count;
+}
+
+function validateAll() {
+  let count = 0;
+  SECTIONS.forEach((s) => { count += validateSection(s); });
+  return count;
+}
+
+function firstErrorIndex() {
+  return SECTIONS.findIndex((s) => sectionHasError(s));
+}
+
+function updateMeta() {
+  const vis = visibleSections();
+  const visibleFields = vis.reduce((n, s) => n + s.fields.length, 0);
+  const totalErrors = Object.keys(state.errors).length;
+  const visibleErrors = vis.reduce((n, s) => n + s.fields.filter((f) => state.errors[f.key]).length, 0);
+  const labels = { flat: "平铺", titles: "标题分组", cards: "卡片分组", mixed: "标题 + 1 卡", steps: "分步", tabs: "标签页", anchors: "锚点" };
+  const submission = state.mode === "steps"
+    ? `第 ${SECTIONS.length} 步的提交（整张表）`
+    : state.mode === "tabs"
+      ? "面板下方的提交（整张表）"
+      : "页尾的提交（整张表）";
+  let current = "全部";
+  if (state.mode === "steps") current = `第 ${state.step + 1} / ${SECTIONS.length} 步`;
+  if (state.mode === "tabs") current = SECTIONS[state.tab].title;
+  readout.innerHTML = `结构 <b>${labels[state.mode]}</b> · 提交边界：<b>${submission}</b> · 可见字段 <b>${visibleFields}/${ALL_FIELDS.length}</b> · 错误可见 <b>${visibleErrors}/${totalErrors}</b> · 当前 <b>${current}</b>`;
+
+  document.querySelectorAll("[data-section]").forEach((dot) => {
+    const s = SECTIONS.find((x) => x.key === dot.dataset.section);
+    dot.hidden = !sectionHasError(s);
+  });
+
+  const names = SECTIONS.flatMap((s) => s.fields.filter((f) => state.errors[f.key]).map((f) => `${f.label}（${s.title}）`)).join("、");
+  if (state.ok) {
+    summary.className = "summary ok";
+    summary.textContent = "已提交。";
+  } else if (state.attempted && totalErrors) {
+    summary.className = "summary bad";
+    summary.textContent = `还有 ${totalErrors} 项：${names}`;
+  } else if (state.attempted && !totalErrors) {
+    summary.className = "summary ok";
+    summary.textContent = "错误已清，可以提交。";
+  } else {
+    summary.className = "summary";
+    summary.textContent = "";
+  }
+}
+
+function clearFieldError(key) {
+  delete state.errors[key];
+  const field = app.querySelector(`[data-field="${key}"]`);
+  if (!field) return;
+  field.classList.remove("invalid");
+  const err = field.querySelector(".err");
+  if (err) { err.hidden = true; err.textContent = ""; }
+}
+
+function focusFirst() {
+  requestAnimationFrame(() => {
+    const first = app.querySelector(".field.invalid input, .field.invalid select");
+    if (first) first.focus();
+  });
+}
+
+app.addEventListener("input", (e) => {
+  const key = e.target.dataset.key;
+  if (!key) return;
+  state.values[key] = e.target.value;
+  state.ok = false;
+  clearFieldError(key);
+  updateMeta();
+});
+
+app.addEventListener("change", (e) => {
+  const key = e.target.dataset.key;
+  if (!key) return;
+  state.values[key] = e.target.value;
+  state.ok = false;
+  clearFieldError(key);
+  updateMeta();
+});
+
+app.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-action]");
+  if (!b) return;
+  const action = b.dataset.action;
+  if (action === "step") { state.step = Number(b.dataset.step); render(); return; }
+  if (action === "tab") { state.tab = Number(b.dataset.tab); render(); return; }
+  if (action === "prev") { state.step = Math.max(0, state.step - 1); render(); return; }
+  if (action === "next") {
+    const count = validateSection(SECTIONS[state.step]);
+    state.ok = false;
+    if (count) {
+      state.attempted = true;
+      render();
+      focusFirst();
+      return;
+    }
+    if (!Object.keys(state.errors).length) state.attempted = false;
+    state.step = Math.min(SECTIONS.length - 1, state.step + 1);
+    render();
+  }
+});
+
+app.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const count = validateAll();
+  state.ok = count === 0;
+  state.attempted = count > 0;
+  if (count) {
+    if (state.mode === "steps") state.step = firstErrorIndex();
+    if (state.mode === "tabs") state.tab = firstErrorIndex();
+  }
+  render();
+  if (count) focusFirst();
+});
+
+document.querySelectorAll('input[name="mode"]').forEach((r) => {
+  r.addEventListener("change", () => {
+    state.mode = document.querySelector('input[name="mode"]:checked').value;
+    render();
+  });
+});
+
+document.getElementById("reset").addEventListener("click", () => {
+  state.step = 0;
+  state.tab = 0;
+  state.values = { name: "", phone: "", type: "增值税专用发票", tax: "", approver: "", note: "" };
+  state.errors = {};
+  state.ok = false;
+  state.attempted = false;
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
