@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>受理与交代：按钮在结果回来之前说什么</title>
+<style>
+:root{--ink:#1f2328;--muted:#6b7280;--line:#e3e6ea;--bg:#f6f7f9;--card:#fff;
+  --brand:#2f6fed;--brand-h:#4b83f0;--brand-p:#2657bd;--danger:#b42318;--ok:#15803d}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1020px;margin:0 auto;padding:36px 24px 110px}
+h1{font-size:22px;margin:0 0 6px;letter-spacing:-.2px}
+.sub{color:var(--muted);margin:0}
+h2{font-size:16px;margin:42px 0 4px;padding-top:24px;border-top:1px solid var(--line)}
+h2 small{font-weight:400;color:var(--muted);font-size:12px;margin-left:8px}
+h3{font-size:13px;margin:0 0 2px}
+.note{color:var(--muted);font-size:13px;margin:0 0 12px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-top:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px 14px}
+.tag{display:inline-block;font:600 11px/1 ui-monospace,Consolas,monospace;letter-spacing:.06em;color:var(--muted);margin-bottom:10px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.read{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px;color:#4b5563;font-size:12.5px;line-height:1.7}
+.read b{color:var(--danger)}
+.read code{font:11.5px/1 ui-monospace,Consolas,monospace;background:#f1f3f6;padding:1px 4px;border-radius:3px}
+.b{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 16px;border:1px solid transparent;border-radius:6px;background:#fff;color:var(--ink);font:500 14px/1 inherit;cursor:pointer;transition:background .15s,border-color .15s,transform .06s,box-shadow .15s;white-space:nowrap}
+.b:focus-visible{outline:2px solid #0969da;outline-offset:2px}
+.b-primary{background:var(--brand);color:#fff}
+.b-primary:hover{background:var(--brand-h)}
+.b-primary:active{background:var(--brand-p)}
+.b-secondary{border-color:#c9d0d9;background:#fff}
+.b-secondary:hover{border-color:#9aa6b6;background:#f3f5f8}
+.b-secondary:active{background:#e8ecf1;transform:translateY(1px);box-shadow:inset 0 1px 3px rgba(16,24,40,.12)}
+.b-disabled{background:#eef0f3;color:#a4abb5;cursor:not-allowed}
+.b-disabled-alt{background:#eef0f3;color:#8a929d;cursor:not-allowed;border-style:dashed;border-color:#d7dde5}
+.b-text{border:0;background:transparent;color:var(--brand);padding:0 8px}
+.b-text:hover{background:#eef3fb}
+.b-ok{background:#e8f5ec;color:#186a3b;border-color:#b7dfc5}
+.state{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.state>span{font:11px/1.4 ui-monospace,Consolas,monospace;color:var(--muted)}
+.is-hover.b-primary{background:var(--brand-h)}
+.is-press.b-primary{background:var(--brand-p)}
+.is-hover.b-secondary{border-color:#9aa6b6;background:#f3f5f8}
+.is-press.b-secondary{background:#e8ecf1;transform:translateY(1px);box-shadow:inset 0 1px 3px rgba(16,24,40,.12)}
+.spin{width:12px;height:12px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none;border-color:rgba(255,255,255,.6)}.b{transition:none}}
+.count{font:11.5px/1.6 ui-monospace,Consolas,monospace;color:var(--muted)}
+table.ct{width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px}
+.ct th,.ct td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:middle}
+.ct th{font-weight:600;color:#374151;font-size:12px}
+.ct th code{font:11px/1 ui-monospace,Consolas,monospace;color:var(--muted)}
+.sw{display:inline-flex;align-items:center;justify-content:center;height:26px;min-width:52px;padding:0 10px;border-radius:6px;font:500 12px/1 inherit;color:#fff}
+.ratio{font:12px/1 ui-monospace,Consolas,monospace;margin-left:8px}
+.bad{color:var(--danger);font-weight:600}
+.good{color:var(--ok)}
+.banner{display:none;align-items:center;gap:8px;background:#eef7f1;border:1px solid #b7dfc5;color:#186a3b;border-radius:8px;padding:8px 12px;font-size:13px;margin:2px 0 10px}
+.banner.show{display:inline-flex}
+footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>受理与交代</h1>
+<p class="sub">一次点击之后、结果回来之前，按钮要回答的几句话：指到的是它吗、收到了吗、成了吗。</p>
+
+<h2>一、颜色只回答「指到的是它吗」 <small>而且不许把字变难读</small></h2>
+<p class="note">前两张是静态图（悬停、按下用类名画出来），第三张的读数是现场算的。</p>
+
+<div class="grid">
+  <div class="card">
+    <span class="tag">同一条通道</span>
+    <div class="row">
+      <div class="state"><button class="b b-primary">保存</button><span>正常</span></div>
+      <div class="state"><button class="b b-primary is-hover">保存</button><span>悬停：亮一档</span></div>
+      <div class="state"><button class="b b-primary is-press">保存</button><span>按下：暗一档</span></div>
+    </div>
+    <div class="read">三张图只有底色亮度在变。悬停在问「我指到的是它吗」，按下在问「收到了吗」——两个不同的问题由同一支笔回答，读起来像同一件事的亮和暗。</div>
+  </div>
+
+  <div class="card">
+    <span class="tag">两条通道</span>
+    <div class="row">
+      <div class="state"><button class="b b-secondary">预览</button><span>正常</span></div>
+      <div class="state"><button class="b b-secondary is-hover">预览</button><span>悬停：边框 + 底</span></div>
+      <div class="state"><button class="b b-secondary is-press">预览</button><span>按下：缩一档 + 内阴影</span></div>
+    </div>
+    <div class="read">悬停改「这是什么」（边框、底色），按下改「发生了什么」（位移、压下去）。两个通道说两层信息。<br>按下是叠加态：按下时指针一定还在上面，所以按下要在悬停的那一档上再走一步，不是从基础态重来。</div>
+  </div>
+
+  <div class="card" style="grid-column:1/-1">
+    <span class="tag">提亮一档的代价：白字的对比度</span>
+    <table class="ct">
+      <thead><tr><th>品牌色</th><th>常态</th><th>悬停 +16% 白</th><th>按下 +16% 黑</th></tr></thead>
+      <tbody id="ct-body"></tbody>
+    </table>
+    <div class="read" id="ct-read"></div>
+  </div>
+</div>
+
+<h2>二、受理：锁，不是动画 <small>转圈不拦任何东西</small></h2>
+<p class="note">下面三个按钮都能点。连点三次，看请求计了几次。</p>
+
+<div class="grid">
+  <div class="card">
+    <span class="tag">A · 只转圈</span>
+    <div class="row">
+      <button class="b b-primary" id="loadA">保存</button>
+      <span class="count" id="countA">请求 0 次</span>
+    </div>
+    <div class="read">转圈没有拦住任何东西：点三次就发三次请求。转圈在这里只是装饰。</div>
+  </div>
+
+  <div class="card">
+    <span class="tag">B · 受理态</span>
+    <div class="row">
+      <button class="b b-primary" id="loadB" style="width:118px">保存</button>
+      <span class="count" id="countB">请求 0 次</span>
+    </div>
+    <div class="read">转圈 + 文案 + 锁住 + 宽度不变：这是能被读出来的「已收到，还没成」。锁的价值大于动画，它防的是重复提交。</div>
+  </div>
+
+  <div class="card">
+    <span class="tag">C · 失败后回到常态</span>
+    <div class="row">
+      <button class="b b-primary" id="loadC" style="width:118px">保存</button>
+      <span class="count" id="countC">请求 0 次</span>
+    </div>
+    <div class="read">失败后按钮直接变回「保存」，没有一个字说明。用户会再点一次 —— 第二次是重复提交。<b>「恢复了」和「成功了」长得一样，这是失败的来源。</b></div>
+  </div>
+
+  <div class="card" style="grid-column:1/-1">
+    <span class="tag">宽度：受理态里最容易漏的一件事</span>
+    <div class="row">
+      <button class="b b-primary">保存</button>
+      <button class="b b-primary">保存中…</button>
+    </div>
+    <div class="read" id="wjump"></div>
+  </div>
+</div>
+
+<h2>三、交代：结果放在哪 <small>三个位置，一种最坏</small></h2>
+<p class="note">三个按钮做同一件事：假装保存成功。区别只在结果放哪。</p>
+
+<div class="grid">
+  <div class="card">
+    <span class="tag">A · 结果在按钮上</span>
+    <div class="row"><button class="b b-primary" id="sayA">保存</button></div>
+    <div class="read">按钮自己变成「已保存 ✓」，一会儿回到常态。位置最近，用户的视线不用移；适合结果确定、不需要核对的动作。</div>
+  </div>
+
+  <div class="card">
+    <span class="tag">B · 结果在页面上</span>
+    <div class="banner" id="bannerB" role="status">已保存 · 刚刚</div>
+    <div class="row"><button class="b b-primary" id="sayB">保存</button></div>
+    <div class="read">按钮回到常态，结果出现在页面上。能带更多信息（时间、对象、范围），需要核对的动作该用这一种。</div>
+  </div>
+
+  <div class="card">
+    <span class="tag">C · 什么都没说</span>
+    <div class="row"><button class="b b-primary" id="sayC">保存</button></div>
+    <div class="read">按钮回到常态，没有一个字。用户无法区分「成了」和「没点到」，于是再点一次。<b>不交代不是简洁，是把判断成本转给用户。</b></div>
+  </div>
+</div>
+
+<h2>四、不能按：禁用不是一种灰 <small>它和「次要」撞车</small></h2>
+<p class="note">工具栏上最常见的一行：一个能点的次按钮，一个不能点的主按钮。</p>
+
+<div class="grid">
+  <div class="card">
+    <span class="tag">撞车</span>
+    <div class="row">
+      <button class="b b-secondary">预览</button>
+      <button class="b b-disabled" disabled>提交审核</button>
+    </div>
+    <div class="read">两个都是中性灰的浅底、都安静。一个能点、一个不能点，外观没给出区别 —— 而禁用按钮恰恰收不到悬停和点击，解释不了自己。</div>
+  </div>
+
+  <div class="card">
+    <span class="tag">修法一：让禁用有自己的形状</span>
+    <div class="row">
+      <button class="b b-secondary">预览</button>
+      <button class="b b-disabled-alt" disabled>提交审核</button>
+      <span style="font-size:12px;color:var(--muted)">需先选择审批人</span>
+    </div>
+    <div class="read">虚线边、更浅的字、旁边一行原因。但原因不能只挂在禁用按钮自己身上：它没有悬停，也没有焦点，得有一个不禁用的载体。</div>
+  </div>
+
+  <div class="card">
+    <span class="tag">修法二：根本不做禁用按钮</span>
+    <div class="row">
+      <button class="b b-secondary">预览</button>
+      <button class="b b-text">选择审批人</button>
+      <span style="font-size:12px;color:var(--muted)">选好之后才能提交</span>
+    </div>
+    <div class="read">把「缺什么」变成一个能点的动作，主按钮等条件满足再出现。代价是布局会变（按钮多一个少一个），收益是屏幕上没有死的东西。</div>
+  </div>
+</div>
+
+<footer>
+  怎么看：第二节三个按钮各连点三次；第三节三个按钮都点一下，比较结果出现的位置；第四节比较两个灰按钮和两种修法。<br>
+  数值是演示值，不是推荐值。点击计数、失败路径、对比度计算已在 Chrome 里实际验证。
+</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(s,r){return (r||document).querySelector(s);};
+
+  function srgb(v){v/=255;return v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4);}
+  function lum(hex){var n=parseInt(hex.slice(1),16);return .2126*srgb((n>>16)&255)+.7152*srgb((n>>8)&255)+.0722*srgb(n&255);}
+  function contrast(a,b){var x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+  function mix(hex,other,t){var n=parseInt(hex.slice(1),16),m=parseInt(other.slice(1),16);
+    function c(i){return Math.round(((n>>i)&255)*(1-t)+((m>>i)&255)*t);}
+    return '#'+[16,8,0].map(function(i){return c(i).toString(16).padStart(2,'0');}).join('');}
+
+  var palette=[
+    {name:'浅蓝',hex:'#8ec5ff'},
+    {name:'中蓝',hex:'#2f6fed'},
+    {name:'深蓝',hex:'#1a3a8f'},
+    {name:'近黑',hex:'#14181f'}
+  ];
+  var tbody=$('#ct-body');
+  palette.forEach(function(p){
+    var tr=document.createElement('tr');
+    var th=document.createElement('th');
+    th.innerHTML=p.name+'<br><code>'+p.hex+'</code>';
+    tr.appendChild(th);
+    [{bg:p.hex},{bg:mix(p.hex,'#ffffff',.16)},{bg:mix(p.hex,'#000000',.16)}].forEach(function(s){
+      var r=contrast(s.bg,'#ffffff');
+      var td=document.createElement('td');
+      td.innerHTML='<span class="sw" style="background:'+s.bg+'">保存</span>'+
+        '<span class="ratio '+(r<4.5?'bad':'good')+'">'+r.toFixed(2)+'</span>';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  var mid=palette[1],light=palette[0];
+  var midHover=contrast(mix(mid.hex,'#ffffff',.16),'#ffffff');
+  var lightDark=contrast(light.hex,'#14181f');
+  $('#ct-read').innerHTML='白字要求 ≥ 4.5:1（WCAG 1.4.3，14px 正常字重）。'+mid.name+'在悬停时降到 <b>'+
+    midHover.toFixed(2)+':1</b> —— 「悬停提亮 16%」在中浅色品牌上会把字变难读，而悬停恰恰是用户瞄准的那一刻。'+
+    '浅色品牌色干脆不能用白字，换深字是 '+lightDark.toFixed(2)+':1。<br>'+
+    '所以「取色阶上相邻的两档」有个前提：基准色够深。这个前提比规则本身更重要。';
+
+  function spin(){return '<span class="spin" aria-hidden="true"></span>';}
+
+  var nA=0;
+  $('#loadA').addEventListener('click',function(){
+    nA++;$('#countA').textContent='请求 '+nA+' 次';
+    var b=$('#loadA');b.innerHTML=spin();
+    clearTimeout(b._t);b._t=setTimeout(function(){b.textContent='保存';},900);
+  });
+
+  var nB=0,lockB=false;
+  $('#loadB').addEventListener('click',function(){
+    if(lockB)return;
+    lockB=true;nB++;$('#countB').textContent='请求 '+nB+' 次';
+    var b=$('#loadB');b.disabled=true;b.innerHTML=spin()+' 保存中…';
+    setTimeout(function(){lockB=false;b.disabled=false;b.textContent='保存';},1500);
+  });
+
+  var nC=0,lockC=false;
+  $('#loadC').addEventListener('click',function(){
+    if(lockC)return;
+    lockC=true;nC++;$('#countC').textContent='请求 '+nC+' 次';
+    var b=$('#loadC');b.disabled=true;b.innerHTML=spin()+' 保存中…';
+    setTimeout(function(){lockC=false;b.disabled=false;b.textContent='保存';},1500);
+  });
+
+  function measureWidth(text){
+    var b=document.createElement('button');
+    b.className='b b-primary';b.textContent=text;
+    b.style.position='absolute';b.style.visibility='hidden';b.style.left='-9999px';
+    document.body.appendChild(b);
+    var w=b.getBoundingClientRect().width;
+    b.parentNode.removeChild(b);
+    return Math.round(w);
+  }
+  var w1=measureWidth('保存'),w2=measureWidth('保存中…');
+  $('#wjump').innerHTML='实测宽度：保存 <code>'+w1+'px</code>，保存中… <code>'+w2+'px</code>，差 '+(w2-w1)+
+    'px。宽度跟着文案走，受理态会把旁边的东西一起挪；固定宽度或先给它占位，几何才不动。';
+
+  $('#sayA').addEventListener('click',function(){
+    var b=$('#sayA');b.innerHTML='已保存 ✓';b.classList.add('b-ok');
+    setTimeout(function(){b.textContent='保存';b.classList.remove('b-ok');},1500);
+  });
+  $('#sayB').addEventListener('click',function(){
+    var banner=$('#bannerB');banner.classList.add('show');
+    setTimeout(function(){banner.classList.remove('show');},2000);
+  });
+  $('#sayC').addEventListener('click',function(){
+    var b=$('#sayC');b.textContent='保存中…';b.disabled=true;
+    setTimeout(function(){b.textContent='保存';b.disabled=false;},1200);
+  });
+})();
+</script>
+</body>
+</html>

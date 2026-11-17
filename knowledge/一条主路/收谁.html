@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>收谁：折叠是优先级声明</title>
+<style>
+:root{--ink:#1f2328;--muted:#6b7280;--line:#e3e6ea;--bg:#f6f7f9;--card:#fff;
+  --brand:#2f6fed;--brand-h:#4b83f0;--brand-p:#2657bd;--danger:#b42318;--ok:#15803d}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1020px;margin:0 auto;padding:36px 24px 110px}
+h1{font-size:22px;margin:0 0 6px;letter-spacing:-.2px}
+.sub{color:var(--muted);margin:0}
+h2{font-size:16px;margin:42px 0 4px;padding-top:24px;border-top:1px solid var(--line)}
+.note{color:var(--muted);font-size:13px;margin:0 0 12px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr));margin-top:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px 14px}
+.tag{display:inline-block;font:600 11px/1 ui-monospace,Consolas,monospace;letter-spacing:.06em;color:var(--muted);margin-bottom:10px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.read{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px;color:#4b5563;font-size:12.5px;line-height:1.7}
+.read b{color:var(--danger)}
+.b{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 16px;border:1px solid transparent;border-radius:6px;background:#fff;color:var(--ink);font:500 14px/1 inherit;cursor:pointer;transition:background .15s,border-color .15s;white-space:nowrap}
+.b:focus-visible{outline:2px solid #0969da;outline-offset:2px}
+.b-primary{background:var(--brand);color:#fff}
+.b-primary:hover{background:var(--brand-h)}
+.b-secondary{border-color:#c9d0d9;background:#fff}
+.b-secondary:hover{border-color:#9aa6b6;background:#f3f5f8}
+.b-sm{height:26px;padding:0 10px;font-size:12px}
+.toolbar{position:relative;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px dashed #cfd6df;border-radius:8px;padding:10px;background:#fbfcfd;margin:12px 0;max-width:380px}
+.more{position:relative;display:inline-block}
+.menu{display:none;position:absolute;right:0;top:calc(100% + 6px);min-width:132px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 28px rgba(16,24,40,.14);padding:5px;z-index:5}
+.menu button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:7px 10px;border-radius:5px;font:400 13px/1.4 inherit;color:var(--ink);cursor:pointer}
+.menu button:hover{background:#f3f5f8}
+.menu .sep{height:1px;background:var(--line);margin:4px 2px}
+.more.open .menu{display:block}
+.more .b[aria-expanded="true"]{background:#eef3fb;border-color:#9aa6b6}
+.sig{display:flex;gap:10px;align-items:flex-start;margin:8px 0}
+.sig .n{flex:none;width:20px;height:20px;border-radius:50%;background:#eef3fb;color:#2f6fed;font:600 11px/20px ui-monospace,Consolas,monospace;text-align:center;margin-top:2px}
+footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.8}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.b{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>收谁</h1>
+<p class="sub">折进去的动作，等于宣布“此刻不需要”。所以先决定谁可以被降级，再决定怎么塞。</p>
+
+<p class="note">四个工具栏是同一组动作的四种收法。点“更多”看里面。</p>
+
+<div class="grid">
+  <div class="card">
+    <span class="tag">全摊开</span>
+    <div class="toolbar">
+      <button class="b b-primary b-sm">提交</button>
+      <button class="b b-secondary b-sm">保存草稿</button>
+      <button class="b b-secondary b-sm">预览</button>
+      <button class="b b-secondary b-sm">导出</button>
+      <button class="b b-secondary b-sm">打印</button>
+      <button class="b b-secondary b-sm">设置</button>
+      <button class="b b-secondary b-sm">删除</button>
+    </div>
+    <div class="read">关着时能回答“有哪几个”，代价是工具栏换成两行，把下面的内容往下压。<b>放不下这件事没有被解决，只是被摊开了。</b></div>
+  </div>
+
+  <div class="card">
+    <span class="tag">收旁路，带数量</span>
+    <div class="toolbar">
+      <button class="b b-primary b-sm">提交</button>
+      <button class="b b-secondary b-sm">保存草稿</button>
+      <button class="b b-secondary b-sm">预览</button>
+      <button class="b b-secondary b-sm">删除</button>
+      <div class="more">
+        <button class="b b-secondary b-sm" data-toggle aria-haspopup="menu" aria-expanded="false">更多 3</button>
+        <div class="menu" role="menu">
+          <button role="menuitem">导出</button>
+          <button role="menuitem">打印</button>
+          <button role="menuitem">设置</button>
+        </div>
+      </div>
+    </div>
+    <div class="read">关着时能回答“4 个 + 藏了 3 个”，主路没动，后果重的动作（删除）也还在外面。<br>
+    <b>删除不常用，却没被收走</b>：低频只说明它不占地方，不说明它可以藏。</div>
+  </div>
+
+  <div class="card">
+    <span class="tag">只写“⋯”</span>
+    <div class="toolbar">
+      <button class="b b-primary b-sm">提交</button>
+      <button class="b b-secondary b-sm">保存草稿</button>
+      <button class="b b-secondary b-sm">预览</button>
+      <button class="b b-secondary b-sm">删除</button>
+      <div class="more">
+        <button class="b b-secondary b-sm" data-toggle aria-haspopup="menu" aria-expanded="false" aria-label="更多操作">⋯</button>
+        <div class="menu" role="menu">
+          <button role="menuitem">导出</button>
+          <button role="menuitem">打印</button>
+          <button role="menuitem">设置</button>
+        </div>
+      </div>
+    </div>
+    <div class="read">同样的收法，关着时答不了“有几个”。<b>数量不是内容，但它是关着时唯一能给的线索。</b></div>
+  </div>
+
+  <div class="card">
+    <span class="tag">收主路</span>
+    <div class="toolbar">
+      <button class="b b-secondary b-sm">保存草稿</button>
+      <button class="b b-secondary b-sm">预览</button>
+      <button class="b b-secondary b-sm">删除</button>
+      <div class="more">
+        <button class="b b-secondary b-sm" data-toggle aria-haspopup="menu" aria-expanded="false">更多 4</button>
+        <div class="menu" role="menu">
+          <button role="menuitem">提交</button>
+          <div class="sep"></div>
+          <button role="menuitem">导出</button>
+          <button role="menuitem">打印</button>
+          <button role="menuitem">设置</button>
+        </div>
+      </div>
+    </div>
+    <div class="read">关着时工具栏上没有“提交”：用户要走一次菜单才能完成主任务。<b>主路被收起来，等于这个页面不再宣布自己要做什么。</b></div>
+  </div>
+</div>
+
+<h2>什么时候该收</h2>
+<p class="note">没有能通用的数量阈值：取决于这一屏多宽、文案多长、动作的频率和后果分布。给一个数字，在任何一组具体条件下都会错。用信号代替：</p>
+
+<div class="card">
+  <div class="sig"><span class="n">1</span><div>主路开始被挤走、被换行，或者要滚动才能看见。</div></div>
+  <div class="sig"><span class="n">2</span><div>关着时回答不了“有几个、哪些”——用户要开一次才知道。</div></div>
+  <div class="sig"><span class="n">3</span><div>完成主任务要多走一次菜单。</div></div>
+  <div class="read" style="margin-top:14px">出现任一信号就该收；收的对象只能从“主路、退出、当前任务的唯一下一步”之外挑。</div>
+</div>
+
+<h2>收的时候不要动的两件事</h2>
+<div class="grid">
+  <div class="card">
+    <span class="tag">主路的位置</span>
+    <div class="read" style="border-top:0;margin-top:0;padding-top:0">收旁路时如果剩下的按钮重新居中，主按钮会跟着挪。固定在一端收，主路位置才稳定——用户记住的是位置，不是“第三个”。</div>
+  </div>
+  <div class="card">
+    <span class="tag">打开的方式</span>
+    <div class="read" style="border-top:0;margin-top:0;padding-top:0">click 优先，hover 只作补充：触摸没有 hover，折叠菜单通常还要连续操作。键盘打开和关闭的细节见「入口与回执」。</div>
+  </div>
+</div>
+
+<footer>
+  看什么：依次比较四个工具栏，注意“关着时能回答什么”；点“更多”看菜单里是哪几个，再试 Esc。<br>
+  演示值不是推荐值。菜单的开合、Esc 关闭、焦点返回已在 Chrome 里实际验证。
+</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  document.querySelectorAll('.more').forEach(function(wrap){
+    var trigger=wrap.querySelector('[data-toggle]');
+    trigger.addEventListener('click',function(e){
+      e.stopPropagation();
+      var willOpen=!wrap.classList.contains('open');
+      document.querySelectorAll('.more.open').forEach(function(other){
+        other.classList.remove('open');
+        other.querySelector('[data-toggle]').setAttribute('aria-expanded','false');
+      });
+      if(willOpen){
+        wrap.classList.add('open');
+        trigger.setAttribute('aria-expanded','true');
+      }
+    });
+  });
+  document.addEventListener('click',function(){
+    document.querySelectorAll('.more.open').forEach(function(wrap){
+      wrap.classList.remove('open');
+      wrap.querySelector('[data-toggle]').setAttribute('aria-expanded','false');
+    });
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='Escape')return;
+    document.querySelectorAll('.more.open').forEach(function(wrap){
+      wrap.classList.remove('open');
+      var t=wrap.querySelector('[data-toggle]');
+      t.setAttribute('aria-expanded','false');
+      t.focus();
+    });
+  });
+})();
+</script>
+</body>
+</html>

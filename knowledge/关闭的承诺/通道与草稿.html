@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>关掉的承诺：通道与草稿</title>
+<style>
+  :root{
+    --ink:#1b1f23; --muted:#5b6570; --line:#d8dee4; --soft:#eef1f4;
+    --accent:#2f6feb; --danger:#c0392b; --ok:#1f7a4d; --bg:#f6f7f9;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0}
+  body{font:15px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;color:var(--ink);background:#fff}
+  .wrap{max-width:1080px;margin:0 auto;padding:36px 24px 72px}
+  h1{font-size:23px;margin:0 0 8px}
+  .lede{margin:0 0 4px;color:var(--muted);font-size:14px}
+  .lede b{color:var(--ink)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:22px;align-items:center;margin:24px 0 14px;padding:14px 0;border-top:1px solid var(--soft);border-bottom:1px solid var(--soft)}
+  .field{display:flex;align-items:center;gap:9px}
+  .field > .k{font-size:13px;color:var(--muted);white-space:nowrap}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg label{position:relative;display:block}
+  .seg input{position:absolute;opacity:0;width:1px;height:1px}
+  .seg span{display:block;padding:6px 11px;font-size:13px;cursor:pointer;border-right:1px solid var(--line);background:#fff;user-select:none;white-space:nowrap}
+  .seg label:last-child span{border-right:0}
+  .seg input:checked + span{background:var(--ink);color:#fff}
+  .seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:-2px}
+  .check{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);cursor:pointer}
+  .check input{width:15px;height:15px;accent-color:var(--accent)}
+
+  .stage{position:relative;margin-top:18px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;min-height:470px}
+  .page{padding:18px 20px 20px}
+  .stage.is-panel .page{padding-right:376px}
+  .page-bar{display:flex;align-items:center;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--soft);flex-wrap:wrap}
+  .page-bar .spacer{flex:1}
+  .muted{color:#7d858f;font-size:13px}
+  .rows{list-style:none;margin:0;padding:6px 0 0}
+  .rows li{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid #f2f4f7;font-size:14px}
+  .rows li .spacer{flex:1}
+  .rows li .tag{font-size:12px;color:#5b6570;background:var(--bg);border-radius:20px;padding:2px 9px}
+
+  .btn{font:inherit;font-size:13.5px;padding:7px 15px;border-radius:7px;border:1px solid #cfd6dd;background:#fff;color:#2c343d;cursor:pointer;white-space:nowrap}
+  .btn:hover{background:#f7f8fa}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:#245fd0}
+  .btn:focus-visible{outline:2px solid #0b57d0;outline-offset:2px}
+  .btn.small{font-size:12.5px;padding:4px 10px}
+
+  .overlay{position:absolute;inset:0;background:rgba(17,24,39,.45);z-index:2}
+  .dialog{
+    position:absolute;z-index:3;display:flex;flex-direction:column;background:#fff;
+    border-radius:12px;box-shadow:0 20px 60px rgba(15,23,42,.28);overflow:hidden;
+    left:50%;top:24px;transform:translateX(-50%);width:min(460px,calc(100% - 48px));max-height:calc(100% - 48px);
+  }
+  .dialog.is-panel{
+    left:auto;right:16px;top:16px;transform:none;width:340px;max-height:calc(100% - 32px);
+    border:1px solid var(--line);box-shadow:0 8px 30px rgba(15,23,42,.14);
+  }
+  .d-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--soft);font-weight:600}
+  .d-close{font:inherit;font-size:19px;line-height:1;color:#8b95a0;background:none;border:0;padding:2px 6px;border-radius:6px;cursor:pointer}
+  .d-close:hover{background:#f1f3f6}
+  .d-body{padding:16px 18px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+  .d-body label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:#5b6570}
+  .d-body input,.d-body select,.d-body textarea{font:inherit;font-size:14px;color:var(--ink);padding:7px 10px;border:1px solid #d6dde5;border-radius:7px;background:#fff;width:100%}
+  .d-body textarea{min-height:66px;resize:vertical}
+  .d-body input:focus,.d-body select:focus,.d-body textarea:focus{outline:2px solid #b9cffb;outline-offset:0;border-color:var(--accent)}
+  .d-foot{display:flex;justify-content:flex-end;gap:9px;padding:12px 18px;border-top:1px solid var(--soft);background:#fcfcfd}
+  .warn{margin:0 0 0;padding:9px 12px;border-radius:8px;background:#fdf1ef;border:1px solid #f0cdc7;color:#9c3427;font-size:13px}
+
+  .undo{position:absolute;left:16px;right:16px;bottom:14px;z-index:4;display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:#1b1f23;color:#fff;font-size:13.5px;box-shadow:0 8px 24px rgba(15,23,42,.25)}
+  .undo b{font-variant-numeric:tabular-nums}
+  .undo .btn{background:#fff;border-color:#fff;color:#1b1f23}
+
+  .status{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:14px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .status div{background:#fff;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+  .status .k{font-size:12px;color:#7d858f}
+  .status b{font-size:14px;font-weight:600}
+  .status b.bad{color:var(--danger)}
+  .status b.ok{color:var(--ok)}
+
+  .logbox{margin-top:20px}
+  .logbox h2{font-size:14px;color:#5b6570;font-weight:500;margin:0 0 8px}
+  .log{list-style:none;margin:0;padding:0;font-size:13px;font-variant-numeric:tabular-nums}
+  .log li{padding:6px 0;border-bottom:1px solid #f2f4f7;color:#39424c}
+  .log li .t{color:#9aa4af;margin-right:10px}
+  .log li .c{font-weight:600}
+
+  h2.sec{font-size:16px;margin:34px 0 10px}
+  .notes{font-size:14px;color:#39424c;line-height:1.85}
+  .notes ul{margin:0;padding-left:20px}
+  .notes li{margin:7px 0}
+  .notes .small{font-size:12.5px;color:#7d858f;line-height:1.75}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:#f1f3f6;padding:1px 5px;border-radius:4px}
+
+  @media (max-width:900px){
+    .status{grid-template-columns:1fr 1fr}
+    .stage.is-panel .page{padding-right:284px}
+    .dialog.is-panel{left:auto;right:8px;top:8px;width:260px;max-height:calc(100% - 16px)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>关掉的承诺</h1>
+  <p class="lede">同一个表单，四条关闭通道，四种草稿策略。改两个输入，关一次，看内容去了哪。<b>先把草稿设成“不保存”，再用点外面关。</b></p>
+
+  <div class="controls">
+    <div class="field">
+      <span class="k">草稿策略</span>
+      <div class="seg" role="radiogroup" aria-label="草稿策略">
+        <label><input type="radio" name="draft" value="none" checked><span>不保存</span></label>
+        <label><input type="radio" name="draft" value="snapshot"><span>同会话快照</span></label>
+        <label><input type="radio" name="draft" value="explicit"><span>显式草稿</span></label>
+        <label><input type="radio" name="draft" value="ghost"><span>自动填进新建</span></label>
+      </div>
+    </div>
+    <div class="field">
+      <span class="k">弹窗形态</span>
+      <div class="seg" role="radiogroup" aria-label="弹窗形态">
+        <label><input type="radio" name="modal" value="modal" checked><span>模态</span></label>
+        <label><input type="radio" name="modal" value="panel"><span>非模态</span></label>
+      </div>
+    </div>
+    <div class="field">
+      <span class="k">点外面</span>
+      <div class="seg" role="radiogroup" aria-label="点外面">
+        <label><input type="radio" name="outside" value="close" checked><span>关</span></label>
+        <label><input type="radio" name="outside" value="stay"><span>不关</span></label>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="escCb" checked> Esc 关闭</label>
+    <label class="check"><input type="checkbox" id="xCb" checked> 显示 ×</label>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="page">
+      <div class="page-bar">
+        <strong>任务</strong>
+        <span class="muted">3 条待处理</span>
+        <span class="spacer"></span>
+        <button class="btn" id="bgBtn">记一笔</button>
+        <span class="muted">已记 <b id="bgCount">0</b> 次</span>
+        <button class="btn primary" id="newBtn">新建任务</button>
+      </div>
+      <ul class="rows">
+        <li><span>核对合同附件</span><span class="tag">待处理</span><span class="spacer"></span><span class="muted">11-13 10:24</span></li>
+        <li><span>补充开户资料</span><span class="tag">待处理</span><span class="spacer"></span><span class="muted">11-13 10:31</span></li>
+        <li><span>复核风险标签</span><span class="tag">待处理</span><span class="spacer"></span><span class="muted">11-13 10:42</span></li>
+      </ul>
+      <div id="draftSlot"></div>
+    </div>
+
+    <div class="overlay" id="overlay" hidden></div>
+
+    <div class="dialog" id="dialog" hidden role="dialog" aria-labelledby="dlgTitle">
+      <div class="d-head">
+        <span id="dlgTitle">新建任务</span>
+        <button class="d-close" id="xBtn" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="d-body">
+        <p class="warn" id="warn" hidden>反例：点的是“新建”，表里却是上次没提交的内容。</p>
+        <label>任务名称<input id="fName" type="text" placeholder="例如：核对合同附件"></label>
+        <label>处理对象
+          <select id="fTarget">
+            <option>杭州云栖科技</option>
+            <option>上海恒美贸易</option>
+            <option>深圳前海数据</option>
+          </select>
+        </label>
+        <label>备注<textarea id="fNote" placeholder="写点什么，用来观察关闭时丢没丢"></textarea></label>
+      </div>
+      <div class="d-foot">
+        <button class="btn" id="cancelBtn" type="button">取消</button>
+        <button class="btn primary" id="saveBtn" type="button">创建</button>
+      </div>
+    </div>
+
+    <div class="undo" id="undo" hidden>
+      <span>已关闭。内容还在，<b id="undoLeft">10</b> 秒后丢弃。</span>
+      <span style="flex:1"></span>
+      <button class="btn small" id="undoBtn" type="button">恢复</button>
+    </div>
+  </div>
+
+  <div class="status">
+    <div><span class="k">上次关闭</span><b id="stChannel">—</b></div>
+    <div><span class="k">内容去了哪</span><b id="stOutcome">—</b></div>
+    <div><span class="k">下次点新建</span><b id="stNext">空白</b></div>
+    <div><span class="k">丢掉的内容</span><b id="stLost">0 次</b></div>
+  </div>
+
+  <div class="logbox">
+    <h2>刚才发生了什么</h2>
+    <ol class="log" id="log"></ol>
+  </div>
+
+  <h2 class="sec">看什么</h2>
+  <div class="notes">
+    <ul>
+      <li><b>草稿设成“不保存”，改两格，点外面关。</b>丢掉计数 +1。表单越重，这一下越贵——这就是“层的轻重决定关闭的轻重”。</li>
+      <li><b>切成“同会话快照”，同样点外面关。</b>内容还在撤销条里，10 秒内能回来；新建入口仍然是空白。</li>
+      <li><b>切成“显式草稿”。</b>关掉后列表里多一条“未完成的新建”，点它才恢复。新建入口还是空白——草稿属于一个条目，不属于入口。</li>
+      <li><b>切成“自动填进新建”。</b>关掉再点新建：表里是上次的内容，标题上方出现红条。这就是幽灵草稿——用户以为是空白，系统给了残留。</li>
+      <li><b>把形态切成“非模态”，再点背景的“记一笔”。</b>计数先加、面板随之关闭：非模态的“点外面”是失焦关闭，背景动作照常执行。模态下点同一个位置只会点到遮罩——按钮不触发，弹窗被关掉。</li>
+      <li><b>关掉 × 或 Esc，再试。</b>通道少一条，剩下的通道就要承担更多；这时候“点外面关”是帮手还是陷阱，取决于草稿策略。</li>
+    </ul>
+    <p class="small">这个演示只测结构，不测人：没有测误触率，也没有测撤销条会不会被看见。撤销窗口固定 10 秒，是演示值。表单只有三个字段，真实的重层可能更长。焦点在打开时落在第一个输入框，关闭后回到“新建任务”，但没有做完整的焦点陷阱。</p>
+  </div>
+</div>
+
+<script>
+const state = {
+  draft: 'none',
+  modal: true,
+  outsideClose: true,
+  escClose: true,
+  showX: true,
+  open: false,
+  initial: null,
+  lastDraft: null,
+  undoDeadline: 0,
+  lost: 0,
+  bgCount: 0,
+  lastChannel: '—',
+  lastOutcome: '—'
+};
+
+const $ = (id) => document.getElementById(id);
+const dialog = $('dialog'), overlay = $('overlay'), undo = $('undo');
+const fName = $('fName'), fTarget = $('fTarget'), fNote = $('fNote');
+const stage = $('stage');
+
+function readForm(){
+  return { name: fName.value.trim(), target: fTarget.value, note: fNote.value.trim() };
+}
+function fillForm(d){
+  fName.value = d ? d.name : '';
+  fTarget.value = d && d.target ? d.target : fTarget.options[0].value;
+  fNote.value = d ? d.note : '';
+}
+function isDirty(){
+  if (!state.initial) return false;
+  const a = readForm(), b = state.initial;
+  return a.name !== b.name || a.target !== b.target || a.note !== b.note;
+}
+function now(){
+  const d = new Date();
+  return [d.getHours(), d.getMinutes(), d.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+}
+function log(text, channel){
+  const li = document.createElement('li');
+  li.innerHTML = '<span class="t">' + now() + '</span>' +
+    (channel ? '<span class="c">' + channel + '</span> · ' : '') + text;
+  const list = $('log');
+  list.insertBefore(li, list.firstChild);
+  while (list.children.length > 8) list.removeChild(list.lastChild);
+}
+
+function applyShape(){
+  dialog.classList.toggle('is-panel', !state.modal);
+  dialog.setAttribute('aria-modal', state.modal ? 'true' : 'false');
+  stage.classList.toggle('is-panel', !state.modal && state.open);
+  $('xBtn').hidden = !state.showX;
+}
+
+function openDialog(prefill, why){
+  const fromDraft = !!prefill;
+  fillForm(prefill);
+  state.initial = readForm();
+  state.open = true;
+  dialog.hidden = false;
+  overlay.hidden = !state.modal;
+  applyShape();
+  $('warn').hidden = !(fromDraft && state.draft === 'ghost');
+  render();
+  fName.focus();
+  const cameFromDraft = fromDraft && state.draft === 'ghost';
+  log('打开：新建任务' + (cameFromDraft ? '（表里是上次草稿）' : ''), cameFromDraft ? '草稿' : '');
+}
+
+function closeDialog(channel){
+  if (!state.open) return;
+
+  if (channel === '创建') {
+    state.open = false;
+    state.lastDraft = null;
+    state.lastChannel = '创建';
+    state.lastOutcome = '已创建，草稿清空';
+    dialog.hidden = true;
+    overlay.hidden = true;
+    $('warn').hidden = true;
+    applyShape();
+    render();
+    $('newBtn').focus();
+    log('已创建', '创建');
+    return;
+  }
+
+  const dirty = isDirty();
+  const data = readForm();
+  let outcome = '没有改动，直接关';
+
+  if (dirty) {
+    if (state.draft === 'none') {
+      state.lost++;
+      outcome = '丢了';
+    } else if (state.draft === 'snapshot') {
+      state.lastDraft = data;
+      startUndo();
+      outcome = '在撤销条里';
+    } else if (state.draft === 'explicit') {
+      state.lastDraft = data;
+      outcome = '存为草稿条目';
+    } else if (state.draft === 'ghost') {
+      state.lastDraft = data;
+      outcome = '存为草稿，下次新建会带进来';
+    }
+  }
+
+  state.open = false;
+  state.lastChannel = channel;
+  state.lastOutcome = outcome;
+  dialog.hidden = true;
+  overlay.hidden = true;
+  $('warn').hidden = true;
+  applyShape();
+  render();
+  $('newBtn').focus();
+  log(outcome, channel);
+}
+
+function startUndo(){
+  state.undoDeadline = Date.now() + 10000;
+  undo.hidden = false;
+  tickUndo();
+  if (state._undoTimer) clearInterval(state._undoTimer);
+  state._undoTimer = setInterval(tickUndo, 200);
+}
+function tickUndo(){
+  const left = Math.max(0, state.undoDeadline - Date.now());
+  if (left <= 0) {
+    clearInterval(state._undoTimer);
+    state._undoTimer = null;
+    undo.hidden = true;
+    state.lastDraft = null;
+    state.lastOutcome = '撤销窗口过期，内容丢了';
+    state.lost++;
+    render();
+    log('撤销窗口过期，内容丢了', '快照');
+    return;
+  }
+  $('undoLeft').textContent = Math.ceil(left / 1000);
+}
+
+function render(){
+  $('stChannel').textContent = state.lastChannel;
+  const out = $('stOutcome');
+  out.textContent = state.lastOutcome;
+  out.className = (state.lastOutcome === '丢了' || state.lastOutcome.indexOf('过期') >= 0) ? 'bad'
+                : (state.lastOutcome === '—' ? '' : 'ok');
+
+  const next = $('stNext');
+  const ghostReady = state.draft === 'ghost' && state.lastDraft;
+  next.textContent = ghostReady ? '会被上次草稿填满' : '空白';
+  next.className = ghostReady ? 'bad' : '';
+
+  $('stLost').textContent = state.lost + ' 次';
+  $('bgCount').textContent = state.bgCount;
+
+  const slot = $('draftSlot');
+  slot.innerHTML = '';
+  if (state.draft === 'explicit' && state.lastDraft) {
+    const d = state.lastDraft;
+    const box = document.createElement('div');
+    box.style.cssText = 'margin-top:16px;padding:12px 14px;border:1px dashed #cfd6dd;border-radius:9px;display:flex;align-items:center;gap:10px;font-size:13.5px';
+    const label = d.name || d.note || '未命名';
+    box.innerHTML = '<span>未完成的新建 · <b>' + escapeHtml(label) + '</b> · ' +
+      ((d.name ? 1 : 0) + (d.note ? 1 : 0)) + ' 项已填</span><span style="flex:1"></span>' +
+      '<button class="btn small" id="resumeBtn" type="button">继续</button>' +
+      '<button class="btn small" id="dropBtn" type="button">删除</button>';
+    slot.appendChild(box);
+    box.querySelector('#resumeBtn').addEventListener('click', () => {
+      openDialog(state.lastDraft, ' · 从草稿继续');
+    });
+    box.querySelector('#dropBtn').addEventListener('click', () => {
+      state.lastDraft = null;
+      render();
+      log('删除了草稿条目', '草稿');
+    });
+  }
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- 事件 ---------- */
+$('newBtn').addEventListener('click', () => {
+  const prefill = (state.draft === 'ghost' && state.lastDraft) ? state.lastDraft : null;
+  openDialog(prefill);
+});
+$('cancelBtn').addEventListener('click', () => closeDialog('取消'));
+$('saveBtn').addEventListener('click', () => closeDialog('创建'));
+$('xBtn').addEventListener('click', () => closeDialog('×'));
+$('bgBtn').addEventListener('click', () => {
+  state.bgCount++;
+  render();
+  log('背景动作执行了（记一笔）', '背景');
+});
+$('undoBtn').addEventListener('click', () => {
+  if (!state.lastDraft) return;
+  const d = state.lastDraft;
+  undo.hidden = true;
+  clearInterval(state._undoTimer);
+  state._undoTimer = null;
+  openDialog(d, ' · 从撤销条恢复');
+});
+
+/* 模态：点遮罩关闭 */
+overlay.addEventListener('pointerdown', (e) => {
+  if (e.target !== overlay) return;
+  if (!state.outsideClose) { log('点遮罩：设置是“不关”', '点外面'); return; }
+  closeDialog('点外面（遮罩）');
+});
+
+/* 非模态：点层外任何地方关闭；背景动作照常执行 */
+document.addEventListener('pointerdown', (e) => {
+  if (!state.open || state.modal) return;
+  if (dialog.contains(e.target)) return;
+  if (!state.outsideClose) { log('点外面：设置是“不关”', '点外面'); return; }
+  closeDialog('点外面（失焦）');
+}, true);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || !state.open) return;
+  e.preventDefault();
+  if (!state.escClose) { log('Esc：设置是不关', 'Esc'); return; }
+  closeDialog('Esc');
+});
+
+document.querySelectorAll('input[name="draft"]').forEach(r => {
+  r.addEventListener('change', () => {
+    state.draft = r.value;
+    if (r.value !== 'snapshot') { undo.hidden = true; if (state._undoTimer) { clearInterval(state._undoTimer); state._undoTimer = null; } }
+    if (r.value === 'none' || r.value === 'ghost') { /* 保留 lastDraft 只给 ghost 用 */ }
+    if (r.value === 'none') state.lastDraft = null;
+    render();
+  });
+});
+document.querySelectorAll('input[name="modal"]').forEach(r => {
+  r.addEventListener('change', () => {
+    state.modal = r.value === 'modal';
+    overlay.hidden = !(state.open && state.modal);
+    applyShape();
+  });
+});
+document.querySelectorAll('input[name="outside"]').forEach(r => {
+  r.addEventListener('change', () => { state.outsideClose = r.value === 'close'; });
+});
+$('escCb').addEventListener('change', () => { state.escClose = $('escCb').checked; });
+$('xCb').addEventListener('change', () => { state.showX = $('xCb').checked; applyShape(); });
+
+applyShape();
+render();
+log('准备好了。点“新建任务”开始。');
+
+/* ---------- 直达状态（截图用，也可以手动改地址栏） ---------- */
+const q = new URLSearchParams(location.search);
+function setRadio(name, value){
+  const r = document.querySelector('input[name="' + name + '"][value="' + value + '"]');
+  if (r && !r.checked) { r.checked = true; r.dispatchEvent(new Event('change')); }
+}
+const sample = { name: '核对合同附件', target: '上海恒美贸易', note: '等财务回消息' };
+if (q.get('draft')) setRadio('draft', q.get('draft'));
+if (q.get('shape')) setRadio('modal', q.get('shape'));
+if (q.get('outside')) setRadio('outside', q.get('outside'));
+
+const sc = q.get('scenario');
+if (sc === 'undo') {
+  setRadio('draft', 'snapshot');
+  openDialog(sample);
+  fNote.value = '等财务回消息，另外补一条：合同第 3 页缺签章';
+  closeDialog('点外面');
+} else if (sc === 'explicit') {
+  setRadio('draft', 'explicit');
+  openDialog(sample);
+  fNote.value = '等财务回消息，另外补一条：合同第 3 页缺签章';
+  closeDialog('点外面');
+} else if (sc === 'ghost') {
+  setRadio('draft', 'ghost');
+  state.lastDraft = sample;
+  openDialog(sample);
+} else if (sc === 'lost') {
+  setRadio('draft', 'none');
+  openDialog(sample);
+  fNote.value = '改了一行，然后被关掉';
+  closeDialog('点外面');
+} else if (sc === 'create') {
+  setRadio('draft', 'explicit');
+  openDialog(sample);
+  fNote.value = '改了一行，然后创建';
+  closeDialog('创建');
+} else if (sc === 'mask') {
+  openDialog(sample);
+  fNote.value = '改了一行，然后点遮罩';
+  overlay.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+} else if (sc === 'esc') {
+  openDialog(sample);
+  fNote.value = '改了一行，然后按 Esc';
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+} else if (sc === 'panel-bg') {
+  setRadio('modal', 'panel');
+  openDialog(sample);
+  const target = $('bgBtn');
+  target.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  target.click();
+} else if (sc === 'open') {
+  openDialog(sample);
+}
+</script>
+</body>
+</html>

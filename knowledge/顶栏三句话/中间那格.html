@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>顶栏中间那格：四种手机塞法 + 一张 B 端</title>
+<style>
+  :root{
+    --bg:#eceef2;
+    --surface:#fff;
+    --ink:#14181f;
+    --muted:#6b7280;
+    --faint:#9aa1ac;
+    --line:#e7e9ee;
+    --soft:#f4f5f8;
+    --accent:#2b6cf6;
+    --ok:#12805c;
+    color-scheme:light;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    color:var(--ink);
+    background:var(--bg);
+    padding:28px 20px 44px;
+  }
+  .page{max-width:1320px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 8px;letter-spacing:.01em}
+  .lede{margin:0 0 14px;color:#3b424e;max-width:80ch}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:6px}
+  .tool{
+    font:inherit;font-size:13px;padding:7px 12px;border-radius:9px;
+    border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;
+    box-shadow:0 1px 1px rgba(16,19,24,.04);
+  }
+  .tool:hover{background:#f7f8fa}
+  .tool:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  #note{font-size:12.5px;color:var(--accent);min-height:1.6em}
+  .hint{font-size:12.5px;color:var(--muted);margin:4px 0 22px;max-width:82ch}
+
+  .grid{display:flex;flex-wrap:wrap;gap:22px;justify-content:center}
+
+  .case{width:288px;display:flex;flex-direction:column}
+  .case-head h2{font-size:14px;margin:0 0 1px}
+  .case-head p{margin:0 0 10px;font-size:12.5px;color:var(--muted)}
+  .case-head b{color:var(--ink);font-weight:600}
+
+  .pane{
+    height:560px;background:var(--surface);border:1px solid #dfe3ea;border-radius:20px;
+    display:flex;flex-direction:column;overflow:hidden;position:relative;
+    box-shadow:0 1px 2px rgba(16,19,24,.08),0 10px 26px -20px rgba(16,19,24,.55);
+  }
+
+  .bar{
+    flex:0 0 52px;display:grid;grid-template-columns:40px 1fr 40px;align-items:center;
+    padding:0 4px;background:#fff;position:relative;z-index:3;
+    border-bottom:1px solid transparent;
+    transition:box-shadow .18s ease,border-color .18s ease;
+  }
+  .bar.is-scrolled{
+    border-bottom-color:var(--line);
+    box-shadow:0 10px 14px -12px rgba(16,19,24,.55);
+  }
+  .bar-center{min-width:0;display:flex;justify-content:center;align-items:center}
+  .bar-title{
+    font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;max-width:100%;
+  }
+  .case[data-variant="bigtitle"] .bar-title{
+    opacity:0;visibility:hidden;
+    transition:opacity .2s ease;
+  }
+  .case[data-variant="bigtitle"] .bar.title-on .bar-title{opacity:1;visibility:visible}
+
+  .icon{
+    width:36px;height:36px;display:grid;place-items:center;border:0;border-radius:10px;
+    background:transparent;color:var(--ink);cursor:pointer;
+  }
+  .icon:hover{background:var(--soft)}
+  .icon:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  .seg{display:flex;gap:2px;background:var(--soft);border-radius:9px;padding:2px;width:100%}
+  .seg button{
+    flex:1;min-width:0;font:inherit;font-size:12px;line-height:1;padding:6px 2px;
+    border:0;border-radius:7px;background:transparent;color:#4b5563;cursor:pointer;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .seg button[aria-pressed="true"]{
+    background:#fff;color:var(--ink);font-weight:600;
+    box-shadow:0 1px 2px rgba(16,19,24,.12);
+  }
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  .searchfake{
+    display:flex;align-items:center;gap:6px;width:100%;height:34px;padding:0 10px;
+    border:0;border-radius:17px;background:var(--soft);color:var(--faint);
+    font:inherit;font-size:12px;cursor:pointer;text-align:left;
+    white-space:nowrap;overflow:hidden;
+  }
+  .searchfake:hover{background:#eceef2}
+  .searchfake:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .searchfake svg{flex:0 0 auto}
+
+  .content{
+    flex:1;overflow-y:auto;overscroll-behavior:contain;padding:12px;
+    background:#f7f8fb;scrollbar-width:thin;
+  }
+  .content:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+  .content::-webkit-scrollbar{width:8px}
+  .content::-webkit-scrollbar-thumb{background:#d6dae1;border-radius:8px}
+
+  .hero{padding:6px 4px 16px}
+  .hero h1{font-size:21px;margin:0 0 4px;letter-spacing:.01em}
+  .hero p{margin:0;font-size:12px;color:var(--muted)}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .card h3{margin:0 0 8px;font-size:12.5px;font-weight:600;color:#4b5563;letter-spacing:.02em}
+
+  .status{background:linear-gradient(180deg,#fff,#fbfcff)}
+  .status-row{display:flex;align-items:center;gap:8px}
+  .pill{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;background:#fff4e5;color:#9a5b00}
+  .muted{color:var(--muted)}
+  .small{font-size:11.5px}
+  .row-actions{display:flex;gap:8px;margin-top:10px}
+  .btn{
+    font:inherit;font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;
+    border:1px solid var(--accent);background:var(--accent);color:#fff;
+  }
+  .btn.ghost{background:#fff;color:var(--ink);border-color:#d9dde4}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:0;font-size:12px}
+  .kv dt{color:var(--muted)}
+  .kv dd{margin:0;text-align:right;color:var(--ink)}
+  .kv .total{font-weight:600;border-top:1px dashed var(--line);padding-top:6px}
+
+  .item{display:flex;gap:10px;padding:8px 0;border-top:1px solid #f1f2f5}
+  .item:first-of-type{border-top:0;padding-top:0}
+  .thumb{
+    flex:0 0 40px;height:40px;border-radius:8px;background:var(--soft);
+    display:grid;place-items:center;font-size:12px;color:var(--faint);
+  }
+  .item-main{flex:1;min-width:0}
+  .item-name{font-size:12px;line-height:1.45;margin:0}
+  .item-spec{font-size:11px;color:var(--faint);margin:2px 0 0}
+  .item-side{font-size:11.5px;color:var(--muted);text-align:right;white-space:nowrap}
+
+  .timeline{list-style:none;margin:0;padding:0 0 0 14px;position:relative}
+  .timeline::before{content:"";position:absolute;left:3px;top:6px;bottom:6px;width:1px;background:var(--line)}
+  .timeline li{position:relative;padding:0 0 10px;font-size:11.5px;color:var(--faint)}
+  .timeline li:last-child{padding-bottom:0}
+  .timeline li::before{
+    content:"";position:absolute;left:-14px;top:5px;width:7px;height:7px;
+    border-radius:50%;background:#d7dbe2;
+  }
+  .timeline li.on{color:var(--ink)}
+  .timeline li.on::before{background:var(--accent)}
+  .timeline b{font-weight:600;margin-right:6px;font-variant-numeric:tabular-nums}
+
+  .log{list-style:none;margin:0;padding:0;font-size:11.5px;color:var(--muted)}
+  .log li{padding:4px 0;border-top:1px solid #f3f4f7}
+  .log li:first-child{border-top:0}
+  .log b{color:var(--ink);font-variant-numeric:tabular-nums;margin-right:8px;font-weight:600}
+
+  .verdict{display:flex;align-items:center;gap:7px;margin:10px 0 0;font-size:12px;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:#d3d7de;transition:background .15s ease}
+  .dot.on{background:var(--ok)}
+  .case-note{margin:4px 0 0;font-size:11.5px;color:var(--faint);line-height:1.5}
+
+  /* 桌面窗格 */
+  .wide-wrap{display:flex;justify-content:center;margin-top:26px}
+  .case-wide{width:100%;max-width:960px}
+  .pane.desktop{flex-direction:row}
+  .side{
+    flex:0 0 172px;background:#fbfbfd;border-right:1px solid var(--line);
+    padding:14px 10px;display:flex;flex-direction:column;
+  }
+  .brand{font-size:13px;font-weight:600;margin:0 0 8px;padding:0 8px}
+  .side-nav{display:flex;flex-direction:column;gap:2px}
+  .nav-item{
+    text-align:left;border:0;background:transparent;font:inherit;font-size:12.5px;
+    color:#4b5563;padding:7px 8px;border-radius:8px;cursor:pointer;
+  }
+  .nav-item:hover{background:#f2f4f7}
+  .nav-item.is-active{background:#eaf0fe;color:#1d4ed8;font-weight:600}
+  .subnav{
+    display:flex;flex-direction:column;gap:2px;margin:2px 0 6px 10px;
+    padding-left:8px;border-left:1px solid var(--line);
+  }
+  .sub{
+    text-align:left;border:0;background:transparent;font:inherit;font-size:12px;
+    color:var(--muted);padding:5px 8px;border-radius:7px;cursor:pointer;
+  }
+  .sub:hover{background:#f2f4f7}
+  .sub.is-active{color:var(--ink);font-weight:600;background:#f2f4f7}
+  .nav-item:focus-visible,.sub:focus-visible,.tool-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .bar-desktop{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 14px}
+  .crumbs{
+    display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);
+    min-width:0;overflow:hidden;white-space:nowrap;
+  }
+  .crumbs i{font-style:normal;color:#c8ccd4}
+  .crumbs span:last-child{color:var(--ink);font-weight:600}
+  .bar-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .tool-btn{
+    font:inherit;font-size:12px;padding:6px 10px;border-radius:8px;
+    border:1px solid #d9dde4;background:#fff;color:var(--ink);cursor:pointer;
+  }
+  .tool-btn:hover{background:#f7f8fa}
+  .icon-sm{width:30px;height:30px}
+  .content-inner{max-width:640px;margin:0 auto}
+
+  .foot{margin:30px auto 0;max-width:88ch;font-size:12.5px;color:#3b424e}
+  .foot h2{font-size:13px;margin:0 0 6px}
+  .foot ul{margin:0;padding-left:18px}
+  .foot li{margin:4px 0}
+  .foot code{font-size:12px;background:#fff;border:1px solid var(--line);border-radius:4px;padding:0 4px}
+
+  @media (max-width:660px){
+    body{padding:18px 12px 32px}
+    .pane{height:480px}
+    .case{width:min(100%,288px)}
+  }
+  @media (max-width:640px){
+    .side{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>顶栏中间那格：四种手机塞法 + 一张 B 端</h1>
+  <p class="lede">同一张二级页面（订单详情），内容一字不差，只有顶栏中间那格不同。前四张是手机的四种塞法，最后一张换成桌面端的典型解法（侧边导航 + 面包屑）。五张都能滚：往下滚，看屏幕上还剩不剩“这是哪条订单”。</p>
+  <div class="toolbar">
+    <button type="button" class="tool" id="align">同时滚到 60%</button>
+    <button type="button" class="tool" id="reset">全部回到顶部</button>
+    <span id="note" role="status" aria-live="polite"></span>
+  </div>
+  <p class="hint">灯亮＝屏幕上还能看到订单号。这是“页面有没有在回答”的代理指标：灯灭不等于用户一定认不出（商品图、商品名也可能是线索），灯亮也不等于用户真记得住。</p>
+
+  <main class="grid" id="grid"></main>
+  <div class="wide-wrap" id="wide"></div>
+
+  <section class="foot">
+    <h2>看什么</h2>
+    <ul>
+      <li>点“同时滚到 60%”：②③ 的灯同时灭，①④⑤ 不灭。</li>
+      <li>② 的分段现在跟着滚动走：滚到物流，它就亮物流。它答得了“哪一段”，答不了“哪一条”。</li>
+      <li>拽着 ④ 慢慢滚：大标题离开顶栏底部的那一刻，顶栏才把名字接过去。</li>
+      <li>③ 是把首页的做法搬到详情页，观感怪是正常的——借位有前提，这张只负责显示“借走之后丢什么”。</li>
+      <li>⑤ 的面包屑把路径钉在顶栏上：滚到哪，“从哪来”和“哪一条”都在。它不由中间那格回答，而由左侧那串路径回答。</li>
+      <li>五张顶栏在开始滚动后都出现阴影——这个“内容从下面经过”的信号，和中间放什么无关。</li>
+    </ul>
+  </section>
+</div>
+
+<noscript>这个演示用原生 JavaScript 生成窗格和状态灯，需要开启脚本。</noscript>
+
+<script>
+(function(){
+  'use strict';
+
+  var I = {
+    back: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+    more: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
+    search: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>'
+  };
+
+  var CASES = [
+    {
+      id: 'title',
+      name: '① 标题居中',
+      mid: '哪一条',
+      note: '中间那格放着订单号，滚到哪它都在。',
+      center: '<div class="bar-center"><div class="bar-title" data-obj>订单 0032</div></div>'
+    },
+    {
+      id: 'seg',
+      name: '② 分段占中',
+      mid: '哪一段',
+      note: '知道在看“物流”，不知道在看哪一条订单。',
+      center: '<div class="bar-center"><div class="seg" role="group" aria-label="订单分段">' +
+        '<button type="button" data-seg="overview" aria-pressed="true">概览</button>' +
+        '<button type="button" data-seg="logistics" aria-pressed="false">物流</button>' +
+        '<button type="button" data-seg="remark" aria-pressed="false">备注</button>' +
+        '</div></div>'
+    },
+    {
+      id: 'search',
+      name: '③ 搜索占中（搬错页面）',
+      mid: '去哪找',
+      note: '把首页的做法搬到详情页。观感怪就是信号：借位有前提。',
+      center: '<div class="bar-center"><button type="button" class="searchfake" data-act="search">' +
+        I.search + '<span>搜索订单、商品</span></button></div>'
+    },
+    {
+      id: 'bigtitle',
+      name: '④ 大标题收起',
+      mid: '先内容，后顶栏',
+      note: '标题先在内容里，滚走的那一刻交给顶栏。',
+      center: '<div class="bar-center"><div class="bar-title" data-obj>订单 0032</div></div>'
+    },
+    {
+      id: 'bend',
+      wide: true,
+      name: '⑤ B 端典型',
+      midLabel: '顶栏',
+      mid: '路径 + 哪一条',
+      note: '面包屑把路径钉在顶栏上：滚到哪，“从哪来”和“哪一条”都还在。',
+      bar: '<div class="bar bar-desktop">' +
+        '<div class="crumbs"><span>订单管理</span><i>/</i><span>订单</span><i>/</i><span data-obj>0032</span></div>' +
+        '<div class="bar-actions">' +
+          '<button type="button" class="tool-btn" data-act="export">导出</button>' +
+          '<button type="button" class="icon icon-sm" data-act="more" aria-label="更多操作">' + I.more + '</button>' +
+        '</div>' +
+      '</div>'
+    }
+  ];
+
+  function bodyHTML(v){
+    var s = '';
+    if (v === 'bigtitle'){
+      s += '<div class="hero"><h1 data-obj>订单 0032</h1><p>已支付 · 待发货 · 11-18 前发出</p></div>';
+    }
+    s +=
+      '<section class="card status" data-seg-sec="overview">' +
+        '<div class="status-row"><span class="pill">待发货</span><span class="muted small">商家会在 11-18 前发出</span></div>' +
+        '<p class="muted small" style="margin:2px 0 0">距离自动确认收货还有 9 天</p>' +
+        '<div class="row-actions">' +
+          '<button type="button" class="btn" data-act="ship">提醒发货</button>' +
+          '<button type="button" class="btn ghost" data-act="contact">联系商家</button>' +
+        '</div>' +
+      '</section>' +
+      '<section class="card">' +
+        '<h3>订单信息</h3>' +
+        '<dl class="kv">' +
+          '<dt>订单号</dt><dd data-obj>202611170032</dd>' +
+          '<dt>下单时间</dt><dd>2026-11-17 10:08</dd>' +
+          '<dt>支付方式</dt><dd>余额 · 企业账户</dd>' +
+          '<dt>下单人</dt><dd>李* · 采购部</dd>' +
+        '</dl>' +
+      '</section>' +
+      '<section class="card">' +
+        '<h3>商品 2 件</h3>' +
+        '<div class="item">' +
+          '<div class="thumb">包</div>' +
+          '<div class="item-main"><p class="item-name">轻量通勤双肩包 · 深灰</p><p class="item-spec">颜色 深灰 / 容量 18L</p></div>' +
+          '<div class="item-side">×1<br>¥329</div>' +
+        '</div>' +
+        '<div class="item">' +
+          '<div class="thumb">伞</div>' +
+          '<div class="item-main"><p class="item-name">三折自动伞 · 藏青</p><p class="item-spec">颜色 藏青 / 伞面 110cm</p></div>' +
+          '<div class="item-side">×1<br>¥89</div>' +
+        '</div>' +
+      '</section>' +
+      '<section class="card">' +
+        '<h3>收货信息</h3>' +
+        '<dl class="kv">' +
+          '<dt>收货人</dt><dd>王* · 138****6021</dd>' +
+          '<dt>地址</dt><dd>杭州市余杭区文一西路 969 号 3 幢 12 层</dd>' +
+        '</dl>' +
+      '</section>' +
+      '<section class="card sec-logistics" data-seg-sec="logistics">' +
+        '<h3>物流</h3>' +
+        '<ol class="timeline">' +
+          '<li class="on"><b>11-17 10:12</b>已支付，等待商家发货</li>' +
+          '<li class="on"><b>11-17 10:08</b>下单成功</li>' +
+          '<li><b>—</b>商家发货</li>' +
+          '<li><b>—</b>到达配送站</li>' +
+          '<li><b>—</b>签收</li>' +
+        '</ol>' +
+      '</section>' +
+      '<section class="card">' +
+        '<h3>金额</h3>' +
+        '<dl class="kv">' +
+          '<dt>商品合计</dt><dd>¥ 418.00</dd>' +
+          '<dt>运费</dt><dd>¥ 0.00</dd>' +
+          '<dt>优惠</dt><dd>− ¥ 20.00</dd>' +
+          '<dt class="total">实付</dt><dd class="total">¥ 398.00</dd>' +
+        '</dl>' +
+      '</section>' +
+      '<section class="card sec-remark" data-seg-sec="remark">' +
+        '<h3>备注</h3>' +
+        '<p class="muted small" style="margin:0">请在工作日 9:00–18:00 送货，前台签收后电话通知。</p>' +
+      '</section>' +
+      '<section class="card">' +
+        '<h3>操作记录</h3>' +
+        '<ul class="log">' +
+          '<li><b>10:12</b>支付成功 · 财务 王*</li>' +
+          '<li><b>10:11</b>提交订单 · 李*</li>' +
+          '<li><b>10:09</b>修改收货地址 · 李*</li>' +
+          '<li><b>10:08</b>创建订单 · 李*</li>' +
+        '</ul>' +
+      '</section>' +
+      '<p class="muted small" style="margin:2px 0 0;text-align:center">— 已经到底了 —</p>';
+    return s;
+  }
+
+  var sideHTML =
+    '<aside class="side">' +
+      '<p class="brand">订单中台</p>' +
+      '<nav class="side-nav">' +
+        '<button type="button" class="nav-item is-active">订单管理</button>' +
+        '<div class="subnav">' +
+          '<button type="button" class="sub is-active">全部订单</button>' +
+          '<button type="button" class="sub" data-act="nav">待发货</button>' +
+          '<button type="button" class="sub" data-act="nav">退款</button>' +
+        '</div>' +
+        '<button type="button" class="nav-item" data-act="nav">商品</button>' +
+        '<button type="button" class="nav-item" data-act="nav">客户</button>' +
+        '<button type="button" class="nav-item" data-act="nav">报表</button>' +
+      '</nav>' +
+    '</aside>';
+
+  function contentHTML(c){
+    return '<div class="content" tabindex="0" role="region" aria-label="' + c.name + '：订单详情内容，可滚动">' +
+      '<div class="content-inner">' + bodyHTML(c.id) + '</div>' +
+    '</div>';
+  }
+
+  function paneHTML(c){
+    if (c.wide){
+      return '<div class="pane desktop">' + sideHTML +
+        '<div class="main">' + c.bar + contentHTML(c) + '</div>' +
+      '</div>';
+    }
+    return '<div class="pane">' +
+      '<div class="bar">' +
+        '<button type="button" class="icon" data-act="back" aria-label="返回">' + I.back + '</button>' +
+        c.center +
+        '<button type="button" class="icon" data-act="more" aria-label="更多操作">' + I.more + '</button>' +
+      '</div>' +
+      contentHTML(c) +
+    '</div>';
+  }
+
+  function sectionHTML(c){
+    return '<section class="case' + (c.wide ? ' case-wide' : '') + '" data-variant="' + c.id + '">' +
+      '<div class="case-head"><h2>' + c.name + '</h2><p>' + (c.midLabel || '中间那格') + '宣布：<b>' + c.mid + '</b></p></div>' +
+      paneHTML(c) +
+      '<p class="verdict"><span class="dot" aria-hidden="true"></span><span class="dot-text">—</span></p>' +
+      '<p class="case-note">' + c.note + '</p>' +
+    '</section>';
+  }
+
+  var phones = CASES.filter(function(c){ return !c.wide; });
+  var wides = CASES.filter(function(c){ return c.wide; });
+
+  document.getElementById('grid').innerHTML = phones.map(sectionHTML).join('');
+  document.getElementById('wide').innerHTML = wides.map(sectionHTML).join('');
+
+  var cases = [].map.call(document.querySelectorAll('.case'), function(el){
+    return {
+      el: el,
+      pane: el.querySelector('.pane'),
+      bar: el.querySelector('.bar'),
+      content: el.querySelector('.content'),
+      dot: el.querySelector('.dot'),
+      dotText: el.querySelector('.dot-text'),
+      hero: el.querySelector('.hero'),
+      seg: el.querySelector('.seg'),
+      spyHoldUntil: 0
+    };
+  });
+
+  function reduceMotion(){ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+
+  var note = document.getElementById('note');
+  var noteTimer = 0;
+  function say(msg){
+    note.textContent = msg;
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(function(){ note.textContent = ''; }, 2600);
+  }
+
+  function objectVisible(c){
+    var pr = c.pane.getBoundingClientRect();
+    var list = c.el.querySelectorAll('[data-obj]');
+    for (var i = 0; i < list.length; i++){
+      var el = list[i];
+      var cs = window.getComputedStyle(el);
+      if (cs.visibility === 'hidden') continue;
+      var r = el.getBoundingClientRect();
+      var h = Math.min(r.bottom, pr.bottom) - Math.max(r.top, pr.top);
+      var w = Math.min(r.right, pr.right) - Math.max(r.left, pr.left);
+      if (h >= 8 && w >= 8) return true;
+    }
+    return false;
+  }
+
+  function syncSeg(c){
+    var rect = c.content.getBoundingClientRect();
+    var mid = rect.top + rect.height * 0.45;
+    var secs = c.content.querySelectorAll('[data-seg-sec]');
+    var active = null;
+    for (var i = 0; i < secs.length; i++){
+      if (secs[i].getBoundingClientRect().top <= mid) active = secs[i];
+    }
+    if (!active) return;
+    var val = active.getAttribute('data-seg-sec');
+    var btns = c.el.querySelectorAll('[data-seg]');
+    for (var j = 0; j < btns.length; j++){
+      btns[j].setAttribute('aria-pressed', String(btns[j].getAttribute('data-seg') === val));
+    }
+  }
+
+  function paint(){
+    for (var i = 0; i < cases.length; i++){
+      var c = cases[i];
+      c.bar.classList.toggle('is-scrolled', c.content.scrollTop > 4);
+      if (c.hero){
+        var rel = c.hero.getBoundingClientRect().bottom - c.content.getBoundingClientRect().top;
+        c.bar.classList.toggle('title-on', rel <= 6);
+      }
+      var on = objectVisible(c);
+      c.dot.classList.toggle('on', on);
+      c.dotText.textContent = on ? '对象名在屏上' : '对象名已离开屏幕';
+      if (c.seg && Date.now() >= c.spyHoldUntil) syncSeg(c);
+    }
+  }
+
+  for (var i = 0; i < cases.length; i++){
+    cases[i].content.addEventListener('scroll', paint, { passive: true });
+  }
+  window.addEventListener('resize', paint);
+
+  document.querySelector('.page').addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if (!btn) return;
+
+    var act = btn.dataset.act;
+    if (act === 'back'){ say('（演示）返回订单列表'); return; }
+    if (act === 'more'){ say('（演示）更多操作：取消订单、再次购买、开发票'); return; }
+    if (act === 'ship'){ say('（演示）已提醒商家发货'); return; }
+    if (act === 'contact'){ say('（演示）打开与商家的会话'); return; }
+    if (act === 'search'){ say('（演示）跳到全站搜索页：范围是全部订单'); return; }
+    if (act === 'export'){ say('（演示）导出当前这一条订单'); return; }
+    if (act === 'nav'){ say('（演示）换版块会整条路径一起变：侧边高亮、面包屑、标题'); return; }
+
+    var seg = btn.dataset.seg;
+    if (!seg) return;
+    var caseEl = btn.closest('.case');
+    var segs = caseEl.querySelectorAll('[data-seg]');
+    for (var k = 0; k < segs.length; k++){
+      segs[k].setAttribute('aria-pressed', String(segs[k] === btn));
+    }
+    for (var n = 0; n < cases.length; n++){
+      if (cases[n].el === caseEl) cases[n].spyHoldUntil = Date.now() + 800;
+    }
+    var content = caseEl.querySelector('.content');
+    var top = 0;
+    if (seg !== 'overview'){
+      var sec = caseEl.querySelector('.sec-' + seg);
+      if (sec){
+        top = sec.getBoundingClientRect().top - content.getBoundingClientRect().top + content.scrollTop - 10;
+      }
+    }
+    if (typeof content.scrollTo === 'function'){
+      content.scrollTo({ top: top, behavior: reduceMotion() ? 'auto' : 'smooth' });
+    } else {
+      content.scrollTop = top;
+    }
+  });
+
+  document.getElementById('align').addEventListener('click', function(){
+    for (var i = 0; i < cases.length; i++){
+      var c = cases[i];
+      var max = c.content.scrollHeight - c.content.clientHeight;
+      c.content.scrollTop = Math.round(max * 0.6);
+    }
+    paint();
+  });
+
+  document.getElementById('reset').addEventListener('click', function(){
+    for (var i = 0; i < cases.length; i++) cases[i].content.scrollTop = 0;
+    paint();
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>
+
+
+
