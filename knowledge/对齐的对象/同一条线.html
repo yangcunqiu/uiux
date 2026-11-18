@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>对齐：把要比较的东西放到同一条线上</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e2e5ea; --line-soft:#edf0f3;
+    --text:#1c2028; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b62d9; --accent-soft:#eaf1ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.65 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .page{max-width:1000px;margin:0 auto;padding:28px 20px 56px}
+  .head h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .head p{margin:0;color:var(--text-2);font-size:13px;max-width:820px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:16px}
+  .card h2{font-size:15px;margin:0 0 4px;font-weight:600}
+  .card .lead{margin:0 0 12px;font-size:13px;color:var(--text-2)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;margin:0 0 12px}
+  .ctl{display:flex;align-items:center;gap:7px;font-size:13px}
+  .ctl-label{color:var(--text-3);font-size:12.5px}
+  .seg{display:inline-flex;border:1px solid #d6d9e0;border-radius:7px;overflow:hidden;background:#fff}
+  .seg button{appearance:none;border:0;background:transparent;padding:4px 11px;font:inherit;font-size:12.5px;
+              color:var(--text-2);cursor:pointer;border-right:1px solid #e2e5ea}
+  .seg button:last-child{border-right:0}
+  .seg button:hover{background:#f2f5f9}
+  .seg button.on{background:var(--accent);color:#fff}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+  .num{font-variant-numeric:tabular-nums}
+  .table-wrap{overflow-x:auto}
+  #amt-table{min-width:380px}
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+  th,td{text-align:left;padding:0 10px;white-space:nowrap}
+  th{font-weight:600;color:var(--text-2);font-size:12.5px;background:#fafbfc;height:36px;border-bottom:1px solid var(--line)}
+  td{height:40px;border-bottom:1px solid var(--line-soft)}
+  tbody tr:last-child td{border-bottom:0}
+  .muted{color:var(--text-3)}
+  .dec{color:#cf3f3f;font-weight:600}
+  .unit{color:var(--text-3);font-size:12px;margin-left:1px}
+
+  /* 金额两列 */
+  .amt{text-align:right;border-right:1px dashed #cfd8e6}
+  .amt-head{text-align:right;border-right:1px dashed #cfd8e6}
+  table.amt-left .amt, table.amt-left .amt-head{text-align:left}
+
+  /* 日期三列 */
+  .date-table{width:100%;max-width:620px;table-layout:fixed}
+  .c-l{text-align:left}.c-c{text-align:center}.c-r{text-align:right}
+
+  /* 固定布局 + 截断 */
+  #tight-table{table-layout:fixed}
+  #tight-table td,#tight-table th{overflow:hidden;text-overflow:ellipsis}
+
+  .note{margin:10px 0 0;font-size:12.5px;color:var(--text-2);min-height:38px}
+  .note b{color:var(--text)}
+
+  footer{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+  footer h2{font-size:15px;margin:0 0 6px;font-weight:600}
+  footer ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  footer li{margin:5px 0}
+  footer b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <h1>对齐：把要比较的东西放到同一条线上</h1>
+    <p>对齐只做排位置，不改变值。它有三个前提——同单位、同格式、放得下；下面每一块破一个，看位置排得再整齐也没用的那一刻。</p>
+  </header>
+
+  <section class="card">
+    <h2>一、右对齐对齐的是「最低位」</h2>
+    <p class="lead">红色是小数部分。左边两列是同一组数字，只有小数位不同；中间可以切单位，那是第一个前提。</p>
+    <div class="controls">
+      <div class="ctl"><span class="ctl-label">对齐</span>
+        <div class="seg" id="seg-align">
+          <button data-v="left">左对齐</button><button data-v="right" class="on">右对齐</button>
+        </div>
+      </div>
+      <div class="ctl"><span class="ctl-label">单位</span>
+        <div class="seg" id="seg-unit">
+          <button data-v="one" class="on">统一用元</button><button data-v="mixed">大额用万</button>
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="amt-table">
+        <thead>
+          <tr>
+            <th style="width:96px">订单</th>
+            <th class="amt-head" style="width:180px">金额（原样）</th>
+            <th class="amt-head" style="width:180px">金额（统一两位）</th>
+            <th style="width:70px">数量</th>
+          </tr>
+        </thead>
+        <tbody id="amt-body"></tbody>
+      </table>
+    </div>
+    <p class="note" id="amt-note"></p>
+  </section>
+
+  <section class="card">
+    <h2>二、第二个前提：同一列同格式</h2>
+    <p class="lead">同一列日期，三种对齐。格式统一时，三者在这一列内部完全一样齐——差别只在列的空白落在哪。切「破掉前提」，三种一起失效。</p>
+    <div class="controls">
+      <div class="ctl"><span class="ctl-label">这一列的格式</span>
+        <div class="seg" id="seg-fmt">
+          <button data-v="uniform" class="on">统一</button><button data-v="mixed">破掉前提</button>
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="date-table">
+        <thead>
+          <tr>
+            <th style="width:20%">订单</th>
+            <th class="c-l" style="width:26.66%">左对齐</th>
+            <th class="c-c" style="width:26.66%">居中</th>
+            <th class="c-r" style="width:26.66%">右对齐</th>
+          </tr>
+        </thead>
+        <tbody id="date-body"></tbody>
+      </table>
+    </div>
+    <p class="note" id="date-note"></p>
+  </section>
+
+  <section class="card">
+    <h2>三、第三个前提：值放得下</h2>
+    <p class="lead">同一张表，切「列宽紧」。正确对齐的金额被截断以后，右边缘还是齐的——但排在那条线上的是「…」。</p>
+    <div class="controls">
+      <div class="ctl"><span class="ctl-label">金额列宽</span>
+        <div class="seg" id="seg-width">
+          <button data-v="wide" class="on">宽</button><button data-v="tight">紧</button>
+        </div>
+      </div>
+    </div>
+    <table id="tight-table">
+      <colgroup>
+        <col style="width:92px"><col><col id="col-amt" style="width:130px"><col style="width:70px">
+      </colgroup>
+      <thead>
+        <tr><th>订单</th><th>客户</th><th class="amt" style="border-right:0">金额</th><th>数量</th></tr>
+      </thead>
+      <tbody id="tight-body"></tbody>
+    </table>
+    <p class="note" id="tight-note"></p>
+  </section>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li>切「左对齐」：起点排齐、终点参差，位数越多甩出去越远；切回右对齐，每个数字的最后一个字符都压在虚线边上。</li>
+      <li>看两个金额列：<b>统一两位</b>那列红色小数连成一条竖线；<b>原样</b>那列只对齐了最后一位——12,800.5 和 98.75 的小数点落在不同位置。</li>
+      <li>表头跟着内容走：金额列的表头也右对齐，和数字贴同一边，这一列看起来像一个整体。</li>
+      <li>切「大额用万」：1.28万、16.8万 和 98.75、45.6 排在同一条线上。眼睛只看到 1.28 和 98.75，会以为 98.75 更大——差 130 倍。单位一旦进了格子，右对齐对齐的是单位，不是数字。</li>
+      <li>日期三种对齐：格式统一时，这一列内部一样齐，差别只在列的空白；切「破掉前提」，年、月、日的位置错开，三种对齐一起失效。</li>
+      <li>切「列宽紧」：168,000.00 变成 168,00…，右边缘仍然齐——但那条线上是省略号；截断保住高位、丢掉低位。</li>
+    </ol>
+  </footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(s){ return document.querySelector(s); };
+  var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+  var amtRows = [
+    {id:'A-1042', v:12800.5,  q:3},
+    {id:'A-1043', v:98.75,    q:12},
+    {id:'A-1044', v:16450.25, q:8},
+    {id:'A-1045', v:320,      q:120},
+    {id:'A-1046', v:45.6,     q:1},
+    {id:'A-1047', v:168000,   q:1}
+  ];
+
+  var state = { align:'right', unit:'one', fmt:'uniform', width:'wide' };
+
+  function group(s){
+    var p = s.split('.');
+    return p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (p.length > 1 ? '<span class="dec">.' + p[1] + '</span>' : '');
+  }
+  function yuan(v, fixed){ return group(fixed ? v.toFixed(2) : String(v)); }
+  function wan(v, fixed){
+    if (v < 10000) return yuan(v, fixed);
+    var w = v / 10000;
+    var s = fixed ? w.toFixed(2) : String(+w.toFixed(2));
+    return group(s) + '<span class="unit">万</span>';
+  }
+  function money(v, fixed){
+    return state.unit === 'mixed' ? wan(v, fixed) : yuan(v, fixed);
+  }
+
+  function amtNote(){
+    if (state.unit === 'mixed') {
+      return '前提之一破了：单位混用。右边缘把「1.28万」的「万」和「98.75」的「5」排在同一条线上，但它没法告诉你两者的单位不同。'
+        + '眼睛只看到 1.28 和 98.75，会以为 98.75 更大——实际 1.28万 是 12,800.5，差 130 倍。'
+        + '对齐的承诺是「同一列可以比」，它能做的只有把值排齐；单位、精度、币种必须在进入这一列之前统一。';
+    }
+    if (state.align === 'right') {
+      return '右对齐：每个数字的最后一个字符都落在虚线边上。<b>统一两位</b>那列的小数位一样宽，小数点连成竖线；<b>原样</b>那列只对齐了最后一位——'
+        + '12,800.5 的小数点紧贴末位，98.75 的小数点离末位还隔着两位，两者落在不同的竖线上。'
+        + '右对齐对齐的是「最低位」；只有同单位、同精度时，它才等于「把小数点排齐」。';
+    }
+    return '左对齐：起点排齐、终点参差。位数越多，右端甩出去越远；比大小时眼睛要先找到这一行的右端。'
+      + '左对齐适合「读」的值（编号、日期、名称），它让每一行的开头在同一个位置。';
+  }
+
+  var dateRows = [
+    ['A-1042','2026-11-02'], ['A-1043','2026-11-03'],
+    ['A-1044','2026-11-04'], ['A-1045','2026-11-05']
+  ];
+  var dateMixed = [['A-1042','2026-11-02'],['A-1043','2026/11/3'],['A-1044','11月4日'],['A-1045','2026-11-05']];
+
+  function dateNote(){
+    if (state.fmt === 'mixed') {
+      return '前提之一破了：同一列混了三种格式。年、月、日不再落在相同的横向位置，三种对齐方式一起失效。'
+        + '日期扫视靠的不是行首或行尾，是各段在纵向上对齐；所以「格式统一」不是可选项，是对齐能成立的条件。';
+    }
+    return '格式统一时，三种对齐在这一列内部完全一样齐（日期都是十个字符），差别只在列宽富余的空白怎么分：'
+      + '左对齐把空白全留在右边，居中的分到两边，右对齐全留在左边。所以对这类列，「居中还是左对齐」不是效率问题，是视觉选择；'
+      + '四行里的月份、日期落在同一列，扫视不受影响。';
+  }
+
+  var custs = ['杭州云栖贸易','上海砺行科技','深圳前海数据','北京长风咨询','成都天府软件','广州珠江电子'];
+  var tightRows = amtRows.map(function(r, i){ return {id:r.id, cust:custs[i], v:r.v, q:r.q}; });
+
+  function renderAmt(){
+    $('#amt-body').innerHTML = amtRows.map(function(r){
+      return '<tr><td class="num">' + r.id + '</td>' +
+        '<td class="num amt">' + money(r.v, false) + '</td>' +
+        '<td class="num amt">' + money(r.v, true) + '</td>' +
+        '<td class="num">' + r.q + '</td></tr>';
+    }).join('');
+    var t = $('#amt-table');
+    t.classList.toggle('amt-left', state.align === 'left');
+    $('#amt-note').innerHTML = amtNote();
+  }
+
+  function renderDates(){
+    var src = state.fmt === 'mixed' ? dateMixed : dateRows;
+    $('#date-body').innerHTML = src.map(function(r){
+      return '<tr><td class="num muted">' + r[0] + '</td>' +
+        '<td class="num c-l">' + r[1] + '</td>' +
+        '<td class="num c-c">' + r[1] + '</td>' +
+        '<td class="num c-r">' + r[1] + '</td></tr>';
+    }).join('');
+    $('#date-note').innerHTML = dateNote();
+  }
+
+  function renderTight(){
+    $('#tight-body').innerHTML = tightRows.map(function(r){
+      return '<tr><td class="num">' + r.id + '</td><td>' + r.cust + '</td>' +
+        '<td class="num amt" style="border-right:0">' + yuan(r.v, true) + '</td>' +
+        '<td class="num">' + r.q + '</td></tr>';
+    }).join('');
+    $('#col-amt').style.width = state.width === 'tight' ? '78px' : '130px';
+    $('#tight-note').innerHTML = state.width === 'tight'
+      ? '列宽紧：168,000.00 和 16,450.25 被截断，98.75、320.00、45.60 还完整。右边缘仍然齐——但那条线上有的是数字、有的是省略号。'
+        + '截断保住高位、丢掉低位：比大小还看得出量级，比精确值就不行了。'
+      : '值放得下时，右对齐才成立。列宽是它暗含的前提：列宽不够时，先决定截断怎么办，再谈对齐怎么排。';
+  }
+
+  function applySeg(id, v){
+    $$(id + ' button').forEach(function(b){ b.classList.toggle('on', b.dataset.v === v); });
+  }
+
+  $$('#seg-align button').forEach(function(b){
+    b.addEventListener('click', function(){ state.align = b.dataset.v; applySeg('#seg-align', state.align); renderAmt(); });
+  });
+  $$('#seg-unit button').forEach(function(b){
+    b.addEventListener('click', function(){ state.unit = b.dataset.v; applySeg('#seg-unit', state.unit); renderAmt(); });
+  });
+  $$('#seg-fmt button').forEach(function(b){
+    b.addEventListener('click', function(){ state.fmt = b.dataset.v; applySeg('#seg-fmt', state.fmt); renderDates(); });
+  });
+  $$('#seg-width button').forEach(function(b){
+    b.addEventListener('click', function(){ state.width = b.dataset.v; applySeg('#seg-width', state.width); renderTight(); });
+  });
+
+  var p = new URLSearchParams(location.search);
+  if (p.get('align')) state.align = p.get('align');
+  if (p.get('unit')) state.unit = p.get('unit');
+  if (p.get('fmt')) state.fmt = p.get('fmt');
+  if (p.get('width')) state.width = p.get('width');
+
+  applySeg('#seg-align', state.align);
+  applySeg('#seg-unit', state.unit);
+  applySeg('#seg-fmt', state.fmt);
+  applySeg('#seg-width', state.width);
+  renderAmt(); renderDates(); renderTight();
+})();
+</script>
+</body>
+</html>
