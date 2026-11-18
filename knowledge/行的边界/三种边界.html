@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>行的边界：空白、底色、线</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e2e5ea; --line-soft:#eef0f3;
+    --text:#1c2028; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b62d9; --accent-soft:#eef4ff;
+    --zebra:#f7f9fc; --sel:#dbe7fb; --warn:#fff3e2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.65 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .page{max-width:1000px;margin:0 auto;padding:28px 20px 56px}
+  .head h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .head p{margin:0;color:var(--text-2);font-size:13px;max-width:820px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:16px}
+  .card h2{font-size:15px;margin:0 0 4px;font-weight:600}
+  .card .lead{margin:0 0 12px;font-size:13px;color:var(--text-2)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:0 0 12px}
+  .ctl{display:flex;align-items:center;gap:7px;font-size:13px}
+  .ctl-label{color:var(--text-3);font-size:12.5px}
+  .seg{display:inline-flex;border:1px solid #d6d9e0;border-radius:7px;overflow:hidden;background:#fff}
+  .seg button{appearance:none;border:0;background:transparent;padding:4px 10px;font:inherit;font-size:12.5px;
+              color:var(--text-2);cursor:pointer;border-right:1px solid #e2e5ea}
+  .seg button:last-child{border-right:0}
+  .seg button:hover{background:#f2f5f9}
+  .seg button.on{background:var(--accent);color:#fff}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+  .table-wrap{overflow-x:auto}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:680px;font-size:13px;background:#fff}
+  th,td{text-align:left;padding:0 10px;white-space:nowrap}
+  th{font-weight:600;color:var(--text-2);font-size:12.5px;background:#fafbfc;height:36px}
+  .num{font-variant-numeric:tabular-nums}
+  .muted{color:var(--text-3)}
+  .tag{display:inline-block;padding:1px 8px;border-radius:4px;font-size:12px;background:#eef2f7;color:#414c5c}
+  .tag.ok{background:#e6f4ea;color:#1e6b3a}
+  .tag.wait{background:#fdf3e2;color:#8a5a10}
+  .tag.off{background:#f2f3f5;color:#7c8493}
+  .op{color:var(--accent);text-decoration:none;font-size:13px}
+
+  /* 分隔 */
+  .sep-grid th,.sep-grid td{border-right:1px solid #e3e7ee;border-bottom:1px solid #e3e7ee}
+  .sep-grid th:last-child,.sep-grid td:last-child{border-right:0}
+  .sep-grid th{border-bottom:1px solid var(--line)}
+  .sep-row td{border-bottom:1px solid #e3e7ee}
+  .sep-zebra tbody tr:nth-child(even){background:var(--zebra)}
+  .sep-zebra th{background:#fafbfc;border-bottom:1px solid var(--line)}
+  .sep-none th{border-bottom:1px solid var(--line)}
+  .sep-none td{border:0}
+
+  /* 行高 */
+  .h-compact td{height:34px}
+  .h-normal td{height:44px}
+  .h-loose td{height:60px}
+
+  /* 换行 */
+  .wrap-name td.cname{white-space:normal;line-height:1.42;padding-top:6px;padding-bottom:6px}
+  table.wname th:nth-child(3){width:132px}
+
+  /* 行状态 */
+  .state-sel tr.sel{background:var(--sel)}
+  .state-all tr.sel{background:var(--sel)}
+  .state-all td.over{background:var(--warn);color:#8a5a10;font-weight:600}
+  .state-sel tr.sel td{background:var(--sel)}
+  .state-all tr.sel td{background:var(--sel)}
+  .state-all tr.sel td.over{background:var(--warn)}
+  tbody tr:hover td{background:var(--accent-soft)}
+  .state-sel tr.sel:hover td{background:var(--sel)}
+  .state-all tr.sel:hover td{background:var(--sel)}
+  .state-all tr.sel:hover td.over{background:var(--warn)}
+
+  .readout{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .pill{border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:12.5px;color:var(--text-2);background:#fbfcfd}
+  .pill b{color:var(--text);font-weight:600}
+
+  .note{margin:10px 0 0;font-size:12.5px;color:var(--text-2);min-height:38px}
+  .note b{color:var(--text)}
+
+  /* 阶梯 */
+  .ladder{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:0 0 10px}
+  .lv{border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:12.5px;color:var(--text-2)}
+  .lv b{display:block;font-size:12.5px;color:var(--text);margin-bottom:2px}
+  .lv .ratio{font-variant-numeric:tabular-nums;color:var(--text-3);font-size:12px}
+  .lv1{background:#fff;border-color:#cfd8e6}
+  .lv2{background:var(--zebra);border-color:#cfd8e6}
+  .lv3{background:var(--accent-soft);border-color:#cfd8e6}
+  .lv4{background:var(--sel);border-color:#bcd0f0}
+  .lv5{background:var(--warn);border-color:#f0dcc0}
+
+  footer{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+  footer h2{font-size:15px;margin:0 0 6px;font-weight:600}
+  footer ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  footer li{margin:5px 0}
+  footer b{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <h1>行的边界：空白、底色、线</h1>
+    <p>分隔不是装饰，是给「行」画边界。同一张表换四种画法，再改行高和内容，看哪种先失效。</p>
+  </header>
+
+  <section class="card">
+    <h2>一、四种边界，同一张表</h2>
+    <p class="lead">行高一致时，空白也能当边界；行高一旦不一致，等距就断了。第三行是「选中」，第五行的金额是「超限」。</p>
+    <div class="controls">
+      <div class="ctl"><span class="ctl-label">分隔</span>
+        <div class="seg" id="seg-sep">
+          <button data-v="grid">网格</button>
+          <button data-v="row" class="on">横线</button>
+          <button data-v="zebra">斑马线</button>
+          <button data-v="none">无</button>
+        </div>
+      </div>
+      <div class="ctl"><span class="ctl-label">行高</span>
+        <div class="seg" id="seg-rh">
+          <button data-v="compact">紧凑</button>
+          <button data-v="normal" class="on">常规</button>
+          <button data-v="loose">宽松</button>
+        </div>
+      </div>
+      <div class="ctl"><span class="ctl-label">商品名</span>
+        <div class="seg" id="seg-name">
+          <button data-v="short" class="on">短</button>
+          <button data-v="long">部分换行</button>
+        </div>
+      </div>
+      <div class="ctl"><span class="ctl-label">行状态</span>
+        <div class="seg" id="seg-state">
+          <button data-v="none">无</button>
+          <button data-v="sel" class="on">选中</button>
+          <button data-v="all">选中 + 超限</button>
+        </div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="grid">
+        <thead>
+          <tr>
+            <th style="width:86px">订单号</th>
+            <th style="width:126px">客户</th>
+            <th style="width:210px">商品</th>
+            <th class="num" style="width:104px;text-align:right">金额</th>
+            <th class="num" style="width:64px;text-align:right">数量</th>
+            <th style="width:92px">状态</th>
+            <th style="width:66px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="body"></tbody>
+      </table>
+    </div>
+    <div class="readout">
+      <span class="pill" id="p-h">行高 <b>—</b></span>
+      <span class="pill" id="p-rows">一屏 600px 约 <b>—</b></span>
+    </div>
+    <p class="note" id="note"></p>
+  </section>
+
+  <section class="card">
+    <h2>二、底色是一个阶梯，而且是两个色系</h2>
+    <p class="lead">前三个是「行状态」，用同一个色系递进；后两个是「内容状态」，必须换色系。括号里是相对白底的对比度，可以复算。</p>
+    <div class="ladder">
+      <div class="lv lv1"><b>白底</b><span class="ratio" id="r1">—</span></div>
+      <div class="lv lv2"><b>斑马线</b><span class="ratio" id="r2">—</span></div>
+      <div class="lv lv3"><b>悬停</b><span class="ratio" id="r3">—</span></div>
+      <div class="lv lv4"><b>选中</b><span class="ratio" id="r4">—</span></div>
+      <div class="lv lv5"><b>提醒（超限）</b><span class="ratio" id="r5">—</span></div>
+    </div>
+    <p class="note" id="ladder-note"></p>
+  </section>
+
+  <footer>
+    <h2>看什么</h2>
+    <ol>
+      <li>「无」+ 商品名短：行与行只靠等距分开，还能读——因为所有行一样高。</li>
+      <li>切「部分换行」：有几行变成三行文字，行高 44 和 67 混在一屏，等距断了；横线和斑马线还撑得住。</li>
+      <li>切「网格」：行、列都被切开，每一格都能定位，代价是满屏的线——34px 行高下，线比字还密。</li>
+      <li>切「紧凑 / 宽松」：一屏 600px 从 17 行到 10 行；行距变大，边界更清楚，但看得更少。</li>
+      <li>行状态切「选中 + 超限」：同一屏上同时有斑马线、选中、提醒三种底色，看能不能一眼分清谁是谁。</li>
+      <li>下面五块是同一套色值的对比度（WCAG 公式，可复算）：斑马线 1.05、悬停 1.10、选中 1.25、提醒 1.10。</li>
+    </ol>
+  </footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(s){ return document.querySelector(s); };
+  var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+  var rows = [
+    {id:'A-2041', cust:'杭州云栖贸易', product:'工业级交换机 S5720 48口', long:'工业级交换机 S5720 48口 含三年原厂维保与现场安装', amt:'12,800.00', qty:2, status:'已发货', cls:'ok', sel:false, over:false},
+    {id:'A-2042', cust:'上海砺行科技', product:'光电模块 10G 多模', long:'光电模块 10G 多模', amt:'980.00', qty:20, status:'待付款', cls:'wait', sel:false, over:false},
+    {id:'A-2043', cust:'深圳前海数据', product:'服务器机柜 42U 含配件', long:'服务器机柜 42U 含理线架、PDU、前后门与安装服务', amt:'6,450.00', qty:1, status:'已完成', cls:'', sel:true, over:false},
+    {id:'A-2044', cust:'北京长风咨询', product:'网络测试仪 便携式', long:'网络测试仪 便携式 含光功率计模块与校准证书', amt:'3,200.00', qty:4, status:'已取消', cls:'off', sel:false, over:false},
+    {id:'A-2045', cust:'成都天府软件', product:'光纤跳线 LC-LC 3米', long:'光纤跳线 LC-LC 3米', amt:'45.00', qty:120, status:'已发货', cls:'ok', sel:false, over:true},
+    {id:'A-2046', cust:'广州珠江电子', product:'核心交换机 S12700E', long:'核心交换机 S12700E 满配线卡、双主控与电源', amt:'168,000.00', qty:1, status:'待发货', cls:'wait', sel:false, over:false},
+    {id:'A-2047', cust:'南京紫金智能', product:'POE 供电模块', long:'POE 供电模块', amt:'320.00', qty:15, status:'已完成', cls:'', sel:false, over:false},
+    {id:'A-2048', cust:'武汉长江存储', product:'万兆网卡 双口', long:'万兆网卡 双口', amt:'1,280.00', qty:6, status:'已发货', cls:'ok', sel:false, over:false}
+  ];
+
+  var state = { sep:'row', rh:'normal', name:'short', st:'sel' };
+
+  function render(){
+    $('#body').innerHTML = rows.map(function(r){
+      var name = state.name === 'long' ? r.long : r.product;
+      var trCls = (state.st !== 'none' && r.sel) ? ' class="sel"' : '';
+      var amtCls = 'num amt' + (state.st === 'all' && r.over ? ' over' : '');
+      return '<tr' + trCls + '>' +
+        '<td class="num">' + r.id + '</td>' +
+        '<td>' + r.cust + '</td>' +
+        '<td class="cname">' + name + '</td>' +
+        '<td class="' + amtCls + '" style="text-align:right">' + r.amt + '</td>' +
+        '<td class="num" style="text-align:right">' + r.qty + '</td>' +
+        '<td><span class="tag ' + r.cls + '">' + r.status + '</span></td>' +
+        '<td><a class="op" href="#">详情</a></td>' +
+      '</tr>';
+    }).join('');
+
+    var t = $('#grid');
+    t.className = 'sep-' + state.sep + ' h-' + state.rh + (state.name === 'long' ? ' wrap-name wname' : '') +
+      (state.st === 'none' ? '' : (state.st === 'sel' ? ' state-sel' : ' state-all'));
+    t.querySelectorAll('thead th')[2].style.width = state.name === 'long' ? '108px' : '210px';
+
+    $$('#seg-sep button').forEach(function(b){ b.classList.toggle('on', b.dataset.v === state.sep); });
+    $$('#seg-rh button').forEach(function(b){ b.classList.toggle('on', b.dataset.v === state.rh); });
+    $$('#seg-name button').forEach(function(b){ b.classList.toggle('on', b.dataset.v === state.name); });
+    $$('#seg-state button').forEach(function(b){ b.classList.toggle('on', b.dataset.v === state.st); });
+
+    var hs = $$('#body tr').map(function(tr){ return Math.round(tr.getBoundingClientRect().height); });
+    var min = Math.min.apply(null, hs);
+    var max = Math.max.apply(null, hs);
+    var avg = hs.reduce(function(a,b){ return a+b; }, 0) / hs.length;
+    $('#p-h').innerHTML = '行高 <b>' + (min === max ? min + 'px' : min + '–' + max + 'px') + '</b>';
+    $('#p-rows').innerHTML = '一屏 600px 约 <b>' + Math.floor(600 / avg) + ' 行</b>';
+    $('#note').innerHTML = note();
+  }
+
+  function note(){
+    var s = state.sep, n = state.name, st = state.st;
+    var base = {
+      grid:'网格：行和列都被切开，每一格都能定位。列数一多，线本身就成了主要内容——网格纸。',
+      row:'横线：只切行，列的边界交给对齐和间距。这是大多数后台的默认档，因为要认的是「行」，不是「格子」。',
+      zebra:'斑马线：用底色代替线，不占线宽。代价是它依赖显示——灰度打印、截图对比度低时，那一档底色可能直接消失。',
+      none:'无分隔：行之间只靠等距。所有行一样高时它还能用；一旦有的行高、有的行矮，等距就断了。'
+    }[s];
+    if (n === 'long' && (s === 'none' || s === 'zebra')) {
+      base += ' 现在有几行变成两行以上，行高不再一致——';
+      base += s === 'none'
+        ? '这些行的上下没有别的信号，眼睛要靠判断「哪几行挤在一起」。'
+        : '隔行的底色还在，但高矮不一时，底色只标出「第几行」，不标出边界在哪。';
+    } else if (n === 'long') {
+      base += ' 有几行变成两行以上——线还在，所以高矮不一的边界仍然清楚。';
+    }
+    if (st === 'all') {
+      base += ' 这一屏同时有斑马线（行状态）、选中（行状态）、超限（内容状态）三种底色：前两个是一套，第三个换了色系。';
+    }
+    return base;
+  }
+
+  $$('#seg-sep button').forEach(function(b){ b.addEventListener('click', function(){ state.sep = b.dataset.v; render(); }); });
+  $$('#seg-rh button').forEach(function(b){ b.addEventListener('click', function(){ state.rh = b.dataset.v; render(); }); });
+  $$('#seg-name button').forEach(function(b){ b.addEventListener('click', function(){ state.name = b.dataset.v; render(); }); });
+  $$('#seg-state button').forEach(function(b){ b.addEventListener('click', function(){ state.st = b.dataset.v; render(); }); });
+
+  /* 对比度：WCAG 相对亮度 */
+  function lum(hex){
+    var c = hex.replace('#','');
+    var rgb = [0,2,4].map(function(i){ return parseInt(c.substr(i,2),16)/255; }).map(function(v){
+      return v <= 0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4);
+    });
+    return 0.2126*rgb[0] + 0.7152*rgb[1] + 0.0722*rgb[2];
+  }
+  function ratio(a, b){
+    var l1 = lum(a), l2 = lum(b);
+    return ((Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05)).toFixed(2) + ':1';
+  }
+  $('#r1').textContent = ratio('#ffffff', '#ffffff');
+  $('#r2').textContent = ratio('#f7f9fc', '#ffffff');
+  $('#r3').textContent = ratio('#eef4ff', '#ffffff');
+  $('#r4').textContent = ratio('#dbe7fb', '#ffffff');
+  $('#r5').textContent = ratio('#fff3e2', '#ffffff');
+  var d23 = (parseFloat($('#r3').textContent) - parseFloat($('#r2').textContent)).toFixed(2);
+  $('#ladder-note').innerHTML = '相对白底的对比度只说明「底色和纸差多少」，不是合规门槛。'
+    + '看相邻两档：斑马线 ' + $('#r2').textContent + '、悬停 ' + $('#r3').textContent + '，只差 ' + d23 + '——在斑马线行上悬停，几乎看不出变化；'
+    + '选中 ' + $('#r4').textContent + ' 才拉开距离。'
+    + '提醒也是 ' + $('#r5').textContent + '，却比选中更醒目——因为它换了色相。'
+    + '亮度的差只能表示「程度」，色相的差才能表示「性质」。';
+
+  var p = new URLSearchParams(location.search);
+  ['sep','rh','name','st'].forEach(function(k){ if (p.get(k)) state[k] = p.get(k); });
+  render();
+})();
+</script>
+</body>
+</html>
