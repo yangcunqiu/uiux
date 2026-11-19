@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>断点的衔接：跳变与插值</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+         margin: 0 auto; max-width: 1480px; padding: 24px 20px 80px; color: #222; background: #f6f6f8; line-height: 1.6; }
+  h1 { font-size: 22px; margin: 6px 0 2px; }
+  .lede { color: #666; font-size: 14px; margin: 0 0 4px; }
+  section { background: #fff; border: 1px solid #e4e4e8; border-radius: 12px; padding: 18px; margin-top: 26px; }
+  h2 { margin: 0 0 2px; font-size: 17px; }
+  .sub { color: #888; font-size: 13px; margin: 0 0 12px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 12px; font-size: 13px; }
+  .stickybar { position: sticky; top: 0; z-index: 10; background: #fff;
+               margin: 0 -18px 12px; padding: 10px 18px 8px;
+               border-bottom: 1px solid #ececf0; border-radius: 12px 12px 0 0; }
+  input[type=range] { width: 420px; }
+  input[type=range]:focus-visible { outline: 2px solid #4a7dce; }
+  #frame { border: 0; box-shadow: 0 0 0 1px #d8d8de; border-radius: 10px; background: #fff; display: block; max-width: 100%; }
+  .readout { font-size: 13px; color: #444; background: #f4f4f7; border-radius: 8px; padding: 8px 12px; }
+  .note { font-size: 13px; color: #555; margin: 10px 0 0; }
+  .foot { margin-top: 22px; font-size: 12.5px; color: #888; }
+</style>
+</head>
+<body>
+<h1>断点的衔接：跳变与插值</h1>
+<p class="lede">同一页内容放在 iframe 里，拖宽度滑块（900–1400）。滑块吸附在视口顶部，滚到哪都能拖；点住滑块也能用 ←/→ 微调。滑块值＝iframe 视口宽度；开了系统缩放的屏上断点可能偏 1px（设备像素取整，见脚注）。三个区块：① 步进版（断点外一档到底）、② 插值版（960→1280 线性流动）、③ 结构断点（独立区块，两版都保留跳变）。</p>
+
+<section>
+  <h2>断点 960 / 1280，同一内容两套行为</h2>
+  <p class="sub">两个版共用同一套校准值：960 的与 1280 的。区别只在 960–1280 区间内：步进版全程用 1280 的值，插值版按宽度逐属性内插。</p>
+  <div class="controls stickybar">
+    <label for="w">容器宽度</label>
+    <input type="range" id="w" min="900" max="1400" step="1" value="1150" aria-describedby="rangeinfo">
+    <span class="readout" id="wv">1150px</span>
+    <span class="readout" id="rangeinfo">在 960 与 1280 之间：步进版显示 1280 的校准值；插值版显示按当前宽度内插的值。</span>
+  </div>
+  <iframe id="frame" title="断点衔接演示内容"></iframe>
+  <p class="note">观察任务：<br>
+  ① 滑到 961–977 之间——步进版是两行：一行三张，第四张被拉长。这不是设计好的结构切换，是满档校准值在这个区间挤不下四张卡：数值错档把结构挤坏的现场。插值版同区间一行四卡，行数稳定。<br>
+  ② 缓慢来回拖过 960——两个版都会跳（手机档→桌面档），但幅度不同：步进版跳到满档校准值（顺带换行翻车），插值版只跳到区间起点（行数不变）。<br>
+  ③ 第三个区块是独立的结构断点演示（不属于①②），在 1120 处 3↔4 列——这一跳两版都保留：列数不能插值，跳变是设计切换，不是缺陷。<br>
+  ④ 验收思路升级：拖过断点时不只看数值连不连续，还要查离散行为翻不翻车——换行、溢出、省略号在断点两侧应当是同一副样子；插值版若仍有「换了一版」的感觉，说明漏了某个属性没插值。</p>
+  <p class="foot">重构声明：依据《回顾-制作微信广告官网》「布局：流体与响应式布局」一节的原则重构，不是复刻（原文配图与 Flow 工具未复现）。断点 960/1280 与各校准值均为演示值，不是推荐值。步进版 961–977 的 3+1 换行是实现中无意产生的（卡片用内容盒基准，实际外宽比直觉大），保留它作为「数值跳变挤坏结构」的现场。系统缩放屏上断点偏 1px：视口宽度按设备像素取整，同一滑块值在不同缩放的屏上可能落在断点两侧——<a href="../屏宽与缩放/README.md">屏宽与缩放</a>讲过的「名义宽度≠实际宽度」的现场版。</p>
+</section>
+<script src="demo.js"></script>
+</body>
+</html>

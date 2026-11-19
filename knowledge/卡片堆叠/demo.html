@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>卡片堆叠：换位、入场、hover 展开</title>
+<style>
+  :root { --cw: 220px; --ch: 140px; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+         margin: 0 auto; max-width: 880px; padding: 24px 20px 90px; color: #222; background: #f6f6f8; line-height: 1.6; }
+  h1 { font-size: 22px; margin: 6px 0 2px; }
+  .lede { color: #666; font-size: 14px; margin: 0 0 4px; }
+  .reducible { display: none; color: #8a6d3b; background: #fdf6e3; border: 1px solid #f0e2bb; border-radius: 8px;
+               padding: 8px 12px; font-size: 13px; margin: 10px 0 0; }
+  section { background: #fff; border: 1px solid #e4e4e8; border-radius: 12px; padding: 18px 18px 16px; margin-top: 26px; }
+  section:focus { outline: 1px dashed #ccc; }
+  h2 { margin: 0 0 2px; font-size: 17px; }
+  .sub { color: #888; font-size: 13px; margin: 0 0 12px; }
+  .stage { position: relative; height: 230px; background: #f1f1f4; border-radius: 10px; overflow: hidden; touch-action: none; }
+  .note { font-size: 13px; color: #555; margin: 10px 0 0; }
+  .status { font-size: 13px; color: #444; min-height: 22px; margin-top: 8px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; font-size: 13px; }
+  .btn { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 8px; border: 1px solid #cfcfd6;
+         background: #fff; cursor: pointer; color: #333; }
+  .btn[aria-pressed="true"] { background: #333; border-color: #333; color: #fff; }
+  .btn:focus-visible, .pick:focus-visible { outline: 2px solid #4a7dce; outline-offset: 2px; }
+
+  .card { position: absolute; width: var(--cw); height: var(--ch); border-radius: 12px; background: #fff;
+          border: 1px solid #dcdce2; box-shadow: 0 4px 14px rgba(0,0,0,.08); padding: 13px 15px; overflow: hidden; }
+  .card h4 { margin: 0 0 6px; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card p { margin: 0; font-size: 12px; color: #8a8a92; }
+  .tag { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+  #stage1 .card { left: 60px; top: 44px; }
+
+  .dotw { position: absolute; }
+  .dot { width: 12px; height: 12px; border-radius: 50%;
+         transform: translateX(var(--px, 0px)) rotate(var(--rot, 0deg));
+         transition: transform .18s ease-out; }
+
+  .pick { text-align: left; cursor: pointer; transition: transform .25s ease-out; }
+  /* 扇区随状态变化：收起时只有卡片足迹算悬停，张开后才是整扇区（无空白死区） */
+  .fanwrap { position: absolute; left: 150px; top: 44px; width: 238px; height: 140px; }
+  #stage3.mode-b .fanwrap:hover { width: 454px; }
+
+  /* 模式 A：每张卡自己当 hover 目标，位移 -46px */
+  #stage3.mode-a .pick { transition: transform .18s ease-out; }
+  #stage3.mode-a .pick:hover, #stage3.mode-a .pick:focus-visible { transform: translateX(-46px); outline: 2px solid #333; }
+
+  /* 模式 B：扇区当目标；顶卡为锚点不动，其余三层展开 */
+  #stage3.mode-b .fanwrap:hover .pick:nth-child(2) { transform: translateX(72px); }
+  #stage3.mode-b .fanwrap:hover .pick:nth-child(3) { transform: translateX(144px); }
+  #stage3.mode-b .fanwrap:hover .pick:nth-child(4) { transform: translateX(216px); }
+  #stage3.mode-b .fanwrap:hover .pick:hover { outline: 2px solid #333; }
+
+  /* 模式 C：hover 只做示能；点击才展开 */
+  #stage3.mode-c .pick:hover, #stage3.mode-c .pick:focus-visible { transform: scale(1.03); outline: 2px solid #333;
+                                                                    box-shadow: 0 10px 26px rgba(0,0,0,.14); }
+  #stage3.mode-c.expanded .pick { transform: translateX(var(--fx, 0px)); }
+  #stage3.mode-c.expanded .pick:hover, #stage3.mode-c.expanded .pick:focus-visible { transform: translateX(var(--fx, 0px)) scale(1.03); }
+
+  #measure { position: absolute; visibility: hidden; white-space: nowrap; font-size: 15px; font-weight: 600; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 0.01ms !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<h1>卡片堆叠：换位、入场、hover 展开</h1>
+<p class="lede">同一叠卡的三个对照：换位的编排、入场的语义、浏览型展开。三部分独立，各自只改要研究的因素。键盘：各部分用 ←/→/Enter/Space，Esc 收起。</p>
+<p class="reducible" id="rm">已检测到系统的「减少动态效果」偏好：所有过渡已按偏好关闭。状态切换仍可用，但 A 模式的振荡属于动效问题，关闭动效后不会出现。</p>
+
+<section id="s1" tabindex="0" aria-label="换位的编排">
+  <h2>1 · 换位：两张卡片交换位置</h2>
+  <p class="sub">同一叠卡、同一次「下一张」，只换编排。来源：《交互动画的层级设计》「真实世界中不可能发生一张卡片穿过另一张卡片」。</p>
+  <div class="controls">
+    <button class="btn mode1" data-mode="nocho" aria-pressed="true">缺编排：同时换位</button>
+    <button class="btn mode1" data-mode="cho" aria-pressed="false">有编排：先腾位，再进驻</button>
+    <span style="width:14px"></span>
+    <button class="btn" id="next1">下一张（→ / Space）</button>
+    <button class="btn" id="reset1">重置</button>
+  </div>
+  <div class="stage" id="stage1">
+    <div class="card"><span class="tag" style="background:#e8734a"></span><h4>评委卡 · 01</h4><p>夜航西飞</p></div>
+    <div class="card"><span class="tag" style="background:#4a90d9"></span><h4>评委卡 · 02</h4><p>山顶之城</p></div>
+    <div class="card"><span class="tag" style="background:#57a773"></span><h4>评委卡 · 03</h4><p>海风与信</p></div>
+    <div class="card"><span class="tag" style="background:#b08bd0"></span><h4>评委卡 · 04</h4><p>旧梦重温</p></div>
+  </div>
+  <p class="note" id="note1">观察：「缺编排」按下一张——离场卡与进场卡在中间地带同时在场，深度关系却整场冻结不变，看它读不读得出「穿过」。再切「先腾位」对比：离场卡先抬起离开共享平面，其余卡才补位；总时长更长，这是编排的代价。</p>
+</section>
+
+<section id="s2" aria-label="入场的语义">
+  <h2>2 · 入场：堆叠用什么宣告「可以揭开」</h2>
+  <p class="sub">来源：《评选 2025》评委卡堆叠入场的三版迭代——前两版被否，第三版上线。</p>
+  <div class="controls">
+    <button class="btn v2btn" data-v="1">重播 v1 · 封面飘入</button>
+    <button class="btn v2btn" data-v="2">重播 v2 · 封面 + 生成文字</button>
+    <button class="btn v2btn" data-v="3">重播 v3 · 氛围散开 + 文字揭开</button>
+  </div>
+  <div class="stage" id="stage2" tabindex="0" aria-label="入场演示，落位后可用左右方向键或拖动顶层卡">
+    <div class="card" id="base2a" style="left:150px; top:52px; z-index:10; transform:scale(.9);"><h4><span class="tag" style="background:#57a773"></span>· 03</h4></div>
+    <div class="card" id="base2b" style="left:135px; top:38px; z-index:20; transform:scale(.95);"><h4><span class="tag" style="background:#4a90d9"></span>· 02</h4></div>
+    <div class="card" id="top2" style="left:120px; top:24px; z-index:30;">
+      <div class="dotw" style="left:12px; top:16px;"><span class="dot" style="background:#e8734a"></span></div>
+      <div class="dotw" style="left:150px; top:20px;"><span class="dot" style="background:#4a90d9"></span></div>
+      <div class="dotw" style="left:24px; top:64px;"><span class="dot" style="background:#57a773"></span></div>
+      <div class="dotw" style="left:120px; top:88px;"><span class="dot" style="background:#b08bd0"></span></div>
+      <div class="dotw" style="left:170px; top:54px;"><span class="dot" style="background:#d9b04a"></span></div>
+      <div class="dotw" style="left:60px; top:104px;"><span class="dot" style="background:#6a9fd8"></span></div>
+      <h4 id="t2h" style="position:relative; z-index:2;">评委卡 · 01</h4>
+      <p id="t2p" style="position:relative; z-index:2;">记下你今年的选择</p>
+    </div>
+    <div class="card" id="cover2" style="left:120px; top:24px; z-index:31; display:flex; align-items:center; justify-content:center;">
+      <span class="tag" id="coverLogo" style="width:14px; height:14px; background:#333; border-radius:50%;"></span>
+      <span id="gen2" style="font-size:13px; color:#666; margin-left:8px; display:none;">正在生成</span>
+    </div>
+  </div>
+  <p class="note" id="note2">按任一版本开始。观察每一版落位后：这叠东西有没有告诉你「它可以被揭开」。v3 落位后可拖动顶层卡（或按 ←/→）。</p>
+</section>
+
+<section id="s3" tabindex="0" aria-label="hover 展开的三种做法">
+  <h2>3 · hover 展开（浏览型层叠：一叠卡里挑一张）</h2>
+  <p class="sub">《动效的层级》留下的两个悬案：hover 位移改变命中区域、形成振荡；展开多少由内容还是固定距离。《评选 2025》是触摸翻阅型，答不了这两问——这里自己对照。</p>
+  <div class="controls">
+    <button class="btn mode3" data-mode="a" aria-pressed="true">A · 位移：每张卡自己当目标</button>
+    <button class="btn mode3" data-mode="b" aria-pressed="false">B · 位移：扇区当目标</button>
+    <button class="btn mode3" data-mode="c" aria-pressed="false">C · 示能 + 点击展开</button>
+    <span style="width:14px"></span>
+    <button class="btn" id="dist3" aria-pressed="false">展开距离：由内容决定</button>
+  </div>
+  <div class="stage" id="stage3">
+    <div class="fanwrap" id="fanwrap">
+      <button class="card pick" data-i="0" style="left:0; z-index:40;"><h4><span class="tag" style="background:#e8734a"></span>极简白</h4><p>点击选择</p></button>
+      <button class="card pick" data-i="1" style="left:6px; z-index:30;"><h4><span class="tag" style="background:#4a90d9"></span>深夜蓝 · 经典款</h4><p>点击选择</p></button>
+      <button class="card pick" data-i="2" style="left:12px; z-index:20;"><h4><span class="tag" style="background:#57a773"></span>森林绿</h4><p>点击选择</p></button>
+      <button class="card pick" data-i="3" style="left:18px; z-index:10;"><h4><span class="tag" style="background:#b08bd0"></span>落日橙 · 2025 限定纪念版</h4><p>点击选择</p></button>
+    </div>
+  </div>
+  <p class="status" id="status3"></p>
+  <p class="note">观察清单：① A 模式：把指针停在顶部卡片右边缘 40px 以内——位移之后指针下是谁？停住不动时它稳定吗？描边标出了当前目标。② B（修正版）：扇区随状态变化——收起时空白不再触发；剩下的代价是指针一进入就展开，路过也算数，且展开瞬间指针下的卡可能换人。③ C 模式（对照，拣选主任务里不推荐）：把一步加在主路径上；保留它只为看付款表的另一端——叠放不是主任务、路过多或展开遮挡邻居时它才划算。④ 键盘：←/→ 移焦点——焦点不会被位移甩掉，A 的病只属于指针。</p>
+</section>
+
+<footer style="margin-top:26px; font-size:12.5px; color:#888;">
+  <p>重构声明：第 1、2 部分是依据《制作有趣的界面：朋友圈广告年度评选 2025》（wxad.design/abc/making-fun-interfaces）与《交互动画的层级设计》（wxad.design/abc/designing-depth）的文字描述所做的原则重构，不是对原作的复刻；原文中的录屏与对照 GIF 请见原页面。第 3 部分是补充对照。</p>
+</footer>
+
+<span id="measure"></span>
+<script src="demo.js"></script>
+</body>
+</html>

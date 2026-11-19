@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>美即好用的边界 · 图解</title>
+<style>
+  :root { --ink:#1c1e21; --sub:#5a6068; --line:#d6d9dd; --accent:#2f6fb4; --warm:#b58a2f; --bg:#fbfbfa; --card:#ffffff; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px 16px 64px; font:15px/1.75 "PingFang SC","Microsoft YaHei",system-ui,sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width:780px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .lede { color:var(--sub); margin:0 0 18px; }
+  .back { display:inline-block; margin:0 0 18px; font-size:13px; color:var(--sub); text-decoration:none; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px 22px 14px; margin:0 0 18px; }
+  h2 { font-size:16px; margin:0 0 4px; }
+  .cap { color:var(--sub); font-size:13.5px; margin:0 0 12px; }
+  figure { margin:0; }
+  svg { display:block; width:100%; height:auto; }
+  figcaption { font-size:13px; color:var(--sub); border-top:1px dashed var(--line); margin-top:10px; padding-top:8px; }
+  ul.obs { margin:6px 0 0; padding-left:0; list-style:none; font-size:13.5px; }
+  ul.obs li { margin:0 0 4px; padding-left:18px; position:relative; }
+  ul.obs li::before { content:"▸"; position:absolute; left:2px; color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="README.md">← 返回说明</a>
+<h1>美即好用的边界 · 图解</h1>
+<p class="lede">一张静态图。曲线是示意，不是实测数据。</p>
+
+<section>
+  <h2>两本账</h2>
+  <p class="cap">两种信用都汇入同一个"评出的可用性"，但记账的时刻不同。</p>
+  <figure>
+    <svg viewBox="0 0 680 310" role="img" aria-label="两本账示意图：颜值信用初见最高、随使用衰减，熟练信用随使用上升，交接点位置未知">
+      <!-- 区域底色 -->
+      <rect x="70" y="30" width="275" height="230" fill="#b58a2f" fill-opacity="0.05"/>
+      <rect x="430" y="30" width="220" height="230" fill="#2f6fb4" fill-opacity="0.05"/>
+      <!-- 轴 -->
+      <line x1="70" y1="30" x2="70" y2="260" stroke="#9aa0a8" stroke-width="1.5"/>
+      <line x1="70" y1="260" x2="650" y2="260" stroke="#9aa0a8" stroke-width="1.5"/>
+      <text x="26" y="145" transform="rotate(-90 26 145)" font-size="11.5" fill="#5a6068" text-anchor="middle">对「评出的可用性」的贡献（示意）</text>
+      <text x="100" y="280" font-size="12" fill="#5a6068" text-anchor="middle">初见</text>
+      <text x="600" y="280" font-size="12" fill="#5a6068" text-anchor="middle">高频日常</text>
+      <text x="650" y="298" font-size="11" fill="#5a6068" text-anchor="end">使用时长 →</text>
+      <!-- 交接带 -->
+      <line x1="385" y1="30" x2="385" y2="260" stroke="#9aa0a8" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="385" y="44" font-size="11.5" fill="#5a6068" text-anchor="middle">交接带（位置未知）</text>
+      <!-- 区域标签 -->
+      <text x="205" y="46" font-size="12" fill="#8a6a20" text-anchor="middle">初见：颜值主导判断</text>
+      <text x="540" y="46" font-size="12" fill="#2f6fb4" text-anchor="middle">高频：熟练主导判断</text>
+      <!-- 颜值信用 -->
+      <polyline fill="none" stroke="#b58a2f" stroke-width="2.5" points="70,58 130,84 190,108 260,132 330,152 420,170 510,183 600,192 650,196"/>
+      <text x="646" y="216" font-size="12.5" fill="#8a6a20" text-anchor="end">颜值信用（好看 → 打分时觉得好用）</text>
+      <!-- 熟练信用 -->
+      <polyline fill="none" stroke="#2f6fb4" stroke-width="2.5" points="70,238 150,212 240,185 330,165 420,140 510,118 600,102 650,95"/>
+      <text x="646" y="84" font-size="12.5" fill="#2f6fb4" text-anchor="end">熟练信用（真的用得快 → 觉得好用）</text>
+    </svg>
+    <figcaption>
+      <ul class="obs">
+        <li>左边一段是效应的位置：还没怎么用，颜值信用就把打分拉高了——污染发生在打分那一步，不发生在手上。</li>
+        <li>右边一段是熟练账接管：高频使用之后，真正省下的操作时间才是判断的主料。</li>
+        <li>两条线的位置和斜率都是示意；交接点随任务和人群变，图上读不出天数。</li>
+        <li>防污染的动作不在这张图里：评估时先完成任务、再谈感受，两段分开记（见正文）。</li>
+      </ul>
+    </figcaption>
+  </figure>
+</section>
+</main>
+</body>
+</html>

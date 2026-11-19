@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>改动的代价 · 图解</title>
+<style>
+  :root { --ink:#1c1e21; --sub:#5a6068; --line:#d6d9dd; --accent:#2f6fb4; --old:#c9ced4; --bg:#fbfbfa; --card:#ffffff; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px 16px 64px; font:15px/1.75 "PingFang SC","Microsoft YaHei",system-ui,sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width:780px; margin:0 auto; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .lede { color:var(--sub); margin:0 0 18px; }
+  .back { display:inline-block; margin:0 0 18px; font-size:13px; color:var(--sub); text-decoration:none; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px 22px 14px; margin:0 0 18px; }
+  h2 { font-size:16px; margin:0 0 4px; }
+  .cap { color:var(--sub); font-size:13.5px; margin:0 0 12px; }
+  figure { margin:0; }
+  svg { display:block; width:100%; height:auto; }
+  figcaption { font-size:13px; color:var(--sub); border-top:1px dashed var(--line); margin-top:10px; padding-top:8px; }
+  ul.obs { margin:6px 0 0; padding-left:0; list-style:none; font-size:13.5px; }
+  ul.obs li { margin:0 0 4px; padding-left:18px; position:relative; }
+  ul.obs li::before { content:"▸"; position:absolute; left:2px; color:var(--accent); }
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="README.md">← 返回说明</a>
+<h1>改动的代价 · 图解</h1>
+<p class="lede">三张静态图。曲线和色块都是示意，不是实测数据。</p>
+
+<section>
+  <h2>1 · 学习债曲线</h2>
+  <p class="cap">改版前后，同一任务用时（相对各自老稳态）的两条曲线。</p>
+  <figure>
+    <svg viewBox="0 0 680 320" role="img" aria-label="学习债曲线：改版后用时先飙升再恢复，习惯资产多的用户谷底更深、恢复更慢">
+      <!-- 轴 -->
+      <line x1="70" y1="30" x2="70" y2="260" stroke="#9aa0a8" stroke-width="1.5"/>
+      <line x1="70" y1="260" x2="650" y2="260" stroke="#9aa0a8" stroke-width="1.5"/>
+      <text x="26" y="145" transform="rotate(-90 26 145)" font-size="11.5" fill="#5a6068" text-anchor="middle">同一任务的用时（相对各自老稳态）</text>
+      <text x="185" y="280" font-size="12" fill="#5a6068" text-anchor="middle">改版前</text>
+      <text x="475" y="280" font-size="12" fill="#5a6068" text-anchor="middle">改版后</text>
+      <!-- 基线与改版线 -->
+      <line x1="70" y1="180" x2="650" y2="180" stroke="#9aa0a8" stroke-width="1" stroke-dasharray="5 4"/>
+      <text x="74" y="196" font-size="11" fill="#5a6068">老稳态 = 1.0</text>
+      <line x1="300" y1="30" x2="300" y2="260" stroke="#b58a2f" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="300" y="44" font-size="11.5" fill="#8a6a20" text-anchor="middle">改版上线</text>
+      <!-- 学习债阴影：曲线 A 与基线之间 -->
+      <polygon fill="#2f6fb4" fill-opacity="0.10" points="300,180 303,170 306,150 309,126 312,104 316,88 321,76 327,68 334,66 342,70 352,78 362,88 372,98 382,107 392,115 402,122 412,129 422,135 432,140 442,144 452,148 462,151 472,154 486,158 500,161 514,163 528,165 542,167 556,169 574,171 592,173 612,178 612,180"/>
+      <text x="400" y="214" font-size="12.5" fill="#2f6fb4" text-anchor="middle">阴影面积 ≈ 学习债（谷底深度 × 恢复时长）</text>
+      <!-- 曲线 A：习惯资产多 -->
+      <polyline fill="none" stroke="#2f6fb4" stroke-width="2.5" points="70,180 300,180 303,170 306,150 309,126 312,104 316,88 321,76 327,68 334,66 342,70 352,78 362,88 372,98 382,107 392,115 402,122 412,129 422,135 432,140 442,144 452,148 462,151 472,154 486,158 500,161 514,163 528,165 542,167 556,169 574,171 592,173 612,178 632,184 650,189"/>
+      <!-- 曲线 B：习惯资产少 -->
+      <polyline fill="none" stroke="#8f9aa6" stroke-width="2.5" points="70,180 300,180 302,174 304,166 306,158 309,151 312,146 316,141 321,137 327,134 334,132 342,132 352,133 362,135 372,138 382,141 392,145 402,148 412,151 422,154 432,156 442,158 452,160 462,162 476,164 490,166 504,168 518,170 532,172 546,174 564,177 590,181 615,186 650,189"/>
+      <!-- 稳态段高亮 -->
+      <rect x="556" y="150" width="92" height="58" fill="none" stroke="#2f6fb4" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="602" y="144" font-size="11.5" fill="#2f6fb4" text-anchor="middle">公平对比看稳态段</text>
+      <text x="648" y="222" font-size="11" fill="#5a6068" text-anchor="end">新稳态（本例略优于老基线）</text>
+      <!-- 谷底注记 -->
+      <text x="398" y="70" font-size="11.5" fill="#5a6068" text-anchor="middle">谷底：最慢、错按最多</text>
+      <line x1="388" y1="74" x2="340" y2="67" stroke="#9aa0a8" stroke-width="1"/>
+      <text x="352" y="118" font-size="11.5" fill="#5a6068" text-anchor="middle">浅谷</text>
+      <!-- 图例 -->
+      <line x1="492" y1="40" x2="520" y2="40" stroke="#2f6fb4" stroke-width="2.5"/>
+      <text x="526" y="44" font-size="11.5" fill="#5a6068">习惯资产多</text>
+      <line x1="492" y1="60" x2="520" y2="60" stroke="#8f9aa6" stroke-width="2.5"/>
+      <text x="526" y="64" font-size="11.5" fill="#5a6068">习惯资产少</text>
+    </svg>
+    <figcaption>
+      <ul class="obs">
+        <li>谷底深度和恢复时长都随习惯资产变化——"改版阻力随已形成的习惯量增长"的图形化。</li>
+        <li>改版头两周测出的"慢"是冷启动，不是新版差的证据；新旧版本的公平对比在右端的稳态段。</li>
+        <li>错按集中在谷底段——手伸向旧位置发生在意识之前，这是肌肉记忆最直接的行为证据。</li>
+      </ul>
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>2 · 动刀的深度</h2>
+  <p class="cap">代价按"作废多少已学会的东西"排，不是按工作量排。</p>
+  <figure>
+    <svg viewBox="0 0 680 352" role="img" aria-label="四层改动代价：风格、位置、流程、惯例，由浅到深">
+      <defs></defs>
+      <text x="16" y="24" font-size="12" fill="#5a6068">改什么</text>
+      <text x="150" y="24" font-size="12" fill="#5a6068">代价（作废多少已学会的东西，越深越贵）</text>
+      <text x="498" y="24" font-size="12" fill="#5a6068">伤到哪 · 量级</text>
+      <!-- 行 1：风格 -->
+      <text x="16" y="49" font-size="13" font-weight="600" fill="#1c1e21">风格</text>
+      <text x="16" y="63" font-size="11.5" fill="#5a6068">颜色、图标、圆角、字重</text>
+      <rect x="150" y="36" width="84" height="30" fill="#dfe7f2" stroke="#c4d2e4"/>
+      <text x="498" y="49" font-size="12.5" fill="#1c1e21">眼睛重新认一遍</text>
+      <text x="498" y="63" font-size="11.5" fill="#5a6068">小 · 手不断</text>
+      <!-- 行 2：位置 -->
+      <text x="16" y="109" font-size="13" font-weight="600" fill="#1c1e21">位置</text>
+      <text x="16" y="123" font-size="11.5" fill="#5a6068">挪动、分组重排</text>
+      <rect x="150" y="96" width="168" height="30" fill="#b9cde6" stroke="#9db8d8"/>
+      <text x="498" y="109" font-size="12.5" fill="#1c1e21">空间记忆</text>
+      <text x="498" y="123" font-size="11.5" fill="#5a6068">中</text>
+      <!-- 行 3：流程 -->
+      <text x="16" y="169" font-size="13" font-weight="600" fill="#1c1e21">流程</text>
+      <text x="16" y="183" font-size="11.5" fill="#5a6068">步数、顺序、确认点</text>
+      <rect x="150" y="156" width="252" height="30" fill="#7aa1cf" stroke="#6089bd"/>
+      <text x="498" y="169" font-size="12.5" fill="#1c1e21">程序性记忆（动身体的）</text>
+      <text x="498" y="183" font-size="11.5" fill="#5a6068">深</text>
+      <!-- 行 4：惯例 -->
+      <text x="16" y="229" font-size="13" font-weight="600" fill="#1c1e21">惯例</text>
+      <text x="16" y="243" font-size="11.5" fill="#5a6068">Ctrl+C、关闭在右上</text>
+      <rect x="150" y="216" width="336" height="30" fill="#2f6fb4"/>
+      <text x="498" y="229" font-size="12.5" fill="#1c1e21">生态级习惯 · 最深</text>
+      <text x="498" y="243" font-size="11.5" fill="#5a6068">且冤：撞的不是你的产品</text>
+      <!-- 名字注记 -->
+      <rect x="16" y="258" width="648" height="82" rx="8" fill="#f6f3ea" stroke="#e3dccb"/>
+      <text x="32" y="282" font-size="13.5" font-weight="600" fill="#1c1e21">不在深度轴上：名字</text>
+      <text x="32" y="304" font-size="12.5" fill="#1c1e21">改名字伤的不只是肌肉记忆，还有口头协作——「点设置 → 高级 → 导出」这句话失效，</text>
+      <text x="32" y="326" font-size="12.5" fill="#1c1e21">培训材料、同事指路、客服话术都要重写。位置挪了用户自己疼，名字改了整个组织付账。</text>
+    </svg>
+    <figcaption>
+      <ul class="obs">
+        <li>第四层最冤：撞的是整个生态的习惯，跟你的产品无关，账单却寄给你。</li>
+        <li>名字把账单寄给整个组织——它伤的是人和人之间传递操作知识的那条通道。</li>
+      </ul>
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>3 · 在哪切开</h2>
+  <p class="cap">三种切法。竖直方向是三个任务域，横向是时间。</p>
+  <figure>
+    <svg viewBox="0 0 680 432" role="img" aria-label="三种改版切法：全域一次到位、域间按块、同域改一半的对比">
+      <defs>
+        <pattern id="mix" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="12" height="12" fill="#c9ced4"/>
+          <rect width="6" height="12" fill="#2f6fb4" opacity="0.75"/>
+        </pattern>
+      </defs>
+      <!-- 时间轴与图例 -->
+      <line x1="70" y1="20" x2="640" y2="20" stroke="#9aa0a8" stroke-width="1.5"/>
+      <polygon points="640,14 656,20 640,26" fill="#9aa0a8"/>
+      <rect x="440" y="8" width="16" height="10" fill="#c9ced4"/>
+      <text x="460" y="17" font-size="11" fill="#5a6068">旧（已学会）</text>
+      <rect x="544" y="8" width="16" height="10" fill="#2f6fb4"/>
+      <text x="564" y="17" font-size="11" fill="#5a6068">新（要重建）</text>
+      <!-- ① 全域一次到位 -->
+      <text x="16" y="58" font-size="13.5" font-weight="600" fill="#1c1e21">① 全域一次到位</text>
+      <text x="40" y="80" font-size="11.5" fill="#5a6068">域A</text>
+      <text x="40" y="104" font-size="11.5" fill="#5a6068">域B</text>
+      <text x="40" y="128" font-size="11.5" fill="#5a6068">域C</text>
+      <rect x="90" y="68" width="200" height="16" fill="#c9ced4"/>
+      <rect x="290" y="68" width="200" height="16" fill="#2f6fb4"/>
+      <rect x="90" y="92" width="200" height="16" fill="#c9ced4"/>
+      <rect x="290" y="92" width="200" height="16" fill="#2f6fb4"/>
+      <rect x="90" y="116" width="200" height="16" fill="#c9ced4"/>
+      <rect x="290" y="116" width="200" height="16" fill="#2f6fb4"/>
+      <line x1="290" y1="62" x2="290" y2="136" stroke="#b58a2f" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="506" y="80" font-size="12" fill="#5a6068">整个产品算一个域，</text>
+      <text x="506" y="100" font-size="12" fill="#5a6068">一刀切完，集中痛一次。</text>
+      <text x="506" y="120" font-size="12" fill="#5a6068">条件：习惯资产总量低。</text>
+      <!-- ② 域间按块 -->
+      <text x="16" y="196" font-size="13.5" font-weight="600" fill="#1c1e21">② 域内一次到位、域间按块</text>
+      <text x="40" y="218" font-size="11.5" fill="#5a6068">域A</text>
+      <text x="40" y="242" font-size="11.5" fill="#5a6068">域B</text>
+      <text x="40" y="266" font-size="11.5" fill="#5a6068">域C</text>
+      <rect x="90" y="206" width="100" height="16" fill="#c9ced4"/>
+      <rect x="190" y="206" width="300" height="16" fill="#2f6fb4"/>
+      <line x1="190" y1="202" x2="190" y2="226" stroke="#b58a2f" stroke-width="1" stroke-dasharray="4 4"/>
+      <rect x="90" y="230" width="200" height="16" fill="#c9ced4"/>
+      <rect x="290" y="230" width="200" height="16" fill="#2f6fb4"/>
+      <line x1="290" y1="226" x2="290" y2="250" stroke="#b58a2f" stroke-width="1" stroke-dasharray="4 4"/>
+      <rect x="90" y="254" width="300" height="16" fill="#c9ced4"/>
+      <rect x="390" y="254" width="100" height="16" fill="#2f6fb4"/>
+      <line x1="390" y1="250" x2="390" y2="274" stroke="#b58a2f" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="506" y="218" font-size="12" fill="#5a6068">每块独立可活、可回滚；</text>
+      <text x="506" y="238" font-size="12" fill="#5a6068">任何时刻竖切一刀，</text>
+      <text x="506" y="258" font-size="12" fill="#5a6068">每条都是单色。</text>
+      <!-- ③ 同域改一半 -->
+      <text x="16" y="334" font-size="13.5" font-weight="600" fill="#1c1e21">③ 同域改一半（最差）</text>
+      <text x="40" y="356" font-size="11.5" fill="#5a6068">域A</text>
+      <text x="40" y="380" font-size="11.5" fill="#5a6068">域B</text>
+      <text x="40" y="404" font-size="11.5" fill="#5a6068">域C</text>
+      <rect x="90" y="344" width="200" height="16" fill="#c9ced4"/>
+      <rect x="290" y="344" width="200" height="16" fill="#2f6fb4"/>
+      <rect x="90" y="368" width="200" height="16" fill="#c9ced4"/>
+      <rect x="290" y="368" width="200" height="16" fill="url(#mix)"/>
+      <rect x="90" y="392" width="200" height="16" fill="#c9ced4"/>
+      <rect x="290" y="392" width="200" height="16" fill="#2f6fb4"/>
+      <line x1="290" y1="338" x2="290" y2="412" stroke="#b58a2f" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="506" y="356" font-size="12" fill="#5a6068">域B改一半并长期挂着：</text>
+      <text x="506" y="376" font-size="12" fill="#5a6068">条纹 = 新旧记忆互相干扰，</text>
+      <text x="506" y="396" font-size="12" fill="#5a6068">两头付账。停在这不是过渡。</text>
+    </svg>
+    <figcaption>
+      <ul class="obs">
+        <li>②里任何时刻竖着切一刀，每条都是单色；①是把整块蛋糕一次切完的特例。</li>
+        <li>③的中间那条从切换之后永远是条纹——停在这里不是"在路上"，是停在了最差的地方。</li>
+        <li>"渐进时用户要同时维护两套模型"的说法只在③成立；按域切好的②里，用户每一刻只需要为刚被切的那块重建记忆。</li>
+      </ul>
+    </figcaption>
+  </figure>
+</section>
+</main>
+</body>
+</html>

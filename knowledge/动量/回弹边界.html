@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>回弹的边界：距离还是速度</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+         margin: 0 auto; max-width: 1000px; padding: 24px 20px 80px; color: #222; background: #f6f6f8; line-height: 1.6; }
+  h1 { font-size: 22px; margin: 6px 0 2px; }
+  .lede { color: #666; font-size: 14px; margin: 0 0 4px; }
+  .reducible { display: none; color: #8a6d3b; background: #fdf6e3; border: 1px solid #f0e2bb; border-radius: 8px;
+               padding: 8px 12px; font-size: 13px; margin: 10px 0 0; }
+  section { background: #fff; border: 1px solid #e4e4e8; border-radius: 12px; padding: 18px 18px 16px; margin-top: 26px; }
+  h2 { margin: 0 0 2px; font-size: 17px; }
+  .sub { color: #888; font-size: 13px; margin: 0 0 12px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; font-size: 13px; }
+  .btn { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 8px; border: 1px solid #cfcfd6;
+         background: #fff; cursor: pointer; color: #333; }
+  .btn[aria-pressed="true"] { background: #333; border-color: #333; color: #fff; }
+  .btn:focus-visible { outline: 2px solid #4a7dce; outline-offset: 2px; }
+  .tabwrap { overflow-x: auto; padding: 4px 2px 0; }
+  .tabwrap:focus { outline: 1px dashed #ccc; }
+  .tabrow { position: relative; display: flex; width: max-content; margin: 0 auto; border-bottom: 1px solid #e2e2e8; }
+  .tab { font: inherit; font-size: 13px; width: 90px; height: 42px; border: none; background: none;
+         cursor: pointer; color: #8a8a92; padding: 0; }
+  .tab.active { color: #222; font-weight: 600; }
+  .tab:focus-visible { outline: 2px solid #4a7dce; outline-offset: -2px; }
+  .ind { position: absolute; left: 0; bottom: -1px; width: 90px; height: 3px; background: #333; border-radius: 2px;
+         transition: transform .25s var(--ease-out); }
+  :root {
+    --ease-out: cubic-bezier(.2,.7,.3,1);
+    --ease-bounce: cubic-bezier(0.36, 1.46, 0.38, 1.01);
+    --ease-bounce: linear(0, 0.002, 0.008, 0.018, 0.032 2%, 0.072, 0.129 4.3%, 0.186 5.3%, 0.257 6.5%, 0.551 10.9%, 0.675 12.8%, 0.791, 0.885 16.8%, 0.926, 0.963, 0.995, 1.023, 1.048, 1.068, 1.084, 1.097 25%, 1.103, 1.108, 1.112, 1.114, 1.115, 1.115, 1.113, 1.111 31.1%, 1.104 32.5%, 1.094 34.1%, 1.04 41.2%, 1.027, 1.017 44.9%, 1.007, 0.999, 0.993, 0.989 53.4%, 0.987 56.4% 59.9%, 0.998 73.1%, 1.001 80.4%, 1.002 87.4%, 1);
+  }
+  .readout { font-size: 13px; color: #444; background: #f4f4f7; border-radius: 8px; padding: 8px 12px;
+             margin-top: 14px; min-height: 20px; }
+  .note { font-size: 13px; color: #555; margin: 10px 0 0; }
+  .foot { margin-top: 22px; font-size: 12.5px; color: #888; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 0.01ms !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<h1>回弹的边界：距离的事，还是速度的事</h1>
+<p class="lede">点击任意标签，指示器滑到新位置。回弹（带回跳的曲线）什么时候读成「帮你找到落点」，什么时候读成「多余的一晃」？</p>
+<p class="reducible" id="rm">已检测到「减少动态效果」偏好：所有过渡已关闭，指示器瞬移。本页的观察依赖动效，请在关闭该偏好后再试。</p>
+
+<section>
+  <h2>Tab 指示器</h2>
+  <p class="sub">标签间距 90px：01→04 即 270/360px 一档。回弹曲线取自 AD UI 的物理曲线。</p>
+  <div class="controls">
+    <span>时长</span>
+    <button class="btn durbtn" data-d="150" aria-pressed="false">150ms</button>
+    <button class="btn durbtn" data-d="250" aria-pressed="true">250ms</button>
+    <button class="btn durbtn" data-d="400" aria-pressed="false">400ms</button>
+    <button class="btn durbtn" data-d="600" aria-pressed="false">600ms</button>
+    <span style="width:14px"></span>
+    <span>回弹规则</span>
+    <button class="btn rulebtn" data-rule="never" aria-pressed="false">从不回弹</button>
+    <button class="btn rulebtn" data-rule="always" aria-pressed="false">总是回弹</button>
+    <button class="btn rulebtn" data-rule="dist" aria-pressed="true">距离 &gt;350px</button>
+    <button class="btn rulebtn" data-rule="speed" aria-pressed="false">速度 &gt;1080px/s</button>
+  </div>
+  <div class="tabwrap" id="tabwrap" tabindex="0">
+    <div class="tabrow" id="tabrow">
+      <button class="tab active" aria-selected="true">标签 01</button>
+      <button class="tab">标签 02</button>
+      <button class="tab">标签 03</button>
+      <button class="tab">标签 04</button>
+      <button class="tab">标签 05</button>
+      <button class="tab">标签 06</button>
+      <button class="tab">标签 07</button>
+      <button class="tab">标签 08</button>
+      <button class="tab">标签 09</button>
+      <button class="tab">标签 10</button>
+      <div class="ind" id="ind"></div>
+    </div>
+  </div>
+  <div class="readout" id="readout">点击任意标签开始。每次切换显示：距离、时长、速度，以及两条规则各自的判定。</div>
+  <p class="note">观察任务（先看格子里的数，再对照感觉）：<br>
+  ① 校准：时长 250ms，01→04（360px·1440px/s）——两条规则都给回弹，你同意吗？<br>
+  ② 分辨：时长 400ms，01→04（360px·900px/s）——距离规则给回弹、速度规则不给。回弹是帮了落点，还是多晃了一下？<br>
+  ③ 分辨：时长 600ms，01→05（450px·750px/s）——距离给、速度不给。<br>
+  ④ 分辨：时长 150ms，01→02（180px·1200px/s）——速度给、距离不给。<br>
+  ⑤ 切「从不回弹」「总是回弹」各扫一遍，找你自己「赚到的回弹」边界，再回 ②③④ 看它跟哪条规则重合。键盘：←/→ 移焦点，Enter 切换。</p>
+  <p class="foot">数值出处：350px 与回弹曲线取自《回顾-制作微信广告设计语言 AD UI》（中心视野推导；linear() 曲线与 cubic-bezier(0.36,1.46,0.38,1.01) 回退均为原文值）。1080px/s 是在同一套前提（50cm 视距、PPI 102.46）下按平滑追踪 ~30°/s 换算的速度探针，与 350px 同源不同锚。两条规则都是待验假设，本页用来找你的边界，不是标准答案。标签距 90px、时长档位是演示值。</p>
+</section>
+<script src="回弹边界.js"></script>
+</body>
+</html>

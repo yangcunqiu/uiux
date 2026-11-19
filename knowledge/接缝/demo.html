@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>接缝：看得见的必须对齐，看不见的免费</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+         margin: 0 auto; max-width: 860px; padding: 24px 20px 80px; color: #222; background: #f6f6f8; line-height: 1.6; }
+  h1 { font-size: 22px; margin: 6px 0 2px; }
+  .lede { color: #666; font-size: 14px; margin: 0 0 4px; }
+  section { background: #fff; border: 1px solid #e4e4e8; border-radius: 12px; padding: 18px 18px 16px; margin-top: 26px; }
+  h2 { margin: 0 0 2px; font-size: 17px; }
+  .sub { color: #888; font-size: 13px; margin: 0 0 12px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; font-size: 13px; }
+  .btn { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 8px; border: 1px solid #cfcfd6;
+         background: #fff; cursor: pointer; color: #333; }
+  .btn[aria-pressed="true"] { background: #333; border-color: #333; color: #fff; }
+  .btn:focus-visible { outline: 2px solid #4a7dce; outline-offset: 2px; }
+  .stage { position: relative; height: 210px; background: #f1f1f4; border-radius: 10px; overflow: hidden; touch-action: none; }
+  .card { position: absolute; width: 180px; height: 110px; border-radius: 12px; background: #fff;
+          border: 1px solid #dcdce2; box-shadow: 0 4px 14px rgba(0,0,0,.08);
+          display: flex; align-items: center; justify-content: center; color: #555; font-size: 13px; }
+  .note { font-size: 13px; color: #555; margin: 10px 0 0; }
+  .foot { margin-top: 26px; font-size: 12.5px; color: #888; }
+  .foot a { color: #666; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 0.01ms !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<h1>接缝</h1>
+<p class="lede">两段状态相邻的那一点，叫接缝。连续性不是到处都要——看得见的必须对齐，看不见的免费。</p>
+
+<section>
+  <h2>1 · 时序接缝：脚本动画交到交互手上</h2>
+  <p class="sub">同一张卡：先由脚本把它「生成」到位，再交给用户拖动。只改交接那一刻的位置是否重合。生成结束后拖动卡片；键盘：Tab 到舞台，生成完成后用 ←/→ 轻推。</p>
+  <div class="controls">
+    <button class="btn" id="seam-aligned" aria-pressed="true">首帧对齐</button>
+    <button class="btn" id="seam-gap" aria-pressed="false">首帧错位（跳变）</button>
+    <span style="width:14px"></span>
+    <button class="btn" id="play1">播放生成</button>
+  </div>
+  <div class="stage" id="stage1" tabindex="0" aria-label="生成的卡落位后可拖动">
+    <div class="card" id="card1">生成的卡</div>
+  </div>
+  <p class="note" id="note1">生成结束那一瞬间，位置必须与拖动起点重合：同一批像素在同一条轨迹上换了驾驶员。对齐时看不出交接；错位时交接瞬间会跳一下。这一跳不是「动画不好看」，是接缝没对齐——用户是否来得及注意到，不是判据。</p>
+</section>
+
+<section>
+  <h2>2 · 看不见的接缝：出画之后可以传送</h2>
+  <p class="sub">一张卡从舞台左侧离开、右侧回来。只改传送发生在画内还是画外。</p>
+  <div class="controls">
+    <button class="btn" id="mode-in" aria-pressed="true">画内传送</button>
+    <button class="btn" id="mode-out" aria-pressed="false">出画传送</button>
+    <span style="width:14px"></span>
+    <button class="btn" id="play2">播放</button>
+  </div>
+  <div class="stage" id="stage2"><div class="card" id="card2">传送的卡</div></div>
+  <p class="note" id="note2">画内传送：卡片还没完全出画就跳到右侧，你能看见断点。出画传送：先完全滑出左边界，在画外复位再从右侧滑入——断点发生在没人看得见的地方，免费。判据不是变化大小，是改判那一刻有没有像素在账上。</p>
+</section>
+
+<p class="foot">空间接缝（深度改判只能发生在无人区）见<a href="../卡片堆叠/demo.html">卡片堆叠演示</a>第一部分。原文案例：脚本动画首帧与交互状态对齐（《制作有趣的界面：朋友圈广告年度评选 2025》）。</p>
+<script src="demo.js"></script>
+</body>
+</html>

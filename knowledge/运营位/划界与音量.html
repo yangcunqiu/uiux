@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>划界与音量：banner 与 chrome 的关系</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#fff; --line:#e2e5ea; --line-soft:#eef0f3;
+    --text:#1c2028; --text-2:#4e5969; --text-3:#86909c;
+    --accent:#2b62d9; --accent-soft:#eef4ff;
+    --promo:#4a2fd6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.65 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .page{max-width:900px;margin:0 auto;padding:28px 20px 56px}
+  .head h1{font-size:22px;line-height:1.3;margin:0 0 6px;font-weight:600}
+  .head p{margin:0;color:var(--text-2);font-size:13px;max-width:780px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-top:16px}
+  .card h2{font-size:15px;margin:0 0 4px;font-weight:600}
+  .card .lead{margin:0 0 12px;font-size:13px;color:var(--text-2)}
+
+  .controls{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:0 0 12px}
+  .ctl{display:flex;align-items:center;gap:7px;font-size:13px}
+  .ctl-label{color:var(--text-3);font-size:12.5px}
+  .seg{display:inline-flex;border:1px solid #d6d9e0;border-radius:7px;overflow:hidden;background:#fff}
+  .seg button{appearance:none;border:0;background:transparent;padding:4px 10px;font:inherit;font-size:12.5px;
+              color:var(--text-2);cursor:pointer;border-right:1px solid #e2e5ea}
+  .seg button:last-child{border-right:0}
+  .seg button:hover{background:#f2f5f9}
+  .seg button.on{background:var(--accent);color:#fff}
+  .seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+  .readout{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .pill{border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:12.5px;color:var(--text-2);background:#fbfcfd}
+  .pill b{color:var(--text);font-weight:600}
+  .note{margin:10px 0 0;font-size:12.5px;color:var(--text-2);min-height:38px}
+  .note b{color:var(--text)}
+
+  /* 手机 */
+  .phone{max-width:380px;margin:6px auto 0;border:1px solid #d3d7de;border-radius:26px;overflow:hidden;background:#fff;position:relative}
+  .statusbar{height:30px;display:flex;justify-content:space-between;align-items:center;padding:0 18px;font-size:12px}
+  .navbar{height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 10px 0 16px}
+  .nav-title{font-size:16px;font-weight:600}
+  .nav-acts{display:flex;gap:4px}
+  .nav-acts button{width:32px;height:32px;border:0;border-radius:999px;background:transparent;color:inherit;
+                   display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+  .nav-acts button:hover{background:rgba(127,127,127,.14)}
+  .nav-acts button:focus-visible{outline:2px solid currentColor;outline-offset:-2px}
+  .nav-acts svg{display:block}
+
+  /* 三式 */
+  .m-tonglan .chrome{position:absolute;top:0;left:0;right:0;z-index:2;color:#fff}
+  .m-qiping .chrome,.m-card .chrome{position:relative;color:var(--text);background:#fff;border-bottom:1px solid var(--line-soft)}
+  .m-tonglan .banner{padding-top:88px}
+  .m-qiping .banner,.m-card .banner{padding-top:0}
+  .m-qiping .banner{border-bottom:1px solid var(--line-soft)}
+  .m-card .banner{margin:10px 12px 0;border-radius:12px;border:1px solid rgba(74,47,214,.18)}
+
+  /* banner 深浅 */
+  .banner{padding-bottom:16px;padding-left:16px;padding-right:16px}
+  .banner.t-dark{background:linear-gradient(135deg,#3a24b8 0%,#6a4bff 55%,#9a7dff);color:#fff}
+  .banner.t-light{background:linear-gradient(135deg,#f3ecff 0%,#ffe7f0 100%);color:#3a24b8}
+  .b-kicker{font-size:12px;opacity:.85;letter-spacing:.06em;margin-bottom:4px}
+  .b-title{font-size:19px;font-weight:700;line-height:1.35;margin-bottom:10px}
+  .b-btn{display:inline-block;font-size:13px;border-radius:999px;padding:5px 14px}
+  .t-dark .b-btn{background:#fff;color:#3a24b8}
+  .t-light .b-btn{background:#3a24b8;color:#fff}
+
+  /* 内容流 */
+  .stream{padding-bottom:14px}
+  .m-card .stream{background:rgba(74,47,214,.06)}
+  .block{background:#fff;border-radius:10px;margin:10px 12px 0;padding:12px}
+  .block .skel{height:10px;border-radius:5px;background:linear-gradient(90deg,#edf0f4,#e2e6ec,#edf0f4);margin:7px 0}
+  .block .skel.w60{width:60%}
+  .demo-tag{position:absolute;top:-9px;right:10px;font-size:11px;border:1px dashed #b7bfd0;color:#5f6b81;
+            background:#fff;padding:1px 8px;border-radius:999px;line-height:1.5}
+
+  .whitebanner{position:relative;display:flex;justify-content:space-between;align-items:center;gap:12px;
+               background:#fff;border:1px solid var(--line-soft);border-radius:10px;margin:14px 12px 0;padding:12px}
+  .wb-text b{display:block;font-size:14px;margin-bottom:3px}
+  .wb-text span{display:block;font-size:12px;color:var(--text-3);margin-bottom:8px}
+  .wb-text .wb-btn{display:inline-block;font-size:12px;color:var(--text-2);border:1px solid var(--line);border-radius:6px;padding:3px 12px}
+  .wb-img{flex:0 0 62px;height:62px;border-radius:8px;background:linear-gradient(135deg,#e6ebf2,#cfd8e6)}
+
+  .capsulebanner{position:relative;margin:14px 12px 0;border-radius:999px;
+                 background:linear-gradient(90deg,#ff4d4f,#ff7a45);color:#fff;
+                 display:flex;align-items:center;gap:9px;padding:11px 18px;font-size:14px;font-weight:700}
+  .capsulebanner .cap-sub{font-weight:400;font-size:12px;opacity:.9;margin-left:auto}
+
+  footer{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+  footer h2{font-size:15px;margin:0 0 6px;font-weight:600}
+  footer ol{margin:0;padding-left:20px;color:var(--text-2);font-size:13px}
+  footer li{margin:5px 0}
+  footer b{color:var(--text)}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="head">
+    <h1>划界与音量</h1>
+    <p>同一个首页、同一张运营画面。第一组开关改「banner 跟状态栏、导航栏怎么划界」，第二组改「画面深浅」。内容流里的白底与胶囊两种音量固定在下方，不随开关变。</p>
+  </header>
+
+  <section class="card">
+    <h2>顶部运营位：三式划界 × 画面深浅</h2>
+    <p class="lead">界面固定件（状态栏、导航栏）行业里俗称 chrome。三式划界就是 banner 对 chrome 的三种态度：吞掉、分界、让出。</p>
+    <div class="controls">
+      <div class="ctl"><span class="ctl-label">划界</span>
+        <div class="seg" id="seg-mode">
+          <button data-v="tonglan" class="on">通栏</button>
+          <button data-v="qiping">齐屏</button>
+          <button data-v="card">卡片</button>
+        </div>
+      </div>
+      <div class="ctl"><span class="ctl-label">画面</span>
+        <div class="seg" id="seg-tone">
+          <button data-v="dark" class="on">深色</button>
+          <button data-v="light">浅色</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone m-tonglan" id="phone">
+      <div class="chrome">
+        <div class="statusbar"><span>9:41</span><span>▂▄▆</span></div>
+        <div class="navbar">
+          <span class="nav-title">首页</span>
+          <span class="nav-acts">
+            <button aria-label="搜索">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>
+              </svg>
+            </button>
+            <button aria-label="更多">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+              </svg>
+            </button>
+          </span>
+        </div>
+      </div>
+
+      <div class="banner t-dark" id="banner">
+        <div class="b-kicker">618 年中大促</div>
+        <div class="b-title">全场满 300 减 40</div>
+        <span class="b-btn">领券购买</span>
+      </div>
+
+      <div class="stream" id="stream">
+        <div class="block"><div class="skel w60"></div><div class="skel"></div><div class="skel"></div></div>
+
+        <div class="whitebanner">
+          <span class="demo-tag">白底 · 安静，组件化复用</span>
+          <div class="wb-text">
+            <b>会员日 · 下单立减 5 元</b>
+            <span>会员专属，每周三自动到账</span>
+            <span class="wb-btn">去使用</span>
+          </div>
+          <div class="wb-img"></div>
+        </div>
+
+        <div class="block"><div class="skel w60"></div><div class="skel"></div></div>
+
+        <div class="capsulebanner">
+          <span class="demo-tag">胶囊 · 大声，节点性促销</span>
+          <span>⚡ 限时秒杀 12:00 开抢</span>
+          <span class="cap-sub">距开始 02:41:09</span>
+        </div>
+
+        <div class="block"><div class="skel w60"></div><div class="skel"></div><div class="skel w60"></div></div>
+      </div>
+    </div>
+
+    <div class="readout">
+      <div class="pill">当前：<b id="mode-text">通栏 · 深色画面</b></div>
+    </div>
+    <p class="note" id="note"></p>
+  </section>
+
+  <footer>
+    <h2>观察重点</h2>
+    <ol>
+      <li>通栏 + <b>浅色画面</b>：看顶部——「首页」和两个图标是白色的，压在浅色画面上。还分得清吗？这是通栏的结构代价（导航可读性押在画面颜色上），不是「这张图画得不好」。</li>
+      <li><b>卡片</b>式：页面背景被 banner 的主色淡淡染色，融合变好；但 banner 和背景区分度下降，聚焦全靠留白和圆角自己扛——融合与聚焦是同一枚硬币的两面。</li>
+      <li>白底与胶囊<b>都在内容流里</b>：哪个你会当广告扫过、哪个会多看一眼？再问一句：这个位置是要常驻（安静比大声耐久），还是只放这三天（大声才值回票价）？</li>
+    </ol>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var $ = function(s){ return document.querySelector(s); };
+  var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+  var phone = $('#phone'), banner = $('#banner');
+  var state = { mode:'tonglan', tone:'dark' };
+
+  function render(){
+    phone.className = 'phone m-' + state.mode;
+    banner.className = 'banner t-' + state.tone;
+    $$('#seg-mode button').forEach(function(b){ b.classList.toggle('on', b.dataset.v === state.mode); });
+    $$('#seg-tone button').forEach(function(b){ b.classList.toggle('on', b.dataset.v === state.tone); });
+    var modeName = { tonglan:'通栏', qiping:'齐屏', card:'卡片' }[state.mode];
+    var toneName = state.tone === 'dark' ? '深色画面' : '浅色画面';
+    $('#mode-text').textContent = modeName + ' · ' + toneName;
+    $('#note').innerHTML = noteText();
+  }
+
+  function noteText(){
+    var byMode = {
+      tonglan: state.tone === 'dark'
+        ? '通栏 + 深色：画面从状态栏底下开始铺，导航压在画面上。白字在深色画面上还读得出来——但已经没有退路。'
+        : '通栏 + 浅色：<b>看顶部</b>——「首页」和两个图标是白的，画面也是浅的，导航快没了。通栏把导航可读性押在画面颜色上，这就是押输的现场。',
+      qiping: '齐屏：导航归导航、banner 归 banner，各占各的底。画面什么颜色都安全，代价是中规中矩。',
+      card: '卡片：banner 缩进成卡、让出框架，页面背景被主色淡淡染色——融合好了；画面深浅这时只是偏好，不再是生死问题。'
+    };
+    return byMode[state.mode];
+  }
+
+  $$('#seg-mode button').forEach(function(b){ b.addEventListener('click', function(){ state.mode = b.dataset.v; render(); }); });
+  $$('#seg-tone button').forEach(function(b){ b.addEventListener('click', function(){ state.tone = b.dataset.v; render(); }); });
+
+  var p = new URLSearchParams(location.search);
+  if (p.get('mode')) state.mode = p.get('mode');
+  if (p.get('tone')) state.tone = p.get('tone');
+  render();
+})();
+</script>
+</body>
+</html>

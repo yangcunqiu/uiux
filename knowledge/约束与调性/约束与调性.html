@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>约束与调性 · 对照演示</title>
+<style>
+:root{
+  --radius: 4px;
+  --primary: #2f6fed;
+  --btn-hover: #1f5fd8;
+  --btn-active: #1a4fbe;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:#eef0f3; color:#333;
+  font:14px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+}
+main{max-width:920px;margin:0 auto;padding:28px 20px 80px}
+h1{font-size:20px;margin:0 0 6px}
+.note{color:#777;font-size:13px;margin:0 0 8px}
+section{
+  background:#fff;border:1px solid #e2e5ea;border-radius:10px;
+  padding:20px;margin-top:22px;
+}
+h2{font-size:16px;margin:0 0 4px}
+.watch{background:#f7f8fa;border-left:3px solid var(--primary);padding:8px 12px;margin:14px 0 0;font-size:13px;color:#555}
+fieldset{border:1px solid #e2e5ea;border-radius:8px;margin:12px 0;padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+legend{font-size:12px;color:#888;padding:0 6px}
+label{cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+input[type=radio]{accent-color:var(--primary);margin:0}
+input[type=checkbox]{accent-color:var(--primary);width:16px;height:16px}
+
+/* ---- 实验 1 舞台 ---- */
+.topbar{display:flex;align-items:center;gap:18px;border:1px solid #e2e5ea;border-radius:var(--radius);padding:0 14px;height:44px;background:#fff;margin-top:6px}
+.topbar .brand{font-weight:600}
+.topbar .nav{color:#666;font-size:13px}
+.topbar .nav.on{color:var(--primary);font-weight:600}
+.topbar .spacer{flex:1}
+.avatar{width:26px;height:26px;border-radius:var(--radius);background:#d8dce2}
+.page{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
+.card{flex:1 1 300px;border:1px solid #e2e5ea;border-radius:var(--radius);background:#fff;padding:16px}
+.card h3{margin:0 0 2px;font-size:15px}
+.card .desc{color:#888;font-size:12px;margin:0 0 12px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:#666;margin-bottom:4px}
+input[type=text]{width:100%;padding:8px 10px;border:1px solid #d0d4da;border-radius:var(--radius);font:inherit}
+input[type=text]:focus{outline:2px solid var(--primary);outline-offset:1px}
+.switchrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid #f0f1f4;gap:12px}
+.switchrow .t{font-size:13px}
+.switchrow .d{font-size:12px;color:#999}
+.actions{display:flex;gap:10px;margin-top:14px}
+.btn{font:inherit;padding:8px 18px;border-radius:var(--radius);cursor:pointer;transition:background-color .15s,border-color .15s,color .15s}
+.btn-primary{background:var(--primary);border:1px solid var(--primary);color:#fff}
+.btn-primary:hover{background:var(--btn-hover);border-color:var(--btn-hover)}
+.btn-primary:active{background:var(--btn-active);border-color:var(--btn-active)}
+.btn-ghost{background:#fff;border:1px solid #d0d4da;color:#333}
+.btn-ghost:hover{color:var(--primary);border-color:var(--primary)}
+
+/* ---- 实验 2 ---- */
+.group-label{font-size:12px;color:#888;margin:14px 0 0}
+.group-label b{color:#444}
+.swatches{display:flex;border:1px solid #e2e5ea;border-radius:8px;overflow:hidden;width:max-content;margin-top:6px}
+.swatch{width:96px;padding:12px 0;text-align:center;color:#fff}
+.swatch small{display:block;font-size:10px;opacity:.85;margin-top:2px;font-family:ui-monospace,Consolas,monospace}
+.src-label{align-self:center;font-size:13px;color:#555}
+
+/* ---- 实验 3 ---- */
+.type-grid{display:flex;gap:16px;margin-top:6px;flex-wrap:wrap}
+.type-card{flex:1 1 280px;border:1px solid #e2e5ea;border-radius:8px;padding:18px}
+.type-card .t16{font-size:16px;font-weight:600;margin:0 0 6px}
+.type-card .t24{font-size:24px;font-weight:600;margin:0 0 6px}
+.type-card p{margin:0;font-size:14px;color:#4a4a4a}
+.type-card .meta{font-size:12px;color:#999;margin-top:10px}
+
+/* ---- 实验 4 ---- */
+.stack-row{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:baseline;border:1px solid #e2e5ea;border-radius:8px;padding:10px 14px;margin-top:10px}
+.stack-row code{font:12px/1.6 ui-monospace,Consolas,monospace;color:#888}
+.stack-row p{margin:0;font-size:17px;line-height:1.6}
+.s-west{font-family:"Times New Roman","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+.s-cjk{font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Times New Roman",serif}
+.s-none{font-family:initial}
+.s-sys{font-family:system-ui,sans-serif}
+
+@media (prefers-reduced-motion: reduce){
+  .btn{transition:none}
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>约束与调性 · 对照演示</h1>
+  <p class="note">四个实验相互独立，对应正文第二节（调性轴）、第三节（状态色）、第四节（档距）、第六节（字体栈）。页面里的具体数值只用来制造对照，不是推荐值。</p>
+
+  <section id="exp1">
+    <h2>实验 1 · 调性轴：只改圆角和主色</h2>
+    <p class="note">功能、布局、文案、字号都不动，只动两个参数。</p>
+    <fieldset>
+      <legend>圆角</legend>
+      <label><input type="radio" name="radius" value="0"> 0px</label>
+      <label><input type="radio" name="radius" value="2"> 2px</label>
+      <label><input type="radio" name="radius" value="4" checked> 4px</label>
+      <label><input type="radio" name="radius" value="8"> 8px</label>
+    </fieldset>
+    <fieldset>
+      <legend>主色</legend>
+      <label><input type="radio" name="primary" value="#2f6fed" checked> 蓝</label>
+      <label><input type="radio" name="primary" value="#7c5ce0"> 紫</label>
+      <label><input type="radio" name="primary" value="#e8703a"> 橙</label>
+    </fieldset>
+    <div class="topbar">
+      <span class="brand">运营台</span>
+      <span class="nav">工作台</span>
+      <span class="nav on">设置</span>
+      <span class="spacer"></span>
+      <span class="avatar" aria-hidden="true"></span>
+    </div>
+    <div class="page">
+      <div class="card">
+        <h3>账户信息</h3>
+        <p class="desc">这些信息会出现在你发出的汇总邮件里。</p>
+        <div class="field">
+          <label for="demo-name">发件人名称</label>
+          <input type="text" id="demo-name" value="数据组">
+        </div>
+        <div class="field">
+          <label for="demo-mail">回复邮箱</label>
+          <input type="text" id="demo-mail" value="data@example.com">
+        </div>
+        <div class="actions">
+          <button type="button" class="btn btn-primary">保存</button>
+          <button type="button" class="btn btn-ghost">取消</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>通知开关</h3>
+        <p class="desc">改动立即生效。</p>
+        <div class="switchrow">
+          <span><span class="t">每日汇总邮件</span><br><span class="d">每天上午九点发送</span></span>
+          <input type="checkbox" checked aria-label="每日汇总邮件">
+        </div>
+        <div class="switchrow">
+          <span><span class="t">异常告警</span><br><span class="d">出现异常记录时立即通知</span></span>
+          <input type="checkbox" checked aria-label="异常告警">
+        </div>
+        <div class="switchrow">
+          <span><span class="t">周报</span><br><span class="d">每周一上午发送上周汇总</span></span>
+          <input type="checkbox" aria-label="周报">
+        </div>
+      </div>
+    </div>
+    <p class="watch">观察：换圆角、换主色之后，「能不能用」有任何变化吗？变的是什么？——0px「冷硬」、8px「柔和」是经验感受，不是定律；对照换档自己验收。</p>
+  </section>
+
+  <section id="exp2">
+    <h2>实验 2 · 状态色：一条公式生成 vs 逐个手调</h2>
+    <p class="note">主色跟随实验 1 的选择。「公式」按一条 HSB 经验公式实时计算：悬停 = H 不变、S+20、B−10；按下 = H 不变、S+30、B−20。公式是经验值，不是定律。</p>
+    <fieldset>
+      <legend>下面那组「活的」按钮使用哪种状态色来源</legend>
+      <label><input type="radio" name="state" value="formula" checked> 公式生成</label>
+      <label><input type="radio" name="state" value="manual"> 手调样例（悬停提亮、按下加深）</label>
+    </fieldset>
+    <div class="group-label"><b>公式组</b>（由当前主色自动生成）</div>
+    <div class="swatches">
+      <div class="swatch" id="f-base">默认<small></small></div>
+      <div class="swatch" id="f-hover">悬停<small></small></div>
+      <div class="swatch" id="f-press">按下<small></small></div>
+    </div>
+    <div class="group-label"><b>手调组</b>（每个颜色单独调的样例值，仅作对照）</div>
+    <div class="swatches">
+      <div class="swatch" id="m-base">默认<small></small></div>
+      <div class="swatch" id="m-hover">悬停<small></small></div>
+      <div class="swatch" id="m-press">按下<small></small></div>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn btn-primary">悬停 / 按住我试试</button>
+      <span class="src-label">当前来源：<b id="src-label">公式生成</b></span>
+    </div>
+    <p class="watch">观察两点：① 「悬停」的方向不同——公式统一加深，手调样例提亮；两条路线都有成熟库在用。② 公式对任何主色一次生成、永远一致；手调是每个颜色多一遍人工。结论与取舍见正文第三节。</p>
+  </section>
+
+  <section id="exp3">
+    <h2>实验 3 · 字阶：相邻档 vs 跳档</h2>
+    <p class="note">两张卡只有标题字号不同：左 16px（与正文 14px 相邻一档），右 24px（跳两档）。字重、行高、文案都相同。</p>
+    <div class="type-grid">
+      <div class="type-card">
+        <div class="t16">通知设置</div>
+        <p>保存后，系统会在每天上午九点向你发送一封汇总邮件，包含昨天全部的异常记录和处理结果。你可以随时在这里关闭。</p>
+        <div class="meta">标题 16px / 正文 14px</div>
+      </div>
+      <div class="type-card">
+        <div class="t24">通知设置</div>
+        <p>保存后，系统会在每天上午九点向你发送一封汇总邮件，包含昨天全部的异常记录和处理结果。你可以随时在这里关闭。</p>
+        <div class="meta">标题 24px / 正文 14px</div>
+      </div>
+    </div>
+    <p class="watch">观察：哪一边的标题「像标题」？哪一边更像「粗一点的正文」？结论见正文第四节。</p>
+  </section>
+
+  <section id="exp4">
+    <h2>实验 4 · 字体栈：谁负责西文</h2>
+    <p class="note">四行文字完全相同，只有 font-family 的写法不同。字体取自你正在用的系统，结果因平台和浏览器配置而异——差异本身就是观察对象。</p>
+    <div class="stack-row"><code>西文在前</code><p class="s-west">新版本 v2.4 上线 · Tencent 2026</p></div>
+    <div class="stack-row"><code>中文在前</code><p class="s-cjk">新版本 v2.4 上线 · Tencent 2026</p></div>
+    <div class="stack-row"><code>不声明</code><p class="s-none">新版本 v2.4 上线 · Tencent 2026</p></div>
+    <div class="stack-row"><code>system-ui</code><p class="s-sys">新版本 v2.4 上线 · Tencent 2026</p></div>
+    <p class="watch">观察：前两行的中文字形一致，拉丁字符与数字不同——浏览器按字符走栈，顺序决定谁负责西文。后两行在你这台机器上可能相同：相同不代表相等，第三行渲染成什么样由浏览器默认配置决定，第四行是你的决定。</p>
+  </section>
+</main>
+<script>
+(function(){
+  'use strict';
+
+  function hexToRgb(hex){
+    hex = hex.replace('#','');
+    return [
+      parseInt(hex.slice(0,2),16),
+      parseInt(hex.slice(2,4),16),
+      parseInt(hex.slice(4,6),16)
+    ];
+  }
+  function rgbToHex(r,g,b){
+    var c = function(v){
+      v = Math.round(Math.max(0, Math.min(255, v)));
+      return v.toString(16).padStart(2,'0');
+    };
+    return '#' + c(r) + c(g) + c(b);
+  }
+  function rgbToHsv(r,g,b){
+    r/=255; g/=255; b/=255;
+    var max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min, h = 0;
+    if(d !== 0){
+      if(max === r){ h = ((g-b)/d) % 6; }
+      else if(max === g){ h = (b-r)/d + 2; }
+      else{ h = (r-g)/d + 4; }
+      h *= 60;
+      if(h < 0){ h += 360; }
+    }
+    var s = (max === 0) ? 0 : d/max;
+    return [h, s*100, max*100];
+  }
+  function hsvToRgb(h,s,v){
+    s/=100; v/=100;
+    var c = v*s,
+        x = c*(1-Math.abs((h/60)%2-1)),
+        m = v-c,
+        r,g,b;
+    if(h < 60){ r=c; g=x; b=0; }
+    else if(h < 120){ r=x; g=c; b=0; }
+    else if(h < 180){ r=0; g=c; b=x; }
+    else if(h < 240){ r=0; g=x; b=c; }
+    else if(h < 300){ r=x; g=0; b=c; }
+    else{ r=c; g=0; b=x; }
+    return [(r+m)*255, (g+m)*255, (b+m)*255];
+  }
+  // 经验公式：H 不变，S 加 dS 个百分点，B 减 dV 个百分点
+  function shift(hex, dS, dV){
+    var rgb = hexToRgb(hex);
+    var hsv = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+    var s = Math.max(0, Math.min(100, hsv[1] + dS));
+    var v = Math.max(0, Math.min(100, hsv[2] - dV));
+    var out = hsvToRgb(hsv[0], s, v);
+    return rgbToHex(out[0], out[1], out[2]);
+  }
+
+  // 手调样例：悬停提亮、按下加深，仅作对照，不是推荐值
+  var manual = {
+    '#2f6fed': ['#2f6fed', '#4a86f0', '#2258c9'],
+    '#7c5ce0': ['#7c5ce0', '#9178ea', '#6647c4'],
+    '#e8703a': ['#e8703a', '#f0834f', '#c85c2b']
+  };
+
+  var rootStyle = document.documentElement.style;
+  var currentPrimary = '#2f6fed';
+
+  function fillSwatch(prefix, values){
+    ['base','hover','press'].forEach(function(key, i){
+      var el = document.getElementById(prefix + '-' + key);
+      el.style.background = values[i];
+      el.querySelector('small').textContent = values[i];
+    });
+  }
+
+  function currentMode(){
+    var checked = document.querySelector('input[name=state]:checked');
+    return checked ? checked.value : 'formula';
+  }
+
+  function updateLive(){
+    var mode = currentMode();
+    var hoverColor, pressColor, label;
+    if(mode === 'formula'){
+      hoverColor = shift(currentPrimary, 20, 10);
+      pressColor = shift(currentPrimary, 30, 20);
+      label = '公式生成';
+    } else {
+      var m = manual[currentPrimary];
+      hoverColor = m[1];
+      pressColor = m[2];
+      label = '手调样例';
+    }
+    rootStyle.setProperty('--btn-hover', hoverColor);
+    rootStyle.setProperty('--btn-active', pressColor);
+    document.getElementById('src-label').textContent = label;
+  }
+
+  function applyPrimary(hex){
+    currentPrimary = hex;
+    rootStyle.setProperty('--primary', hex);
+    var fHover = shift(hex, 20, 10);
+    var fPress = shift(hex, 30, 20);
+    fillSwatch('f', [hex, fHover, fPress]);
+    fillSwatch('m', manual[hex]);
+    updateLive();
+  }
+
+  document.querySelectorAll('input[name=radius]').forEach(function(r){
+    r.addEventListener('change', function(){
+      rootStyle.setProperty('--radius', r.value + 'px');
+    });
+  });
+
+  document.querySelectorAll('input[name=primary]').forEach(function(r){
+    r.addEventListener('change', function(){
+      applyPrimary(r.value);
+    });
+  });
+
+  document.querySelectorAll('input[name=state]').forEach(function(r){
+    r.addEventListener('change', updateLive);
+  });
+
+  applyPrimary('#2f6fed');
+})();
+</script>
+</body>
+</html>
